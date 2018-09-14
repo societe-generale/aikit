@@ -1,4 +1,6 @@
 ![Build Status](https://travis-ci.org/societe-generale/aikit.svg?branch=master)
+[![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://github.com/societe-generale/aikit)
+[![PyPI version](https://badge.fury.io/py/aikit.svg)](https://badge.fury.io/py/aikit)
 
 # aikit
 aikit is an automated machine learning framework.
