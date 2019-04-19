@@ -23,7 +23,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -65,9 +64,13 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+_build/
 
 # PyBuilder
 target/
+
+# PyCharm
+.idea
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -103,3 +106,16 @@ venv.bak/
 # mypy
 .mypy_cache/
 /.idea
+
+# Notebook generated HTML
+/notebooks/*.html
+
+# KDiff files
+*.orig
+
+# VS Code
+/.vscode/
+
+# Test reports
+pytest_report.html
+pytest_report_not_long.html

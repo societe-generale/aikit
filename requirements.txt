@@ -1,4 +1,8 @@
-scikit-learn>=0.18.1
+scikit-learn>=0.20
 pandas
 numpy
 scipy
+statsmodels
+lockfile
+decorator
+networkx

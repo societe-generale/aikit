@@ -1,19 +1,19 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
-import aikit
+from aikit import __meta__ as META
 
 
 DISTNAME = 'aikit'
 DESCRIPTION = 'An automated machine learning framework'
 with open('README.md') as f:
     LONG_DESCRIPTION = f.read()
-MAINTAINER = ''
+MAINTAINER = META.__author__
 MAINTAINER_EMAIL = ''
-URL = 'https://github.com/societe-generale/aikit'
+URL = META.__website__
 DOWNLOAD_URL = 'https://pypi.org/project/aikit/#files'
-LICENSE = 'MIT'
+LICENSE = META.__license__
 
-VERSION = aikit.__version__
+VERSION = META.__version__
 
 
 def parse_requirements(req_file):
@@ -23,7 +23,7 @@ def parse_requirements(req_file):
 
 
 # Get dependencies from requirement files
-SETUP_REQUIRES = []
+SETUP_REQUIRES = ['setuptools', 'setuptools-git', 'wheel']
 INSTALL_REQUIRES = parse_requirements('requirements.txt')
 
 
@@ -37,28 +37,10 @@ def setup_package():
                     download_url=DOWNLOAD_URL,
                     version=VERSION,
                     long_description=LONG_DESCRIPTION,
-                    classifiers=['Intended Audience :: Science/Research',
-                                 'Intended Audience :: Developers',
-                                 'License :: OSI Approved',
-                                 'Programming Language :: Python',
-                                 'Topic :: Software Development',
-                                 'Topic :: Scientific/Engineering',
-                                 'Operating System :: Microsoft :: Windows',
-                                 'Operating System :: POSIX',
-                                 'Operating System :: Unix',
-                                 'Operating System :: MacOS',
-                                 'Programming Language :: Python :: 3',
-                                 'Programming Language :: Python :: 3.4',
-                                 'Programming Language :: Python :: 3.5',
-                                 'Programming Language :: Python :: 3.6',
-                                 'Programming Language :: Python :: 3.7',
-                                 ('Programming Language :: Python :: '
-                                  'Implementation :: CPython'),
-                                 ('Programming Language :: Python :: '
-                                  'Implementation :: PyPy')
-                                 ],
+                    classifiers=META.__classifiers__,
                     install_requires=INSTALL_REQUIRES,
-                    setup_requires=SETUP_REQUIRES)
+                    setup_requires=SETUP_REQUIRES,
+                    packages=find_packages(exclude=["tests", "tests.*"]))
 
     setup(**metadata)
 

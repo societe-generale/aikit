@@ -1,0 +1,1 @@
+This folder contains the Python scripts used for some document generation (graph pipeline images, ...).

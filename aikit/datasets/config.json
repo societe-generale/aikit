@@ -1,0 +1,8 @@
+{
+    "default":{
+        "path":""
+    },
+    "nltk_additional_data":{
+        "path":""
+    }
+}

@@ -1,0 +1,1137 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Sep 19 09:59:02 2018
+
+@author: Lionel Massoulard
+"""
+
+import pytest
+
+import pandas as pd
+import numpy as np
+
+import itertools
+from collections import OrderedDict
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+from sklearn.pipeline import Pipeline
+from sklearn.base import is_classifier, is_regressor, RegressorMixin, BaseEstimator
+from aikit.cross_validation import is_clusterer
+
+from sklearn.datasets import make_classification
+import sklearn.model_selection
+from sklearn.model_selection import StratifiedKFold, KFold, TimeSeriesSplit, cross_val_predict
+from sklearn.exceptions import NotFittedError
+
+from sklearn.metrics import SCORERS
+
+
+from aikit.tools.data_structure_helper import convert_generic
+from aikit.enums import DataTypes
+from aikit.transformers.model_wrapper import DebugPassThrough
+from aikit.pipeline import GraphPipeline
+
+from aikit.cross_validation import cross_validation, create_scoring, create_cv, score_from_params_clustering
+from aikit.scorer import SCORERS
+
+# In[] : verification of sklearn behavior
+
+
+def test_is_classifier_is_regressor_is_clusterer():
+    """ verif behavior of is_classifier and is_regressor """
+    rf_c = RandomForestClassifier()
+    assert is_classifier(rf_c)
+    assert not is_regressor(rf_c)
+    assert not is_clusterer(rf_c)
+
+    rf_r = RandomForestRegressor()
+    assert not is_classifier(rf_r)
+    assert is_regressor(rf_r)
+    assert not is_clusterer(rf_r)
+
+    kmeans = KMeans()
+    assert not is_classifier(kmeans)
+    assert not is_regressor(kmeans)
+    assert is_clusterer(kmeans)
+
+    sc = StandardScaler()
+    assert not is_classifier(sc)
+    assert not is_regressor(sc)
+    assert not is_clusterer(sc)
+
+    pipe_c = Pipeline([("s", StandardScaler()), ("r", RandomForestClassifier())])
+    assert is_classifier(pipe_c)
+    assert not is_regressor(pipe_c)
+    assert not is_clusterer(pipe_c)
+
+    pipe_r = Pipeline([("s", StandardScaler()), ("r", RandomForestRegressor())])
+    assert not is_classifier(pipe_r)
+    assert is_regressor(pipe_r)
+    assert not is_clusterer(pipe_r)
+
+    pipe_t = Pipeline([("s", StandardScaler()), ("r", StandardScaler())])
+    assert not is_classifier(pipe_t)
+    assert not is_regressor(pipe_t)
+    assert not is_clusterer(pipe_t)
+
+    pipe_cluster = Pipeline([("s", StandardScaler()), ("r", KMeans())])
+    assert is_clusterer(pipe_cluster)
+    assert not is_regressor(pipe_cluster)
+    assert not is_classifier(pipe_cluster)
+
+
+def test_fit_and_predict_transfrom():
+    X, y = make_classification(n_samples=100)
+    X = pd.DataFrame(X, columns=["col_%d" % i for i in range(X.shape[1])])
+
+    cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=123)
+
+    for train, test in cv.split(X, y):
+
+        pt = DebugPassThrough()
+        predictions, _ = sklearn.model_selection._validation._fit_and_predict(
+            pt, X, y, train, test, verbose=1, fit_params=None, method="transform"
+        )
+
+        assert predictions.shape[0] == test.shape[0]
+        assert predictions.shape[1] == X.shape[1]
+
+        assert type(predictions) == type(X)
+
+
+def test_fit_and_predict_predict():
+    X, y = make_classification(n_samples=100)
+    X = pd.DataFrame(X, columns=["col_%d" % i for i in range(X.shape[1])])
+
+    cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=123)
+
+    for train, test in cv.split(X, y):
+
+        logit = LogisticRegression()
+        predictions, _ = sklearn.model_selection._validation._fit_and_predict(
+            logit, X, y, train, test, verbose=1, fit_params=None, method="predict"
+        )
+
+        assert predictions.shape[0] == test.shape[0]
+        assert len(predictions.shape) == 1
+
+
+def test_fit_and_predict_predict_proba():
+    X, y = make_classification(n_samples=100)
+    X = pd.DataFrame(X, columns=["col_%d" % i for i in range(X.shape[1])])
+
+    y = np.array(["CL_%d" % i for i in y])
+
+    cv = KFold(n_splits=10, shuffle=False)
+
+    for train, test in cv.split(X, y):
+
+        logit = LogisticRegression()
+        predictions, _ = sklearn.model_selection._validation._fit_and_predict(
+            logit, X, y, train, test, verbose=1, fit_params=None, method="predict_proba"
+        )
+
+        assert predictions.shape[0] == test.shape[0]
+        assert predictions.shape[1] == 2
+
+
+@pytest.mark.xfail
+def test_cross_val_predict():
+    X, y = make_classification(n_samples=100)
+    X = pd.DataFrame(X, columns=["col_%d" % i for i in range(X.shape[1])])
+
+    ii = np.arange(X.shape[0])
+    np.random.seed(123)
+    np.random.shuffle(ii)
+
+    pt = DebugPassThrough()
+    cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=123)
+
+    Xhat = cross_val_predict(pt, X, y, cv=cv, method="transform")
+    assert type(Xhat) == type(X)  # Fail : cross_val_predict change the type
+
+
+# In[] cv and scoring
+def test_create_scoring():
+    classifier = RandomForestClassifier()
+    regressor = RandomForestRegressor()
+
+    res = create_scoring(classifier, "accuracy")
+    assert isinstance(res, OrderedDict)
+    assert "accuracy" in res
+    for k, v in res.items():
+        assert callable(v)
+
+    res = create_scoring(regressor, "neg_mean_squared_error")
+    assert isinstance(res, OrderedDict)
+    assert "neg_mean_squared_error" in res
+    for k, v in res.items():
+        assert callable(v)
+
+    res = create_scoring(regressor, ["neg_mean_squared_error", "neg_median_absolute_error"])
+    assert isinstance(res, OrderedDict)
+    assert "neg_mean_squared_error" in res
+    assert "neg_median_absolute_error" in res
+    for k, v in res.items():
+        assert callable(v)
+
+    res = create_scoring(regressor, res)
+    assert isinstance(res, OrderedDict)
+    assert "neg_mean_squared_error" in res
+    assert "neg_median_absolute_error" in res
+    for k, v in res.items():
+        assert callable(v)
+        assert type(v) == type(res[k])
+
+    res = create_scoring(regressor, {"scorer1": "accuracy"})
+    assert isinstance(res, OrderedDict)
+    assert "scorer1" in res
+    for k, v in res.items():
+        assert callable(v)
+        assert type(v) == type(res[k])
+
+    res = create_scoring(regressor, {"scorer1": SCORERS["accuracy"]})
+    assert isinstance(res, OrderedDict)
+    assert "scorer1" in res
+    for k, v in res.items():
+        assert callable(v)
+        assert type(v) == type(res[k])
+
+    res = create_scoring(regressor, SCORERS["accuracy"])
+    assert isinstance(res, OrderedDict)
+    for k, v in res.items():
+        assert callable(v)
+        assert type(v) == type(res[k])
+
+    res = create_scoring(regressor, None)
+    assert "default_score" in res
+    assert isinstance(res, OrderedDict)
+    for k, v in res.items():
+        assert callable(v)
+        assert type(v) == type(res[k])
+
+
+def test_create_cv():
+    y = np.array([0] * 10 + [1] * 10)
+    X = np.random.randn(20, 3)
+
+    cv1 = create_cv(cv=10, y=y, classifier=True)
+    assert cv1.__class__.__name__ == "StratifiedKFold"
+    assert len(list(cv1.split(X, y))) == 10
+    cv1b = create_cv(cv1)
+    assert cv1b is cv1
+
+    y2 = np.random.randn(20)
+    cv2 = create_cv(cv=10, y=y2)
+    assert cv2.__class__.__name__ == "KFold"
+    assert len(list(cv2.split(X, y))) == 10
+
+    class PersonalizedCV(object):
+        def __init__(self):
+            pass
+
+        def split(self, X, y, groups=None):
+            pass
+
+    cv = PersonalizedCV()
+    cv_res = create_cv(cv)
+    assert cv is cv_res
+
+
+def test_cross_validation0():
+    np.random.seed(123)
+    X = np.random.randn(100, 10)
+    y = np.random.randn(100)
+
+    forest = RandomForestRegressor(n_estimators=10)
+    result = cross_validation(forest, X, y, scoring=["neg_mean_squared_error", "r2"], cv=10)
+
+    with pytest.raises(sklearn.exceptions.NotFittedError):
+        forest.predict(X)
+
+    assert isinstance(result, pd.DataFrame)
+    assert list(result.columns) == [
+        "test_neg_mean_squared_error",
+        "test_r2",
+        "train_neg_mean_squared_error",
+        "train_r2",
+        "fit_time",
+        "score_time",
+        "n_test_samples",
+        "fold_nb",
+    ]
+    assert len(result) == 10
+
+    forest = RandomForestRegressor(n_estimators=10)
+    result, yhat = cross_validation(forest, X, y, scoring=["neg_mean_squared_error", "r2"], cv=10, return_predict=True)
+    with pytest.raises(sklearn.exceptions.NotFittedError):
+        forest.predict(X)
+
+    assert isinstance(result, pd.DataFrame)
+    assert list(result.columns) == [
+        "test_neg_mean_squared_error",
+        "test_r2",
+        "train_neg_mean_squared_error",
+        "train_r2",
+        "fit_time",
+        "score_time",
+        "n_test_samples",
+        "fold_nb",
+    ]
+
+    assert len(result) == 10
+    assert yhat.shape == (100,)
+
+    X = np.random.randn(100, 10)
+    y = np.array(["A"] * 33 + ["B"] * 33 + ["C"] * 34)
+    forest = RandomForestClassifier()
+
+    result = cross_validation(forest, X, y, scoring=["accuracy", "neg_log_loss"], cv=10)
+    with pytest.raises(sklearn.exceptions.NotFittedError):
+        forest.predict(X)
+
+    assert isinstance(result, pd.DataFrame)
+    assert list(result.columns) == [
+        "test_accuracy",
+        "test_neg_log_loss",
+        "train_accuracy",
+        "train_neg_log_loss",
+        "fit_time",
+        "score_time",
+        "n_test_samples",
+        "fold_nb",
+    ]
+
+    assert len(result) == 10
+
+    forest = RandomForestClassifier(random_state=123, n_estimators=10)
+    result, yhat = cross_validation(
+        forest, X, y, scoring=["accuracy", "neg_log_loss"], cv=10, return_predict=True, method="predict"
+    )
+    with pytest.raises(sklearn.exceptions.NotFittedError):
+        forest.predict(X)
+
+    assert yhat.shape == (100,)
+    assert set(np.unique(yhat)) == set(("A", "B", "C"))
+
+    forest = RandomForestClassifier(random_state=123, n_estimators=10)
+    result, yhat = cross_validation(
+        forest, X, y, scoring=["accuracy", "neg_log_loss"], cv=10, return_predict=True, method="predict_proba"
+    )
+
+    with pytest.raises(sklearn.exceptions.NotFittedError):
+        forest.predict(X)
+
+    assert yhat.shape == (100, 3)
+    assert isinstance(yhat, pd.DataFrame)
+    assert list(yhat.columns) == ["A", "B", "C"]
+
+
+def test_cross_validation_with_scorer_object_regressor():
+    np.random.seed(123)
+    X = np.random.randn(100, 10)
+    y = np.random.randn(100)
+
+    forest = RandomForestRegressor(n_estimators=10, random_state=123)
+    result1 = cross_validation(forest, X, y, scoring=SCORERS["neg_mean_absolute_error"], cv=10)
+    assert result1.shape[0] == 10
+    assert isinstance(result1, pd.DataFrame)
+
+    forest = RandomForestRegressor(n_estimators=10, random_state=123)
+    result2 = cross_validation(forest, X, y, scoring="neg_mean_absolute_error", cv=10)
+    assert result2.shape[0] == 10
+    assert isinstance(result2, pd.DataFrame)
+
+    assert np.abs(result1.iloc[:, 0] - result2.iloc[:, 0]).max() <= 10 ** (-5)
+    assert np.abs(result1.iloc[:, 1] - result2.iloc[:, 1]).max() <= 10 ** (-5)
+
+
+def test_cross_validation_with_scorer_object_classifier():
+    X = np.random.randn(100, 10)
+    y = np.array(["A"] * 33 + ["B"] * 33 + ["C"] * 34)
+    forest = RandomForestClassifier(n_estimators=10, random_state=123)
+
+    result1 = cross_validation(forest, X, y, scoring=SCORERS["accuracy"], cv=10)
+    assert result1.shape[0] == 10
+    assert isinstance(result1, pd.DataFrame)
+
+    result2 = cross_validation(forest, X, y, scoring="accuracy", cv=10)
+    assert result2.shape[0] == 10
+    assert isinstance(result2, pd.DataFrame)
+
+    assert np.abs(result1.iloc[:, 0] - result2.iloc[:, 0]).max() <= 10 ** (-5)
+    assert np.abs(result1.iloc[:, 1] - result2.iloc[:, 1]).max() <= 10 ** (-5)
+
+    result1 = cross_validation(forest, X, y, scoring=SCORERS["neg_log_loss"], cv=10)
+    assert result1.shape[0] == 10
+    assert isinstance(result1, pd.DataFrame)
+
+    result2 = cross_validation(forest, X, y, scoring="neg_log_loss", cv=10)
+    assert result2.shape[0] == 10
+    assert isinstance(result2, pd.DataFrame)
+
+    assert np.abs(result1.iloc[:, 0] - result2.iloc[:, 0]).max() <= 10 ** (-5)
+    assert np.abs(result1.iloc[:, 1] - result2.iloc[:, 1]).max() <= 10 ** (-5)
+
+
+# In[] : verification of approx_cross_validation function
+
+
+@pytest.mark.parametrize(
+    "add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline",
+    list(
+        itertools.product(
+            (True, False),
+            (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
+            (True, False),
+            (True, False),
+            (True, False),
+        )
+    ),
+)
+def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline):
+
+    X, y = make_classification(n_samples=100, random_state=123)
+
+    X = convert_generic(X, output_type=x_data_type)
+    if x_data_type == DataTypes.DataFrame:
+        X.columns = ["col_%d" % i for i in range(X.shape[1])]
+
+    if add_third_class:
+        y[0:2] = 2
+
+    if shuffle:
+        np.random.seed(123)
+        ii = np.arange(X.shape[0])
+        np.random.shuffle(ii)
+        y = y[ii]
+
+        if isinstance(X, pd.DataFrame):
+            X = X.loc[ii, :]
+        else:
+            X = X[ii, :]
+
+    if y_string_class:
+        y = np.array(["CL_%d" % i for i in y])
+
+    if add_third_class:
+        scoring = ["accuracy"]
+    else:
+        scoring = ["accuracy", "neg_log_loss"]
+
+    if graph_pipeline:
+        estimator = GraphPipeline({"pt": DebugPassThrough(), "lg": LogisticRegression()}, edges=[("pt", "lg")])
+    else:
+        estimator = LogisticRegression()
+
+    ##################
+    ### Only score ###
+    ##################
+
+    cv_res = cross_validation(estimator, X, y, cv=10, scoring=scoring, verbose=0)
+
+    assert isinstance(cv_res, pd.DataFrame)
+    assert cv_res.shape[0] == 10
+    for s in scoring:
+        assert ("test_" + s) in set(cv_res.columns)
+        assert ("train_" + s) in set(cv_res.columns)
+
+    with pytest.raises(NotFittedError):
+        estimator.predict(X)
+
+    #####################
+    ### Score + Proba ###
+    #####################
+    cv_res, yhat_proba = cross_validation(estimator, X, y, cv=10, scoring=scoring, verbose=0, return_predict=True)
+
+    assert isinstance(cv_res, pd.DataFrame)
+    assert cv_res.shape[0] == 10
+    for s in scoring:
+        assert ("test_" + s) in set(cv_res.columns)
+        assert ("train_" + s) in set(cv_res.columns)
+
+    assert isinstance(yhat_proba, pd.DataFrame)
+    if isinstance(X, pd.DataFrame):
+        assert (yhat_proba.index == X.index).all()
+
+    assert yhat_proba.shape == (y.shape[0], 2 + 1 * add_third_class)
+    assert yhat_proba.min().min() >= 0
+    assert yhat_proba.max().max() <= 1
+    assert list(yhat_proba.columns) == list(np.sort(np.unique(y)))
+
+    with pytest.raises(NotFittedError):
+        estimator.predict(X)
+
+    #######################
+    ### Score + Predict ###
+    #######################
+    cv_res, yhat = cross_validation(
+        estimator, X, y, cv=10, scoring=scoring, verbose=0, return_predict=True, method="predict"
+    )
+
+    assert isinstance(cv_res, pd.DataFrame)
+    assert cv_res.shape[0] == 10
+    for s in scoring:
+        assert ("test_" + s) in set(cv_res.columns)
+        assert ("train_" + s) in set(cv_res.columns)
+
+    assert yhat.ndim == 1
+    assert len(np.setdiff1d(yhat, y)) == 0
+
+    assert yhat.shape[0] == y.shape[0]
+
+    with pytest.raises(NotFittedError):
+        estimator.predict(X)
+
+    ####################
+    ### Predict only ###
+    ####################
+    cv_res, yhat = cross_validation(
+        estimator, X, y, cv=10, scoring=scoring, verbose=0, return_predict=True, method="predict", no_scoring=True
+    )
+
+    assert yhat.shape[0] == y.shape[0]
+
+    assert cv_res is None
+    assert yhat.ndim == 1
+    assert len(np.setdiff1d(yhat, y)) == 0
+
+    with pytest.raises(NotFittedError):
+        estimator.predict(X)
+
+
+@pytest.mark.parametrize(
+    "add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline",
+    list(
+        itertools.product(
+            (True, False),
+            (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
+            (True, False),
+            (True, False),
+            (True, False),
+        )
+    ),
+)
+def test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline):
+
+    X, y = make_classification(n_samples=100, random_state=123)
+
+    if add_third_class:
+        y[0:2] = 2
+
+    X = convert_generic(X, output_type=x_data_type)
+    if x_data_type == DataTypes.DataFrame:
+        X.columns = ["col_%d" % i for i in range(X.shape[1])]
+
+    if shuffle:
+        np.random.seed(123)
+        ii = np.arange(X.shape[0])
+        np.random.shuffle(ii)
+        y = y[ii]
+
+        if isinstance(X, pd.DataFrame):
+            X = X.loc[ii, :]
+        else:
+            X = X[ii, :]
+
+    if y_string_class:
+        y = np.array(["CL_%d" % i for i in y])
+
+    if add_third_class:
+        scoring = ["accuracy"]
+    else:
+        scoring = ["accuracy", "neg_log_loss"]
+
+    if graph_pipeline:
+        estimator = GraphPipeline({"pt": DebugPassThrough(), "lg": LogisticRegression()}, edges=[("pt", "lg")])
+    else:
+        estimator = LogisticRegression()
+
+    cv_res, yhat = cross_validation(
+        estimator,
+        X,
+        y,
+        cv=10,
+        scoring=scoring,
+        verbose=0,
+        return_predict=True,
+        method="predict",
+        stopping_round=1,
+        stopping_threshold=0.99,
+    )
+
+    assert isinstance(cv_res, pd.DataFrame)
+    assert cv_res.shape[0] == 2
+    for s in scoring:
+        assert ("test_" + s) in set(cv_res.columns)
+        assert ("train_" + s) in set(cv_res.columns)
+
+    assert yhat is None
+
+    cv_res, yhat = cross_validation(
+        estimator,
+        X,
+        y,
+        cv=10,
+        scoring=scoring,
+        verbose=0,
+        return_predict=True,
+        method="predict",
+        stopping_round=1,
+        stopping_threshold=0.0,
+    )
+
+    assert isinstance(cv_res, pd.DataFrame)
+    assert cv_res.shape[0] == 10
+    for s in scoring:
+        assert ("test_" + s) in set(cv_res.columns)
+        assert ("train_" + s) in set(cv_res.columns)
+
+    assert yhat.ndim == 1
+    assert len(np.setdiff1d(yhat, y)) == 0
+
+
+@pytest.mark.parametrize(
+    "x_data_type, shuffle, graph_pipeline",
+    list(
+        itertools.product(
+            (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray), (True, False), (True, False)
+        )
+    ),
+)
+def test_approx_cross_validation_transformer(x_data_type, shuffle, graph_pipeline):
+
+    if graph_pipeline:
+        estimator = GraphPipeline({"ptA": DebugPassThrough(), "ptB": DebugPassThrough()}, edges=[("ptA", "ptB")])
+    else:
+        estimator = DebugPassThrough()
+
+    X, y = make_classification(n_samples=100, random_state=123)
+
+    X = convert_generic(X, output_type=x_data_type)
+    if x_data_type == DataTypes.DataFrame:
+        X.columns = ["col_%d" % i for i in range(X.shape[1])]
+
+    if shuffle:
+        np.random.seed(123)
+        ii = np.arange(X.shape[0])
+        np.random.shuffle(ii)
+        y = y[ii]
+
+        if isinstance(X, pd.DataFrame):
+            X = X.loc[ii, :]
+        else:
+            X = X[ii, :]
+
+    scoring = ["accuracy", "neg_log_loss"]
+
+    ##################
+    ### Score only ###
+    ##################
+    with pytest.raises(Exception):
+        cross_validation(estimator, X, y, cv=10, scoring=scoring, verbose=0)
+        # shouldn't work since DebugPassThrough can't be scored
+
+    #################
+    ### Transform ###
+    #################
+    cv_res, Xhat = cross_validation(
+        estimator, X, y, cv=10, scoring=scoring, verbose=0, return_predict=True, no_scoring=True
+    )
+
+    assert type(Xhat) == type(X)
+    assert cv_res is None
+    assert Xhat.shape == X.shape
+
+    if isinstance(X, pd.DataFrame):
+        assert (Xhat.index == X.index).all()
+        assert (Xhat.columns == X.columns).all()
+
+    if isinstance(X, pd.DataFrame):
+        assert np.abs(Xhat - X).max().max() <= 10 ** (10 - 10)
+    else:
+        assert np.max(np.abs(Xhat - X)) <= 10 ** (-10)
+
+
+def test_cross_validation_time_serie_split():
+    X, y = make_classification(n_samples=100, random_state=123)
+
+    cv = TimeSeriesSplit(n_splits=10)
+
+    model = RandomForestClassifier(n_estimators=10, random_state=123)
+    cv_res, yhat = cross_validation(model, X, y, cv=cv, return_predict=True)
+
+    assert yhat is None  # because I can't return predictions
+    assert len(cv_res) == 10
+    assert isinstance(cv_res, pd.DataFrame)
+
+
+def verif_approx_cross_validation():
+
+    for add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline in itertools.product(
+        (True, False),
+        (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
+        (True, False),
+        (True, False),
+        (True, False),
+    ):
+        test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline)
+
+    for add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline in itertools.product(
+        (True, False),
+        (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
+        (True, False),
+        (True, False),
+        (True, False),
+    ):
+        test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline)
+
+    for x_data_type, shuffle, graph_pipeline in itertools.product(
+        (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray), (True, False), (True, False)
+    ):
+        test_approx_cross_validation_transformer(x_data_type, shuffle, graph_pipeline)
+
+
+def test_score_from_params_clustering():
+    np.random.seed(123)
+    X = np.random.randn(100, 10)
+
+    kmeans = KMeans(n_clusters=3, random_state=123)
+    result1 = score_from_params_clustering(kmeans, X, scoring=["silhouette", "davies_bouldin"])
+
+    with pytest.raises(sklearn.exceptions.NotFittedError):
+        kmeans.predict(X)
+
+    assert isinstance(result1, pd.DataFrame)
+    assert list(result1.columns) == ["test_silhouette", "test_davies_bouldin", "fit_time", "score_time"]
+    assert len(result1) == 1
+
+    kmeans = KMeans(n_clusters=3, random_state=123)
+    result2, yhat = score_from_params_clustering(
+        kmeans, X, scoring=["silhouette", "davies_bouldin"], return_predict=True
+    )
+
+    with pytest.raises(sklearn.exceptions.NotFittedError):
+        kmeans.predict(X)
+
+    assert isinstance(result2, pd.DataFrame)
+    assert list(result2.columns) == ["test_silhouette", "test_davies_bouldin", "fit_time", "score_time"]
+
+    assert len(result2) == 1
+    assert yhat.shape == (100,)
+    assert len(np.unique(yhat)) == 3
+
+    assert np.abs(result1.iloc[:, 0] - result2.iloc[:, 0]).max() <= 10 ** (-5)
+    assert np.abs(result1.iloc[:, 1] - result2.iloc[:, 1]).max() <= 10 ** (-5)
+
+
+def test_score_from_params_clustering_with_scorer_object():
+    X = np.random.randn(100, 10)
+
+    kmeans = KMeans(n_clusters=3, random_state=123)
+    result1 = score_from_params_clustering(kmeans, X, scoring=SCORERS["silhouette"])
+    assert result1.shape[0] == 1
+    assert isinstance(result1, pd.DataFrame)
+
+    result2 = score_from_params_clustering(kmeans, X, scoring="silhouette")
+    assert result2.shape[0] == 1
+    assert isinstance(result2, pd.DataFrame)
+
+    assert np.abs(result1.iloc[:, 0] - result2.iloc[:, 0]).max() <= 10 ** (-5)
+
+    result1 = score_from_params_clustering(kmeans, X, scoring=SCORERS["calinski_harabaz"])
+    assert result1.shape[0] == 1
+    assert isinstance(result1, pd.DataFrame)
+
+    result2 = score_from_params_clustering(kmeans, X, scoring="calinski_harabaz")
+    assert result2.shape[0] == 1
+    assert isinstance(result2, pd.DataFrame)
+
+    assert np.abs(result1.iloc[:, 0] - result2.iloc[:, 0]).max() <= 10 ** (-5)
+
+    result1 = score_from_params_clustering(kmeans, X, scoring=SCORERS["davies_bouldin"])
+    assert result1.shape[0] == 1
+    assert isinstance(result1, pd.DataFrame)
+
+    result2 = score_from_params_clustering(kmeans, X, scoring="davies_bouldin")
+    assert result2.shape[0] == 1
+    assert isinstance(result2, pd.DataFrame)
+
+    assert np.abs(result1.iloc[:, 0] - result2.iloc[:, 0]).max() <= 10 ** (-5)
+
+
+@pytest.mark.parametrize(
+    "x_data_type, shuffle, graph_pipeline",
+    list(
+        itertools.product(
+            (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray), (True, False), (True, False)
+        )
+    ),
+)
+def test_score_from_params(x_data_type, shuffle, graph_pipeline):
+    np.random.seed(123)
+    X = np.random.randn(100, 10)
+
+    X = convert_generic(X, output_type=x_data_type)
+
+    if x_data_type == DataTypes.DataFrame:
+        X.columns = ["col_%d" % i for i in range(X.shape[1])]
+
+    if shuffle:
+        ii = np.arange(X.shape[0])
+        np.random.shuffle(ii)
+
+        if isinstance(X, pd.DataFrame):
+            X = X.loc[ii, :]
+        else:
+            X = X[ii, :]
+
+    scoring = ["silhouette", "davies_bouldin", "calinski_harabaz"]
+
+    if graph_pipeline:
+        estimator = GraphPipeline(
+            {"pt": DebugPassThrough(), "lg": KMeans(n_clusters=3, random_state=123)}, edges=[("pt", "lg")]
+        )
+    else:
+        estimator = KMeans(n_clusters=3, random_state=123)
+
+    ##################
+    ### Only score ###
+    ##################
+
+    res = score_from_params_clustering(estimator, X, scoring=scoring, verbose=0)
+
+    assert isinstance(res, pd.DataFrame)
+    assert res.shape[0] == 1
+    for s in scoring:
+        assert ("test_" + s) in set(res.columns)
+
+    with pytest.raises(NotFittedError):
+        estimator.predict(X)
+
+    ##########################
+    ### Score + Prediction ###
+    ##########################
+    res, label = score_from_params_clustering(estimator, X, scoring=scoring, verbose=0, return_predict=True)
+
+    assert isinstance(res, pd.DataFrame)
+    assert res.shape[0] == 1
+    for s in scoring:
+        assert ("test_" + s) in set(res.columns)
+
+    assert isinstance(label, np.ndarray)
+
+    assert len(np.unique(label)) == 3
+
+    with pytest.raises(NotFittedError):
+        estimator.predict(X)
+
+    ####################
+    ### Predict only ###
+    ####################
+    res, label = score_from_params_clustering(
+        estimator, X, scoring=scoring, verbose=0, return_predict=True, no_scoring=True
+    )
+
+    assert len(np.unique(label)) == 3
+    assert res is None
+
+    with pytest.raises(NotFittedError):
+        estimator.predict(X)
+
+
+class DummyModel(RegressorMixin, BaseEstimator):
+    def __init__(self):
+        pass
+
+    def fit(self, X, y):
+        return self
+
+    def predict(self, X):
+        return X[:, 0]
+
+
+class DummyModelCheckFitParams(RegressorMixin, BaseEstimator):
+    def __init__(self):
+        pass
+
+    def fit(self, X, y, **fit_params):
+        assert "param" in fit_params
+        assert fit_params["param"] == "value"
+
+        return self
+
+    def predict(self, X):
+        return X[:, 0]
+
+
+class DummyModelWithApprox(RegressorMixin, BaseEstimator):
+    def __init__(self, check_kwargs=False):
+        self.check_kwargs = check_kwargs
+
+    def fit(self, X, y):
+        return self
+
+    def predict(self, X):
+        return X[:, 0]
+
+    def approx_cross_validation(
+        self,
+        X,
+        y,
+        groups=None,
+        scoring=None,
+        cv=10,
+        verbose=0,
+        fit_params=None,
+        return_predict=False,
+        method="predict",
+        no_scoring=False,
+        stopping_round=None,
+        stopping_threshold=None,
+        **kwargs
+    ):
+
+        if self.check_kwargs:
+            assert "kwargs_param" in kwargs
+            assert kwargs["kwargs_param"] == "kwargs_value"
+
+        if no_scoring:
+            cv_res = None
+        else:
+            cv_res = {"scoring": scoring}
+
+        if return_predict:
+            return cv_res, X[:, 1]
+        else:
+            return cv_res
+
+
+@pytest.mark.parametrize("approximate_cv", [True, False])
+def test_approx_cross_validation_fit_params(approximate_cv):
+    X, y = make_classification(n_samples=100, random_state=123)
+
+    estimator = DummyModelCheckFitParams()
+    with pytest.raises(AssertionError):
+        cv_res, yhat = cross_validation(
+            estimator,
+            X,
+            y,
+            cv=10,
+            no_scoring=True,
+            return_predict=True,
+            method="predict",
+            approximate_cv=approximate_cv,
+        )
+
+    cv_res, yhat = cross_validation(
+        estimator,
+        X,
+        y,
+        cv=10,
+        no_scoring=True,
+        return_predict=True,
+        method="predict",
+        fit_params={"param": "value"},
+        approximate_cv=approximate_cv,
+    )
+
+
+def test_approx_cross_validatoin_pass_kwargs():
+    X, y = make_classification(n_samples=100, random_state=123)
+
+    estimator = DummyModelWithApprox(check_kwargs=True)
+
+    with pytest.raises(AssertionError):
+        cv_res, yhat = cross_validation(
+            estimator,
+            X,
+            y,
+            cv=10,
+            no_scoring=True,
+            return_predict=True,
+            method="predict",
+            fit_params={"param": "value"},
+            approximate_cv=True,
+        )
+        # error because kwargs not passed
+
+    cv_res, yhat = cross_validation(
+        estimator,
+        X,
+        y,
+        cv=10,
+        no_scoring=True,
+        return_predict=True,
+        method="predict",
+        fit_params={"param": "value"},
+        kwargs_param="kwargs_value",
+        approximate_cv=True,
+    )
+
+
+@pytest.mark.parametrize("approximate_cv", [True, False])
+def test_approx_cross_validation_dummy(approximate_cv):
+
+    X, y = make_classification(n_samples=100, random_state=123)
+
+    estimator = DummyModel()
+    cv_res, yhat = cross_validation(
+        estimator, X, y, cv=10, no_scoring=True, return_predict=True, method="predict", approximate_cv=approximate_cv
+    )
+
+    assert yhat.ndim == 1
+    assert np.abs(yhat - X[:, 0]).max() <= 10 ** (-5)
+
+    estimator = DummyModel()
+    cv_res, yhat = cross_validation(
+        estimator, X, y, cv=10, no_scoring=False, return_predict=True, method="predict", approximate_cv=approximate_cv
+    )
+
+    assert yhat.ndim == 1
+    assert np.abs(yhat - X[:, 0]).max() <= 10 ** (-5)
+
+
+@pytest.mark.parametrize("approximate_cv", [True, False])
+def test_approx_cross_validation_raise_error(approximate_cv):
+
+    X, y = make_classification(n_samples=100, random_state=123)
+
+    estimator = DummyModel()
+    with pytest.raises(ValueError):
+        cv_res, yhat = cross_validation(
+            estimator,
+            X,
+            y,
+            cv=10,
+            no_scoring=True,
+            return_predict=False,
+            method="predict",
+            approximate_cv=approximate_cv,
+        )
+
+    # no_scoring = True AND return_predict = False => Nothing to do ... error
+    estimator = DummyModel()
+    with pytest.raises(AttributeError):
+        cv_res, yhat = cross_validation(
+            estimator,
+            X,
+            y,
+            cv=10,
+            no_scoring=True,
+            return_predict=True,
+            method="transform",
+            approximate_cv=approximate_cv,
+        )
+
+
+def test_approx_cross_validation_pass_to_method():
+    X, y = make_classification(n_samples=100, random_state=123)
+
+    estimator = DummyModelWithApprox()
+    cv_res, yhat = cross_validation(
+        estimator, X, y, cv=10, no_scoring=True, return_predict=True, method="predict", approximate_cv=True
+    )
+
+    assert cv_res is None
+    assert yhat.ndim == 1
+    assert np.abs(yhat - X[:, 1]).max() <= 10 ** (-5)
+
+    estimator = DummyModelWithApprox()
+    cv_res, yhat = cross_validation(
+        estimator, X, y, cv=10, no_scoring=False, return_predict=True, method="predict", approximate_cv=True
+    )
+    assert cv_res is not None
+    assert "scoring" in cv_res
+
+    assert yhat.ndim == 1
+    assert np.abs(yhat - X[:, 1]).max() <= 10 ** (-5)
+
+    estimator = DummyModelWithApprox()
+    cv_res = cross_validation(
+        estimator, X, y, cv=10, no_scoring=False, return_predict=False, method="predict", approximate_cv=True
+    )
+    assert cv_res is not None
+    assert "scoring" in cv_res
+
+    assert yhat.ndim == 1
+    assert np.abs(yhat - X[:, 1]).max() <= 10 ** (-5)
+
+    estimator = DummyModelWithApprox()
+    cv_res = cross_validation(
+        estimator,
+        X,
+        y,
+        cv=10,
+        scoring=["neg_mean_squared_error"],
+        no_scoring=False,
+        return_predict=False,
+        method="predict",
+        approximate_cv=True,
+    )
+    assert cv_res is not None
+    assert "scoring" in cv_res
+    assert cv_res["scoring"] == ["neg_mean_squared_error"]
+
+
+@pytest.mark.parametrize("approximate_cv", [True, False])
+def test_approx_cross_validation_cv(approximate_cv):
+    X, y = make_classification()
+
+    cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=123)
+
+    estimator = DebugPassThrough()
+
+    cv_res, yhat = cross_validation(
+        estimator,
+        X,
+        y,
+        groups=None,
+        cv=cv,
+        verbose=1,
+        fit_params={},
+        return_predict=True,
+        method="transform",
+        no_scoring=True,
+        stopping_round=None,
+        stopping_threshold=None,
+        approximate_cv=approximate_cv,
+    )
+    assert cv_res is None
+    assert yhat.ndim == 2
+    assert yhat.shape == X.shape
+
+
+@pytest.mark.xfail
+def test_cross_val_predict_sklearn_few_sample_per_classes():
+    np.random.seed(123)
+    X = np.random.randn(100, 2)
+
+    y = np.array(["AA"] * 33 + ["BB"] * 33 + ["CC"] * 33 + ["DD"])
+
+    cv = StratifiedKFold(n_splits=10)
+
+    logit = LogisticRegression()
+    yhat_proba = cross_val_predict(logit, X, y, cv=cv, method="predict_proba")
+
+    assert (yhat_proba.max(axis=1) > 0).all()
+
+
+def test_cross_validation_few_sample_per_classes():
+    np.random.seed(123)
+    X = np.random.randn(100, 2)
+
+    y = np.array(["AA"] * 33 + ["BB"] * 33 + ["CC"] * 33 + ["DD"])
+
+    cv = StratifiedKFold(n_splits=10)
+
+    logit = LogisticRegression()
+
+    _, yhat_proba = cross_validation(logit, X, y, cv=cv, return_predict=True, no_scoring=True)
+    assert (yhat_proba.max(axis=1) > 0).all()
+
+    assert yhat_proba.shape == (100, 4)
+    assert list(yhat_proba.columns) == ["AA", "BB", "CC", "DD"]

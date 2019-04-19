@@ -3,7 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/aikit.svg)](https://badge.fury.io/py/aikit)
 
 # aikit
-aikit is an automated machine learning framework.
+Automatic Tool Kit for Machine Learning and Datascience.
 
 
 ### Building package

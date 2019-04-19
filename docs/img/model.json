@@ -1,0 +1,96 @@
+{
+    "__items__": [
+        "GraphPipeline",
+        {
+            "__items__": [
+                [
+                    "models",
+                    {
+                        "__items__": [
+                            [
+                                "vect",
+                                {
+                                    "__items__": [
+                                        "MyCountVectorizer",
+                                        {
+                                            "__items__": [
+                                                [
+                                                    "analyzer",
+                                                    "char"
+                                                ],
+                                                [
+                                                    "ngram_range",
+                                                    {
+                                                        "__items__": [
+                                                            1,
+                                                            4
+                                                        ],
+                                                        "__type__": "__tuple__"
+                                                    }
+                                                ]
+                                            ],
+                                            "__type__": "__dict__"
+                                        }
+                                    ],
+                                    "__type__": "__tuple__"
+                                }
+                            ],
+                            [
+                                "svd",
+                                {
+                                    "__items__": [
+                                        "MyTruncatedSVD",
+                                        {
+                                            "__items__": [
+                                                [
+                                                    "n_components",
+                                                    400
+                                                ]
+                                            ],
+                                            "__type__": "__dict__"
+                                        }
+                                    ],
+                                    "__type__": "__tuple__"
+                                }
+                            ],
+                            [
+                                "logit",
+                                {
+                                    "__items__": [
+                                        "LogisticRegression",
+                                        {
+                                            "__items__": [
+                                                [
+                                                    "class_weight",
+                                                    "balanced"
+                                                ]
+                                            ],
+                                            "__type__": "__dict__"
+                                        }
+                                    ],
+                                    "__type__": "__tuple__"
+                                }
+                            ]
+                        ],
+                        "__type__": "__dict__"
+                    }
+                ],
+                [
+                    "edges",
+                    [
+                        {
+                            "__items__": [
+                                "vect",
+                                "svd",
+                                "logit"
+                            ],
+                            "__type__": "__tuple__"
+                        }
+                    ]
+                ]
+            ],
+            "__type__": "__dict__"
+        }
+    ],
+    "__type__": "__tuple__"
+}
