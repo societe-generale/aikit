@@ -12,6 +12,7 @@ import numpy as np
 try:
     import category_encoders
 except ImportError:
+    print("I wont be able to import category_encoders")
     category_encoders = None
 
 

@@ -16,6 +16,7 @@ from aikit.transformers.text import (
     TextDigitAnonymizer,
     Word2VecVectorizer,
     Char2VecVectorizer,
+    Word2Vec
 )
 from aikit.datasets.datasets import load_dataset
 
@@ -92,7 +93,7 @@ def test_text_digit_anonymizer():
     except TypeError:
         pass
 
-
+@pytest.mark.skipif(Word2Vec is None, reason="gensim isn't installed")
 def test_Word2VecVectorizer():
     df = get_sample_df(size=200, seed=123)
 
@@ -137,7 +138,7 @@ def test_Word2VecVectorizer():
     cols = [c for c in list(df.columns) if c in list(Xres.columns)]
     assert (Xres.loc[:, cols] == df.loc[:, cols]).all().all()
 
-
+@pytest.mark.skipif(Word2Vec is None, reason="gensim isn't installed")
 def test_Char2VecVectorizer():
 
     Xtrain = load_dataset("titanic")[0]
