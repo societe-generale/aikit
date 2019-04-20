@@ -6,7 +6,7 @@ Created on Fri Apr 27 08:38:10 2018
 """
 
 
-from sklearn.utils.fixes import signature
+from inspect import signature
 
 from aikit.ml_machine import hyper_parameters as hp
 from aikit.model_definition import DICO_NAME_KLASS
