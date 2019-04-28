@@ -26,7 +26,7 @@ Example::
                                         "rf"   : RandomForestClassifier(n_estimators=100)}  ,
                                    edges = [("vect","rf"),("cat","rf")]
                                    )
-
+![Alt text](docs/img/graphpipeline_mergingpipe.png?raw=true "Title")
 ### AutoML
 
 Aikit contains an AutoML part which will tests several models and transformers for a given dataset.
