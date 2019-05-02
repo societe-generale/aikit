@@ -25,7 +25,7 @@ from aikit.tools.db_informations import get_columns_informations
 from aikit.enums import TypeOfVariables, DataTypes
 from aikit.tools.data_structure_helper import convert_generic, get_type
 
-from aikit.transformers.categories import NumericalEncoder, CategoricalEncoder
+from aikit.transformers.categories import NumericalEncoder, CategoricalEncoder, category_encoders
 from aikit.transformers.target import TargetEncoderClassifier, TargetEncoderEntropyClassifier, TargetEncoderRegressor
 from aikit.transformers.base import (
     TruncatedSVDWrapper,
@@ -35,7 +35,7 @@ from aikit.transformers.base import (
     CdfScaler,
     PCAWrapper,
 )
-from aikit.transformers.text import CountVectorizerWrapper, Word2VecVectorizer, Char2VecVectorizer
+from aikit.transformers.text import CountVectorizerWrapper, Word2VecVectorizer, Char2VecVectorizer, Word2Vec
 
 from aikit.transformers.model_wrapper import ColumnsSelector
 from aikit.tools.helper_functions import pd_match
@@ -861,7 +861,7 @@ def verif_NumericalEncoder():
 ### CategoricalEncoder ###
 ##########################
 
-
+@pytest.mark.skipif(category_encoders is None, reason="category_encoders is not installed")
 @pytest.mark.longtest
 @pytest.mark.parametrize("encoding_type", ["dummy", "binary", "basen", "hashing"])
 def test_CategoricalEncoder(encoding_type):
@@ -1267,7 +1267,7 @@ def verif_CountVectorizerWrapper():
 
 # In[] : Test Word2vec
 
-
+@pytest.mark.skipif(Word2Vec is None, reason="gensim isn't installed")
 @pytest.mark.longtest
 @pytest.mark.parametrize(
     "text_preprocess, same_embedding_all_columns, size, window",
@@ -1306,7 +1306,7 @@ def verif_Word2VecVectorizer():
 
 # In[] Test Char2Vec
 
-
+@pytest.mark.skipif(Word2Vec is None, reason="gensim isn't installed")
 @pytest.mark.longtest
 @pytest.mark.parametrize(
     "text_preprocess, same_embedding_all_columns, size, window",

@@ -82,11 +82,11 @@ def test_OutSamplerTransformer_classifier_fit_transform():
 
     cv = KFold(n_splits=10, shuffle=True, random_state=123)
 
-    model = OutSamplerTransformer(LogisticRegression(), cv=cv)
+    model = OutSamplerTransformer(LogisticRegression(C=1,random_state=123), cv=cv)
     model.fit(X, y)
     y1 = model.transform(X)
 
-    model = OutSamplerTransformer(LogisticRegression(), cv=cv)
+    model = OutSamplerTransformer(LogisticRegression(C=1,random_state=123), cv=cv)
     y2 = model.fit_transform(X, y)
 
     assert np.abs(y1 - y2).flatten().max() >= 0.01  # vector should be different
@@ -98,7 +98,7 @@ def test_OutSamplerTransformer_regressor():
     X = np.random.randn(100, 10)
     y = np.random.randn(100)
 
-    model = OutSamplerTransformer(RandomForestRegressor(), cv=10)
+    model = OutSamplerTransformer(RandomForestRegressor(n_estimators=10,random_state=123), cv=10)
     model.fit(X, y)
 
     y1 = model.model.predict(X)
@@ -190,10 +190,10 @@ def test_approx_cross_validation_OutSamplerTransformer_classifier():
         model.model.predict(X)
 
     cv = KFold(n_splits=10, shuffle=True, random_state=123)
-    model = OutSamplerTransformer(LogisticRegression(), cv=cv)
+    model = OutSamplerTransformer(LogisticRegression(C=1,random_state=123), cv=cv)
     yhat1 = model.fit_transform(X, y)
 
-    model = OutSamplerTransformer(LogisticRegression(), cv=cv)
+    model = OutSamplerTransformer(LogisticRegression(C=1,random_state=123), cv=cv)
     cv_res, yhat2 = model.approx_cross_validation(X, y, cv=cv, method="transform", no_scoring=True, return_predict=True)
 
     # Approx cross val and fit transform should return the same thing here
@@ -217,7 +217,7 @@ def test_StackerRegressor():
     X = np.random.randn(100, 10)
     y = np.random.randn(100)
 
-    stacker = StackerRegressor(models=[RandomForestRegressor(random_state=123), Ridge()], cv=10, blender=Ridge())
+    stacker = StackerRegressor(models=[RandomForestRegressor(n_estimators=10,random_state=123), Ridge(random_state=123)], cv=10, blender=Ridge(random_state=123))
 
     stacker.fit(X, y)
 
@@ -243,7 +243,7 @@ def test_StackerClassifier():
     y = 1 * (np.random.randn(100) > 0)
 
     stacker = StackerClassifier(
-        models=[RandomForestClassifier(random_state=123), LogisticRegression()], cv=10, blender=LogisticRegression()
+        models=[RandomForestClassifier(random_state=123), LogisticRegression(C=1,random_state=123)], cv=10, blender=LogisticRegression(C=1,random_state=123)
     )
 
     stacker.fit(X, y)
@@ -270,7 +270,7 @@ def test_approx_cross_validation_StackerRegressor():
     X = np.random.randn(100, 10)
     y = np.random.randn(100)
 
-    stacker = StackerRegressor(models=[RandomForestRegressor(random_state=123), Ridge()], cv=10, blender=Ridge())
+    stacker = StackerRegressor(models=[RandomForestRegressor(n_estimators=10,random_state=123), Ridge(random_state=123)], cv=10, blender=Ridge(random_state=123))
 
     cv_res, yhat = stacker.approx_cross_validation(
         X, y, cv=10, method="predict", scoring=["neg_mean_squared_error"], return_predict=True, verbose=False
@@ -300,7 +300,7 @@ def test_approx_cross_validation_StackerClassifier():
     y = 1 * (np.random.randn(100) > 0)
 
     stacker = StackerClassifier(
-        models=[RandomForestClassifier(), LogisticRegression()], cv=10, blender=LogisticRegression()
+        models=[RandomForestClassifier(n_estimators=10,random_state=123), LogisticRegression(C=1,random_state=123)], cv=10, blender=LogisticRegression(C=1,random_state=123)
     )
 
     cv_res, yhat = stacker.approx_cross_validation(

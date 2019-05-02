@@ -8,7 +8,7 @@ It is thus relatively easy to add new models/transformers to the framework.
 
 Those models/transformers can be included in the search of the auto-ml component to be tested on different databases and with other transformers/models.
 
-A model needs to be added at two different place in order to be fully integrated within the framework.
+A model needs to be added at two different places in order to be fully integrated within the framework.
 
 Let's see what's need to be done to include an hypothetic new models::
 
@@ -41,9 +41,9 @@ model is an instance of ReallyCoolNewTransformer
 Add model to Auto-Ml framework
 ------------------------------
 
-This is a little more complicated, a few more information needs to be entered:
+This is a little more complicated, a few more informations need to be entered:
 
- * type of models
+ * type of model
  * type of variable it uses
  * hyper-parameters
  

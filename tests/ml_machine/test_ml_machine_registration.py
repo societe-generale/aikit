@@ -4,14 +4,20 @@ Created on Fri Sep 14 14:25:29 2018
 
 @author: Lionel Massoulard
 """
-import numpy as np
+import pytest
 
-from aikit.ml_machine.ml_machine_registration import LGBMClassifier_Model, CountVectorizer_TextEncoder
+import numpy as np
+try:
+    from aikit.ml_machine.ml_machine_registration import LGBMClassifier_Model
+except ImportError:
+    LGBMClassifier_Model = None
+
+from aikit.ml_machine.ml_machine_registration import CountVectorizer_TextEncoder
 from aikit.ml_machine.ml_machine_registration import MODEL_REGISTER
 
 from aikit.model_definition import DICO_NAME_KLASS
 
-
+@pytest.mark.skipif(LGBMClassifier_Model is None, reason="lightgbm is not installed")
 def test_LGBMClassifier_Model():
     hyper_gen = LGBMClassifier_Model.get_hyper_parameter()
     all_hypers = [hyper_gen.get_rand() for _ in range(1000)]

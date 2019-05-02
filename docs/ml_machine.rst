@@ -26,7 +26,7 @@ see complete list with :class:`aikit.enums.StepCategories`
 The Ml Machine will randomly draw one model per step and merge them into a complex processing pipeline.
 Optional steps are sometimes drawn and sometime not.
 
-(The transformers that are drawn are the one in the ml machine registry : :ref:`ml_machine_registration`)
+(The transformers that are drawn are the one in the ml machine registry : :ref:`model_register`)
 
 First Rounds
 ------------

@@ -182,35 +182,4 @@ OutSamplerTransformer regression mode
 -------------------------------------
 You can do exactly the same thing but for regresion tasks, only difference is that cross-validation uses :func:`predict` instead of :func:`predict_proba`.
 
-
-ErrorBasedBlender
------------------
-
-(This is still experimental) When doing stacking, *usualy* what is done is : takes all the predictions of models and try to fit a blending model to predict the target.. This is by far the most classical solution.
-Sometimes you can also incorporate the original features into the mix.
-
-This is fine but you might want to do another thing. 
-Instead of predicting the target you can predict the error of a given model => Ej = (Y - Yj)**2 (where Yj is the prediction of algorithm j).
-
-That model can take features as input : Ej = Ej(X)
-
-On test data, you can use the Error estimation to create weight of the different prediction.
-
-wj = 1/Ej / sum Ei.
-
-And predict Y = sum wj * Yj
-
-That way you might have something more robust, because even if you're blender isn't capable of learning anything you will generate a prediction that is a weighted average of your individual prediction.
-And if there are really zones of space where one model is better than the other you can learn it as well.
-
-(Remark : the weight formula assumes independant prediction... we could also estimate covariance between individual model predictions and get other optimal weights : leveraging on the idea that the weights of correlated prediction are less valuable than un-correlated one).
-
-The model :class:`ErrorBasedBlender` does just that. It takes as input a matrix X where the first 'meta_feature_size' are the original features (or a subset of those) and the rest are individual predictions.
-It also take a 'model' attribute which is the model to use to predict the error.
-(For stability the model actually predict log(epsilon + error) )
-
- .. autoclass:: aikit.models.stacking.ErrorBasedBlender 
-
-
-
-    
+   
