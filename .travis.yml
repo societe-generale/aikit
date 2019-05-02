@@ -8,4 +8,4 @@ install:
   - pip install -r requirements-test.txt
 
 script:
-  - pytest
+  - pytest tests -v -m "not longtest"
