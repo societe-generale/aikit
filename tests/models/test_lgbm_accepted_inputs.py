@@ -4,9 +4,15 @@ Created on Thu Aug  9 16:03:16 2018
 
 @author: Lionel Massoulard
 """
+import pytest
+
 import numpy as np
 
-from lightgbm import LGBMClassifier
+try:
+    from lightgbm import LGBMClassifier
+except ImportError:
+    print("This test won't run, please install lightgbm")
+    LGBMClassifier = None
 
 import pytest
 
@@ -16,7 +22,7 @@ np.random.seed(123)
 X = 5 * np.random.randn(100, 10)
 y = 1 * (np.random.randn(100) > 0)
 
-
+@pytest.mark.skipif(LGBMClassifier is None, reason="lightgbm is not installed")
 class Test_lightgbm(object):
     def test_float(self):
         lgbm = LGBMClassifier()

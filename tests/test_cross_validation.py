@@ -13,6 +13,7 @@ import numpy as np
 import itertools
 from collections import OrderedDict
 
+import sklearn
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
@@ -25,8 +26,6 @@ from sklearn.datasets import make_classification
 import sklearn.model_selection
 from sklearn.model_selection import StratifiedKFold, KFold, TimeSeriesSplit, cross_val_predict
 from sklearn.exceptions import NotFittedError
-
-from sklearn.metrics import SCORERS
 
 
 from aikit.tools.data_structure_helper import convert_generic
@@ -42,7 +41,7 @@ from aikit.scorer import SCORERS
 
 def test_is_classifier_is_regressor_is_clusterer():
     """ verif behavior of is_classifier and is_regressor """
-    rf_c = RandomForestClassifier()
+    rf_c = RandomForestClassifier(n_estimators=10,random_state=123)
     assert is_classifier(rf_c)
     assert not is_regressor(rf_c)
     assert not is_clusterer(rf_c)
@@ -62,12 +61,12 @@ def test_is_classifier_is_regressor_is_clusterer():
     assert not is_regressor(sc)
     assert not is_clusterer(sc)
 
-    pipe_c = Pipeline([("s", StandardScaler()), ("r", RandomForestClassifier())])
+    pipe_c = Pipeline([("s", StandardScaler()), ("r", RandomForestClassifier(n_estimators=10,random_state=123))])
     assert is_classifier(pipe_c)
     assert not is_regressor(pipe_c)
     assert not is_clusterer(pipe_c)
 
-    pipe_r = Pipeline([("s", StandardScaler()), ("r", RandomForestRegressor())])
+    pipe_r = Pipeline([("s", StandardScaler()), ("r", RandomForestRegressor(n_estimators=10,random_state=123))])
     assert not is_classifier(pipe_r)
     assert is_regressor(pipe_r)
     assert not is_clusterer(pipe_r)
@@ -265,7 +264,7 @@ def test_cross_validation0():
     ]
     assert len(result) == 10
 
-    forest = RandomForestRegressor(n_estimators=10)
+    forest = RandomForestRegressor(n_estimators=10,random_state=123)
     result, yhat = cross_validation(forest, X, y, scoring=["neg_mean_squared_error", "r2"], cv=10, return_predict=True)
     with pytest.raises(sklearn.exceptions.NotFittedError):
         forest.predict(X)
@@ -287,7 +286,7 @@ def test_cross_validation0():
 
     X = np.random.randn(100, 10)
     y = np.array(["A"] * 33 + ["B"] * 33 + ["C"] * 34)
-    forest = RandomForestClassifier()
+    forest = RandomForestClassifier(n_estimators=10,random_state=123)
 
     result = cross_validation(forest, X, y, scoring=["accuracy", "neg_log_loss"], cv=10)
     with pytest.raises(sklearn.exceptions.NotFittedError):
@@ -546,9 +545,9 @@ def test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_stri
         scoring = ["accuracy", "neg_log_loss"]
 
     if graph_pipeline:
-        estimator = GraphPipeline({"pt": DebugPassThrough(), "lg": LogisticRegression()}, edges=[("pt", "lg")])
+        estimator = GraphPipeline({"pt": DebugPassThrough(), "lg": LogisticRegression(C=1,random_state=123)}, edges=[("pt", "lg")])
     else:
-        estimator = LogisticRegression()
+        estimator = LogisticRegression(C=1,random_state=123)
 
     cv_res, yhat = cross_validation(
         estimator,
@@ -560,7 +559,7 @@ def test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_stri
         return_predict=True,
         method="predict",
         stopping_round=1,
-        stopping_threshold=0.99,
+        stopping_threshold=1.01, # So that accuracy is sure to be bellow
     )
 
     assert isinstance(cv_res, pd.DataFrame)
@@ -1104,7 +1103,7 @@ def test_approx_cross_validation_cv(approximate_cv):
     assert yhat.ndim == 2
     assert yhat.shape == X.shape
 
-
+@pytest.mark.skipif(sklearn.__version__ >= '0.21', reason="bug fixed in 0.21")
 @pytest.mark.xfail
 def test_cross_val_predict_sklearn_few_sample_per_classes():
     np.random.seed(123)
