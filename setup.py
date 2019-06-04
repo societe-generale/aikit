@@ -40,7 +40,7 @@ def setup_package():
                     classifiers=META.__classifiers__,
                     install_requires=INSTALL_REQUIRES,
                     setup_requires=SETUP_REQUIRES,
-                    packages=find_packages(exclude=["tests", "tests.*"]))
+                    packages=find_packages(include=["aikit*"]))
 
     setup(**metadata)
 

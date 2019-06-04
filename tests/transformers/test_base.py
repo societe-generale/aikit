@@ -380,6 +380,46 @@ def test_NumImputer_mixtype():
     assert not (Xenc.dtypes == "O").any()
 
 
+def test_NumImputer_output_type():
+    df = get_sample_df(100, seed=123)
+    
+    # with type float64
+    df["float_col"].astype("float64")
+    imp = NumImputer()
+    Xenc = imp.fit_transform(df)
+    
+    assert Xenc.dtypes["float_col"] == df.dtypes["float_col"]
+    
+    # with type float32
+    df2 = df.copy()
+    df2["float_col"] = df2["float_col"].astype("float32")
+    imp = NumImputer()
+    Xenc = imp.fit_transform(df2)
+    
+    assert Xenc.dtypes["float_col"] == df2.dtypes["float_col"]
+    
+    
+    # with type float64
+    df["float_col"].astype("float64")
+    df.loc[0,"float_col"] = np.nan
+    
+    imp = NumImputer()
+    Xenc = imp.fit_transform(df)
+    
+    assert Xenc.dtypes["float_col"] == df.dtypes["float_col"]
+    
+    # with type float32
+    df2 = df.copy()
+    df2["float_col"] = df2["float_col"].astype("float32")
+    df2.loc[0,"float_col"] = np.nan
+    imp = NumImputer()
+    Xenc = imp.fit_transform(df2)
+    
+    assert Xenc.dtypes["float_col"] == df2.dtypes["float_col"]
+    
+    
+    
+
 def test_BoxCoxTargetTransformer_target_transform():
 
     for ll in (0, 0.1, 0.5, 2):

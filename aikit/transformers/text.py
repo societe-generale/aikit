@@ -363,6 +363,10 @@ class CountVectorizerWrapper(ModelWrapper):
             ngram_range = self.ngram_range
 
         ngram_range = tuple(ngram_range)
+        
+        other_params = {k:v for k,v in self.other_count_vectorizer_arguments.items()} # shalow copy
+        if "dtype" not in other_params:
+            other_params["dtype"] = "int32" # force output to be int32 to limit memory
 
         if self.tfidf:
             return TfidfVectorizer(
@@ -372,7 +376,8 @@ class CountVectorizerWrapper(ModelWrapper):
                 ngram_range=ngram_range,
                 max_features=self.max_features,
                 vocabulary=self.vocabulary,
-                **self.other_count_vectorizer_arguments
+                
+                **other_params
             )
 
         else:
@@ -383,7 +388,7 @@ class CountVectorizerWrapper(ModelWrapper):
                 ngram_range=ngram_range,
                 max_features=self.max_features,
                 vocabulary=self.vocabulary,
-                **self.other_count_vectorizer_arguments
+                **other_params
             )
 
 

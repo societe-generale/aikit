@@ -261,7 +261,7 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
         ]
 
         if self.encoding_type == "num":
-            result = pd.DataFrame(all_result_series).T
+            result = pd.DataFrame(all_result_series, dtype="int32").T
 
             return result
 

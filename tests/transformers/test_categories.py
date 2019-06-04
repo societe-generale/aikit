@@ -18,6 +18,20 @@ try:
 except ModuleNotFoundError:
     category_encoders = None
 
+def test_NumericalEncoder_dummy_output_dtype():
+    np.random.seed(123)
+    df = get_sample_df(100, seed=123)
+    ind = np.arange(len(df))
+    df.index = ind
+
+    df["cat_col_1"] = df["text_col"].apply(lambda s: s[0:3])
+    df["cat_col_2"] = df["text_col"].apply(lambda s: s[3:6])
+
+    encoder = NumericalEncoder(encoding_type="dummy")
+    encoder.fit(df)
+    res = encoder.transform(df)
+    
+    assert (res.dtypes[res.columns.str.startswith("cat_col_")] == "int32").all() # check default encoding type = int32
 
 def test_NumericalEncoder_dummy():
 
@@ -100,7 +114,23 @@ def test_NumericalEncoder_dummy():
 
     assert colm == colmb
 
+def test_NumericalEncoder_num_output_dtype():
+    np.random.seed(123)
+    df = get_sample_df(100, seed=123)
+    ind = np.arange(len(df))
+    df.index = ind
 
+    np.random.shuffle(ind)
+    df["cat_col_1"] = df["text_col"].apply(lambda s: s[0:3])
+    df["cat_col_2"] = df["text_col"].apply(lambda s: s[3:6])
+
+    encoder = NumericalEncoder(encoding_type="num")
+    encoder.fit(df)
+    res = encoder.transform(df)
+    
+    assert res.dtypes["cat_col_1"] == "int32"
+    assert res.dtypes["cat_col_2"] == "int32"
+    
 def test_NumericalEncoder_num():
 
     ######################
@@ -122,6 +152,8 @@ def test_NumericalEncoder_num():
 
     assert res.shape == df.shape
     assert (res.index == df.index).all()
+    
+
 
     assert encoder.get_feature_names() == encoder.model._feature_names
     assert encoder.get_feature_names() == list(res.columns)

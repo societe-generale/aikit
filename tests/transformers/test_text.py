@@ -79,6 +79,25 @@ def test_CountVectorizerWrapper_on_Serie():
     assert Xres.shape[0] == X.shape[0]
     assert Xres.shape[1] == len(vect.get_feature_names())
 
+def test_CountVectorizerWrapper_output_type():
+    
+    vect = CountVectorizerWrapper()
+    res = vect.fit_transform(pd.DataFrame({"a":["AA","AAA","bb"]}))
+    assert res.dtype == "int32"
+
+    vect = CountVectorizerWrapper()
+    res = vect.fit_transform(pd.DataFrame({"a":["AA","AAA","bb"],"b":["xxx","zzz","xxx"]}))
+    assert res.dtype == "int32"
+
+    vect = CountVectorizerWrapper(dtype="int64")
+    res = vect.fit_transform(pd.DataFrame({"a":["AA","AAA","bb"]}))
+    assert res.dtype == "int64"
+
+    vect = CountVectorizerWrapper(dtype="int64")
+    res = vect.fit_transform(pd.DataFrame({"a":["AA","AAA","bb"],"b":["xxx","zzz","xxx"]}))
+    assert res.dtype == "int64"
+
+
 
 def test_text_digit_anonymizer():
     transformer = TextDigitAnonymizer()
