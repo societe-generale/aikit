@@ -127,7 +127,7 @@ def load_titanic(test_size=0.2, random_state=1, cache_dir=None, cache_subdir='da
     """ load titanic database """
     path = find_path(DatasetEnum.titanic, cache_dir=cache_dir, cache_subdir=cache_subdir)
 
-    df = pd.read_csv(path, sep=",")
+    df = pd.read_csv(path, sep=",", na_values=["?"], keep_default_na=True)
 
     # Shuffle DF and compute train/test split
     df = df.sample(frac=1, random_state=random_state).reset_index(drop=True)

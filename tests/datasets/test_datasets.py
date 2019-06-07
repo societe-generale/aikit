@@ -44,7 +44,6 @@ def test_load_public_path():
         cache_dir=tempdir,
         cache_subdir='datasets')
     assert path == os.path.join(tempdir, 'datasets', 'titanic.csv')
-    os.unlink(os.path.join(tempdir, 'datasets', 'titanic.csv'))
-    os.unlink(os.path.join(tempdir, 'datasets', 'titanic.tar.gz'))
-    os.rmdir(os.path.join(tempdir, 'datasets'))
-    os.rmdir(tempdir)
+    assert os.path.exists(path)
+    shutil.rmtree(tempdir)
+

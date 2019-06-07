@@ -1,3 +1,5 @@
 pytest
 graphviz
 lightgbm
+gensim
+nltk

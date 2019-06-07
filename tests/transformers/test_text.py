@@ -138,6 +138,7 @@ def test_Word2VecVectorizer():
     cols = [c for c in list(df.columns) if c in list(Xres.columns)]
     assert (Xres.loc[:, cols] == df.loc[:, cols]).all().all()
 
+
 @pytest.mark.skipif(Word2Vec is None, reason="gensim isn't installed")
 def test_Char2VecVectorizer():
 
@@ -145,7 +146,7 @@ def test_Char2VecVectorizer():
     df1 = Xtrain.loc[0:600, :]
     df2 = Xtrain.loc[600:, :]
 
-    enc_kwargs = {"columns_to_use": ["Name", "Ticket"]}
+    enc_kwargs = {"columns_to_use": ["name", "ticket"]}
     enc_kwargs["text_preprocess"] = None
     enc_kwargs["same_embedding_all_columns"] = True
     enc_kwargs["size"] = 50
@@ -165,7 +166,7 @@ def test_Char2VecVectorizer():
     vect = Char2VecVectorizer(**enc_kwargs)
     X2 = vect.fit_transform(df1)
 
-    enc_kwargs = {"columns_to_use": ["Name"]}
+    enc_kwargs = {"columns_to_use": ["name"]}
     enc_kwargs["text_preprocess"] = "nltk"
     enc_kwargs["same_embedding_all_columns"] = False
     enc_kwargs["size"] = 50
