@@ -6,6 +6,7 @@ Created on Fri Jul 27 10:21:41 2018
 """
 import os.path
 import tarfile
+import tempfile
 from contextlib import closing
 from urllib.error import HTTPError, URLError
 
@@ -53,15 +54,21 @@ DATASET_PUBLIC_URLS = {
 
 def _load_public_path(url, cache_dir=None, cache_subdir='datasets'):
     """
-    Load a public dataset from the specified URL. The data is loaded locally in the cache directory
+    Load a public dataset from the specified URL. The data is loaded locally in the cache directory.
 
-    # Arguments
-        url: dataset URL
-        cache_dir: local cache directory
-        cache_subdir: cache subdirectory
+    Parameters:
+    -----------
+        url: string
+            Dataset URL
+        cache_dir: string, optional (default=None)
+            Local cache directory, defaults to $AIKIT_HOME then ~/.aikit then $TMP/.aikit if None
+        cache_subdir: string, optional (deault='datasets')
+            Cache subdirectory
 
-    # Returns
-        Path to the downloaded file
+    Returns:
+    --------
+        path: string
+            Path to the downloaded file
     """
     if cache_dir is None:
         if 'AIKIT_HOME' in os.environ:
@@ -70,7 +77,7 @@ def _load_public_path(url, cache_dir=None, cache_subdir='datasets'):
             cache_dir = os.path.join(os.path.expanduser('~'), '.aikit')
     datadir_base = os.path.expanduser(cache_dir)
     if not os.access(datadir_base, os.W_OK):
-        datadir_base = os.path.join('/tmp', '.aikit')
+        datadir_base = os.path.join(tempfile.gettempdir(), '.aikit')
     datadir = os.path.join(datadir_base, cache_subdir)
     if not os.path.exists(datadir):
         os.makedirs(datadir)
