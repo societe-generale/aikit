@@ -216,14 +216,24 @@ def test_md5_hash():
 
 def test_clean_column():
     examples = [
+        ("UPPER_CASED","upper_cased"),
         ("already_clean", "already_clean"),
         ("too_many_dash___", "too_many_dash_"),
         ("$ and €", "usd_and_eur"),
+        ("£ and ¥","gbp_and_jpy"),
         ("(something)", "something"),
         ("[something]", "something"),
         ("[?/something]", "something"),
         ("#_of_thing", "number_of_thing"),
         ("% notional", "pct_notional"),
+        ("with.dots","with_dots"),
+        ("with space","with_space"),
+        ("with ? question mark","with_question_mark"),
+        ("slash/","slash"),
+        ("antislash\\","antislash"),
+        ("quote'","quote_"),
+        ("dash-dash","dash_dash"),
+        ("more\nthan\none\nline","more_than_one_line")
     ]
 
     for s, expected_result in examples:
