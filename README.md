@@ -6,11 +6,11 @@
 # aikit
 Automatic Tool Kit for Machine Learning and Datascience.
 
-The optic is to provide tools to ease the repetitive part of the DataScientist job and so that he/she can focus on modelization. This package is still in alpha and more features will be added.
-Its mains features are :
- * improved and new "scikit-learn like" transformers
- * GraphPipeline : an extension of sklearn Pipeline that handle more generic chain of tranformations
- * an AutoML to automatically search throught several transformers and models
+The objective is to provide tools to ease the repetitive part of the DataScientist job and so that he/she can focus on modelization. This package is still in alpha and more features will be added.
+Its mains features are:
+ * improved and new "scikit-learn like" transformers ;
+ * GraphPipeline : an extension of sklearn Pipeline that handles more generic chains of tranformations ;
+ * an AutoML to automatically search throught several transformers and models.
  
  Full documentation is available here: https://aikit.readthedocs.io/en/latest/
  
@@ -20,7 +20,7 @@ The GraphPipeline object is an extension of `sklearn.pipeline.Pipeline` but the 
 
 The objects takes as input two arguments:
  * models: dictionary of models (each key is the name of a given node, and each corresponding value is the transformer corresponding to that node)
- * edges: list of tuples that link the nodes to each other
+ * edges: list of tuples that links the nodes to each other
 
 Example:
 ```python
@@ -40,7 +40,7 @@ gpipeline = GraphPipeline(
 
 ### AutoML
 
-Aikit contains an AutoML part which will tests several models and transformers for a given dataset.
+Aikit contains an AutoML part which will test several models and transformers for a given dataset.
 
 For example, you can create the following python script `run_automl_titanic.py`:
 ```python
@@ -70,7 +70,7 @@ And then run the command:
 python run_automl_titanic.py run -n 4
 ```
 
-To run the automl using 4 workers, the resul will be stored in the specify folder
+To run the automl using 4 workers, the results will be stored in the specified folder
 You can aggregate those result using:
 ```
 python run_automl_titanic.py result
