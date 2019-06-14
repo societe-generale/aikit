@@ -4,20 +4,26 @@ Created on Fri Jul 27 10:21:41 2018
 
 @author: Lionel Massoulard
 """
-
 import os.path
+import tarfile
+import tempfile
+from contextlib import closing
+from urllib.error import HTTPError, URLError
+
 import pandas as pd
 import numpy as np
+import urllib
+from urllib.parse import urlparse
 
 from aikit.tools.helper_functions import load_json
 
 
 class DatasetEnum:
-    """ enumearation of datasets name """
-
-    #######################
-    ### Public Datasets ###
-    #######################
+    """
+    Enumeration of public dataset names.
+    Can be used to load dataset:
+    >>> titanic_dataset = load_dataset(DatasetEnum.titanic)
+    """
     titanic = "titanic"
     electricity = "electricity"
     housing = "housing"
@@ -27,7 +33,6 @@ class DatasetEnum:
     pokemon = "pokemon"
     wikinews = "wikinews"
     school = "school"
-
     alls = (titanic, electricity, housing, quora, abalone, imdb, pokemon, school)
 
 
@@ -36,20 +41,77 @@ def get_dataset_config():
     config_file = os.path.join(os.path.split(__file__)[0], "config.json")
     if not os.path.exists(config_file):
         return None
-
     return load_json(config_file)
 
 
 DATASET_CONFIG = get_dataset_config()
 
 
-# from aikit.helper_functions import save_json
+DATASET_PUBLIC_URLS = {
+    'titanic': 'https://github.com/gfournier/aikit-datasets/releases/download/titanic-1.0.0/titanic.tar.gz'
+}
 
 
-def find_path(name):
+def _load_public_path(url, cache_dir=None, cache_subdir='datasets'):
+    """
+    Load a public dataset from the specified URL. The data is loaded locally in the cache directory.
+
+    Parameters:
+    -----------
+        url: string
+            Dataset URL
+        cache_dir: string, optional (default=None)
+            Local cache directory, defaults to $AIKIT_HOME then ~/.aikit then $TMP/.aikit if None
+        cache_subdir: string, optional (deault='datasets')
+            Cache subdirectory
+
+    Returns:
+    --------
+        path: string
+            Path to the downloaded file
+    """
+    if cache_dir is None:
+        if 'AIKIT_HOME' in os.environ:
+            cache_dir = os.environ.get('AIKIT_HOME')
+        else:
+            cache_dir = os.path.join(os.path.expanduser('~'), '.aikit')
+    datadir_base = os.path.expanduser(cache_dir)
+    if not os.access(datadir_base, os.W_OK):
+        datadir_base = os.path.join(tempfile.gettempdir(), '.aikit')
+    datadir = os.path.join(datadir_base, cache_subdir)
+    if not os.path.exists(datadir):
+        os.makedirs(datadir)
+
+    fname = os.path.basename(urlparse(url).path)
+    fpath = os.path.join(datadir, fname)
+
+    if not os.path.exists(fpath):
+        error_msg = 'URL fetch failure on {} : {} -- {}'
+        try:
+            try:
+                with closing(urllib.request.urlopen(url)) as response, open(fpath, 'wb') as fd:
+                    fd.write(response.read())
+            except HTTPError as e:
+                raise Exception(error_msg.format(url, e.code, e.msg))
+            except URLError as e:
+                raise Exception(error_msg.format(url, e.errno, e.reason))
+        except (Exception, KeyboardInterrupt):
+            if os.path.exists(fpath):
+                os.remove(fpath)
+            raise
+
+    with tarfile.open(fpath, mode='r:gz') as tar:
+        tar.extractall(os.path.join(datadir))
+
+    return os.path.join(datadir, os.path.splitext(os.path.splitext(fname)[0])[0] + '.csv')
+
+
+def find_path(name, cache_dir=None, cache_subdir='datasets'):
     """ find the path of a database """
-
     name = name.lower()
+
+    if name in DATASET_PUBLIC_URLS:
+        return _load_public_path(DATASET_PUBLIC_URLS[name], cache_dir=cache_dir, cache_subdir=cache_subdir)
 
     if DATASET_CONFIG is None:
         config_file = os.path.join(os.path.split(__file__)[0], "config.json")
@@ -68,25 +130,24 @@ def find_path(name):
     return path
 
 
-def load_titanic():
+def load_titanic(test_size=0.2, random_state=1, cache_dir=None, cache_subdir='datasets'):
     """ load titanic database """
+    path = find_path(DatasetEnum.titanic, cache_dir=cache_dir, cache_subdir=cache_subdir)
 
-    name = DatasetEnum.titanic
+    df = pd.read_csv(path, sep=",", na_values=["?"], keep_default_na=True)
 
-    path = find_path(name)
+    # Shuffle DF and compute train/test split
+    df = df.sample(frac=1, random_state=random_state).reset_index(drop=True)
+    idx = int(len(df) * (1 - test_size))
+    df_train = df.loc[:idx]
+    df_test = df.loc[idx:]
 
-    df_train = pd.read_csv(os.path.join(path, "train.csv"), sep=",")
-    df_test = pd.read_csv(os.path.join(path, "test.csv"), sep=",")
-
-    y_train = df_train["Survived"].values
-
-    del df_train["Survived"]
-    del df_train["PassengerId"]
-
-    del df_test["PassengerId"]
-    y_test = None
+    # Filter columns and build X, y
+    y_train = df_train["survived"].values
+    del df_train["survived"]
+    y_test = df_test["survived"].values
+    del df_test["survived"]
     infos = {}
-
     return df_train, y_train, df_test, y_test, infos
 
 
@@ -264,12 +325,11 @@ def load_school():
     return df_train, y_train, df_test, y_test, infos
 
 
-def load_dataset(name):
+def load_dataset(name, cache_dir=None, cache_subdir='datasets'):
     """ loading datasets """
 
-    ## Public ##
     if name == DatasetEnum.titanic:
-        res = load_titanic()
+        res = load_titanic(cache_dir=cache_dir, cache_subdir=cache_subdir)
 
     elif name == DatasetEnum.electricity:
         res = load_electricity()

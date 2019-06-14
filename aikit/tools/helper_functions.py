@@ -357,7 +357,7 @@ def clean_column(s):
 
     r = s.strip().lower()
     r = re.sub(r"[?\(\)/\[\]\\]", "", r)
-    r = re.sub("[:' \-\.\n]", "_", r)
+    r = re.sub(r"[:' \-\.\n]", "_", r)
     r = re.sub("_+", "_", r)
     r = r.replace("#", "number")
     r = r.replace("%", "pct")
