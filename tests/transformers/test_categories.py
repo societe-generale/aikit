@@ -136,7 +136,7 @@ def test_NumericalEncoder_num():
 
     df_with_none = df.copy()
     df_with_none["cat_col_3"] = df_with_none["cat_col_1"]
-    df_with_none.loc[0:25, "cat_col_3"] = None
+    df_with_none.loc[list(range(25)), "cat_col_3"] = None
 
     encoder2 = NumericalEncoder(encoding_type="num")
     res2 = encoder2.fit_transform(df_with_none)

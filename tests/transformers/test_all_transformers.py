@@ -18,7 +18,6 @@ from sklearn.datasets import make_classification
 
 from aikit.tools.data_structure_helper import generic_hstack
 
-# from aikit.helper_functions import load_pkl
 from tests.helpers.testing_help import rec_assert_equal
 
 from aikit.tools.db_informations import get_columns_informations
@@ -42,7 +41,6 @@ from aikit.tools.helper_functions import pd_match
 
 from aikit.datasets.datasets import load_dataset, DatasetEnum
 
-# In[]
 
 X_train, y_train, X_test, y_test, _ = load_dataset(DatasetEnum.titanic)
 
@@ -63,17 +61,12 @@ y1 = y_train_shuffled.copy()
 df1_nona = df1.fillna(value=0).copy()
 df2_nona = df2.fillna(value=0).copy()
 
-# In[] :
-
 db_infos = get_columns_informations(X_train)
 
 variable_by_type = {
     t: [c for c, v in db_infos.items() if v["TypeOfVariable"] == t]
     for t in (TypeOfVariables.TEXT, TypeOfVariables.CAT, TypeOfVariables.NUM)
 }
-
-
-# In[] : test conversion
 
 
 ADDITIONAL_CONVERSIONS_FUNCTIONS = {
@@ -314,9 +307,9 @@ def verif_generic_hstack(df, dont_test_sparse_array=False, split_index=4):
 
 
 def test_generic_hstack():
-    verif_generic_hstack(X_train.loc[:, variable_by_type["NUM"]])
-    verif_generic_hstack(X_train_shuffled.loc[:, variable_by_type["NUM"]])
-    verif_generic_hstack(X_test.loc[:, variable_by_type["NUM"]])
+    verif_generic_hstack(X_train.loc[:, variable_by_type["NUM"]], split_index=4)
+    verif_generic_hstack(X_train_shuffled.loc[:, variable_by_type["NUM"]], split_index=4)
+    verif_generic_hstack(X_test.loc[:, variable_by_type["NUM"]], split_index=4)
 
     verif_generic_hstack(X_train.loc[:, variable_by_type["CAT"]], dont_test_sparse_array=True, split_index=2)
     verif_generic_hstack(X_train_shuffled.loc[:, variable_by_type["CAT"]], dont_test_sparse_array=True, split_index=2)
@@ -432,9 +425,9 @@ def verif_encoder(
         df1_transformed_a = encoder_a.fit_transform(df1_conv, y=y1)  # Other test with an y (might be None or not)
         df2_transformed_a = encoder_a.transform(df2_conv)
 
-        params_3 = encoder_a.get_params()  # Verif that get_params didn't change after fit
-        # Rmk : might no be enforce ON all transformeurs
-
+        # Verify that get_params didn't change after fit
+        # Rmk : might not be enforced on all transformers
+        params_3 = encoder_a.get_params()
         rec_assert_equal(params_0, params_3)
 
         assert df1_transformed_a is not None  # verify that something was created
@@ -841,7 +834,7 @@ def test_NumericalEncoder_numerical3():
         klass=NumericalEncoder,
         enc_kwargs={"columns_to_keep": [], "encoding_type": "num"},
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),  # DataTypes.NumpyArray),
-        additional_test_functions=[check_all_numerical, check_no_null, nb_columns_verify(3)],
+        additional_test_functions=[check_all_numerical, check_no_null, nb_columns_verify(5)],
     )
 
 
@@ -990,6 +983,7 @@ def verif_TargetEncoderClassifier():
                 test_TargetEncoderClassifier3(cv=cv, noise_level=noise_level, smoothing_value=smoothing_value)
 
 
+@pytest.mark.longtest
 @pytest.mark.parametrize("cv, noise_level, smoothing_value", list(itertools.product((None, 10), (None, 0.1), (0, 1))))
 def test_TargetEncoderClassifierEntropy1(cv, noise_level, smoothing_value):
 
@@ -2012,7 +2006,7 @@ def test_CdfScaler1():
         df2=df2_nona.loc[:, variable_by_type["NUM"]],
         y1=y_train_shuffled,
         klass=CdfScaler,
-        enc_kwargs={},
+        enc_kwargs={"random_state": 123},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray),
         additional_test_functions=[
             check_all_numerical,
@@ -2030,7 +2024,7 @@ def test_CdfScaler2():
         df2=df2_nona.loc[:, variable_by_type["NUM"]],
         y1=y_train_shuffled,
         klass=CdfScaler,
-        enc_kwargs={"distribution": "kernel"},
+        enc_kwargs={"distribution": "kernel", "random_state": 123},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray),
         additional_test_functions=[
             check_all_numerical,

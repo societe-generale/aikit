@@ -39,11 +39,13 @@ class Test_lightgbm(object):
         lgbm = LGBMClassifier()
         lgbm.fit(Xsparse, y)
 
+    """
     @pytest.mark.xfail
     def test_sparse_int(self):
         Xsparse_int = convert_generic(X, output_type=DataTypes.SparseArray).astype(np.int32)
         lgbm = LGBMClassifier()
         lgbm.fit(Xsparse_int, y)
+    """
 
     def test_sparse_df(self):
         Xsparse_df = convert_generic(X, output_type=DataTypes.SparseDataFrame)
