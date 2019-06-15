@@ -7,7 +7,6 @@ Created on Thu Jan 11 09:41:27 2018
 
 import re
 
-import inspect
 
 # from scipy import sparse
 import numpy as np
@@ -20,6 +19,7 @@ from aikit.enums import DataTypes
 from aikit.tools.helper_functions import intersect, diff, exception_improved_logging
 
 import aikit.tools.data_structure_helper as dsh
+from aikit.tools.helper_functions import function_has_named_argument
 
 from sklearn.exceptions import NotFittedError
 
@@ -345,12 +345,6 @@ def _concat(*args, sep="__"):
 
 
 # In[]
-
-
-def function_has_named_argument(f, attr):
-    """ return True if a given function accept a given attribute """
-    return attr in inspect.getfullargspec(f).args
-
 
 def try_to_find_features_names(model, input_features=None):
     # TODO : il faudrait que ca prenne en entree un champs 'input_features_names' a passer a get_features_names
