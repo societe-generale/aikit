@@ -12,10 +12,13 @@ import scipy.sparse as sp
 
 from collections import OrderedDict
 from time import time
+import numbers
 
 import sklearn.model_selection
 
 import sklearn.base
+
+from aikit.tools.helper_functions import function_has_named_argument
 
 
 def is_clusterer(estimator):
@@ -133,6 +136,91 @@ def create_scoring(estimator, scoring):
     return scorers
 
 
+
+def _score_with_group(estimator,
+           X_test,
+           y_test,
+           groups_test,
+           scorer,
+           is_multimetric=False):
+    """Compute the score(s) of an estimator on a given test set.
+
+    Will return a single float if is_multimetric is False and a dict of floats,
+    if is_multimetric is True
+    """
+    # Copy of sklearn '_score' but where the 'groups' can be passed to the scorer
+    
+
+    if is_multimetric:
+        return _multimetric_score_with_group(estimator, X_test, y_test, groups_test, scorer)
+    else:
+        has_group = groups_test is not None and function_has_named_argument(scorer, "groups")
+        # True if :
+        # * group is passed to the function
+        # * the scorer accepts a 'group' argument
+
+        if y_test is None:
+            if has_group:
+                score = scorer(estimator, X_test, groups_test)
+            else:
+                score = scorer(estimator, X_test)
+        else:
+            if has_group:
+                score = scorer(estimator, X_test, y_test, groups_test)
+            else:
+                score = scorer(estimator, X_test, y_test)
+
+        if hasattr(score, 'item'):
+            try:
+                # e.g. unwrap memmapped scalars
+                score = score.item()
+            except ValueError:
+                # non-scalar?
+                pass
+
+        if not isinstance(score, numbers.Number):
+            raise ValueError("scoring must return a number, got %s (%s) "
+                             "instead. (scorer=%r)"
+                             % (str(score), type(score), scorer))
+    return score
+
+
+def _multimetric_score_with_group(estimator, X_test, y_test, groups_test, scorers):
+    """Return a dict of score for multimetric scoring"""
+    # Copy of sklearn '_multimetric_score' but where the 'groups' can be passed to the scorer
+    scores = {}
+
+    for name, scorer in scorers.items():
+        has_group = groups_test is not None and function_has_named_argument(scorer, "groups")
+        if y_test is None:
+            if has_group:
+                score = scorer(estimator, X_test, groups_test)
+            else:
+                score = scorer(estimator, X_test)
+            
+                
+        else:
+            if has_group:
+                score = scorer(estimator, X_test, y_test, groups_test)
+            else:
+                score = scorer(estimator, X_test, y_test)
+
+        if hasattr(score, 'item'):
+            try:
+                # e.g. unwrap memmapped scalars
+                score = score.item()
+            except ValueError:
+                # non-scalar?
+                pass
+        scores[name] = score
+
+        if not isinstance(score, numbers.Number):
+            raise ValueError("scoring must return a number, got %s (%s) "
+                             "instead. (scorer=%s)"
+                             % (str(score), type(score), name))
+    return scores
+
+
 def cross_validation(
     estimator,
     X,
@@ -240,6 +328,8 @@ def cross_validation(
 
     ### make everything indexable ###
     X, y = sklearn.model_selection._validation.indexable(X, y)
+    if groups is not None:
+        groups, _ = sklearn.model_selection._validation.indexable(groups,None)
 
     if isinstance(scoring, str):
         scoring = [scoring]
@@ -343,7 +433,18 @@ def cross_validation(
 
         ### split train test ###
         X_train, y_train = sklearn.model_selection._validation._safe_split(estimator, X, y, train)
+        if groups is not None:
+            groups_train, _ = sklearn.model_selection._validation._safe_split(estimator, groups,None, train)
+        else:
+            groups_train = None
+    
+        
         X_test, y_test = sklearn.model_selection._validation._safe_split(estimator, X, y, test, train)
+        if groups is not None:
+            groups_test, _ = sklearn.model_selection._validation._safe_split(estimator, groups,None, test, train)
+        else:
+            groups_test = None
+        
 
         if hasattr(X_test, "index"):
             index_test = X_test.index
@@ -383,15 +484,15 @@ def cross_validation(
         ### Score test ###
         if not no_scoring:
             start_score = time()
-            test_scores_dictionary = sklearn.model_selection._validation._score(
-                cloned_estimator, X_test, y_test, scorer=scorers, is_multimetric=True
+            test_scores_dictionary = _score_with_group(
+                cloned_estimator, X_test, y_test, groups_test, scorer=scorers, is_multimetric=True
             )
             # Here : scorers is a dictionary of scorers, hence is_multimetric = True
             score_time = time() - start_score
 
             ### Score train ###
-            train_scores_dictionary = sklearn.model_selection._validation._score(
-                cloned_estimator, X_train, y_train, scorer=scorers, is_multimetric=True
+            train_scores_dictionary = _score_with_group(
+                cloned_estimator, X_train, y_train, groups_train, scorer=scorers, is_multimetric=True
             )
 
             ### Put everything into a dictionnary ###
