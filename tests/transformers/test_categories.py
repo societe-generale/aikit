@@ -79,8 +79,15 @@ def test_NumericalEncoder_dummy():
     df2.loc[1, "cat_col_2"] = None  # Something None
 
     res2 = encoder.transform(df2)
+
     assert res2.loc[0, col1].sum() == 0  # no dummy activated
+    assert res2.loc[0,"cat_col_2__" + df2.loc[0,"cat_col_2"]] == 1 #activated in the right position
+    assert res2.loc[0,col2].sum() == 1 # only one dummy activate
+    
     assert res2.loc[1, col2].sum() == 0  # no dummy activated
+    assert res2.loc[1, "cat_col_1__" + df2.loc[1,"cat_col_1"]] == 1 # activated in the right position
+    assert res2.loc[1,col1].sum() == 1
+
 
     df_with_none = df.copy()
     df_with_none["cat_col_3"] = df_with_none["cat_col_1"]

@@ -273,7 +273,7 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
 
                 resultv = result.values + self._variable_shift[col]
 
-                ii_not_minus_one = resultv != -1
+                ii_not_minus_one = result.values != -1
 
                 Xres[nn[ii_not_minus_one], resultv[ii_not_minus_one]] = 1
 
