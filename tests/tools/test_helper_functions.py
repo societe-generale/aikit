@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 
 from aikit.tools.helper_functions import (
+    function_has_named_argument,
     diff,
     intersect,
     deep_flatten,
@@ -22,6 +23,32 @@ from aikit.tools.helper_functions import (
     clean_column,
 )
 
+def test_function_has_named_argument():
+    def f1(a, b):
+        pass
+
+    def f2(a, b, **kwargs):
+        pass
+
+    def f3(a=None, b=10, *args, **kwargs):
+        pass
+
+    class Foo(object):
+        def f(self, a, b):
+            pass
+
+        @staticmethod
+        def f2(a, b):
+            pass
+        
+    class Functor(object):
+        def __call__(self,a,b):
+            pass
+
+    for f in (f1, f2, f3, Foo.f, Foo().f, Foo.f2, Foo().f2, Functor()):
+        assert function_has_named_argument(f, "a")
+        assert function_has_named_argument(f, "b")
+        assert not function_has_named_argument(f, "c")
 
 def test_diff():
     list1 = [1, 2, 3]
