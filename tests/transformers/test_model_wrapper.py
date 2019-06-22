@@ -16,8 +16,7 @@ from aikit.transformers.model_wrapper import ModelWrapper, ColumnsSelector
 from aikit.transformers.model_wrapper import (
     _concat,
     DebugPassThrough,
-    try_to_find_features_names,
-    function_has_named_argument,
+    try_to_find_features_names
 )
 from aikit.enums import DataTypes
 
@@ -517,30 +516,6 @@ def test_dummy_wrapper_features_with_input_features():
 
 
 # In[]
-
-
-def test_function_has_named_argument():
-    def f1(a, b):
-        pass
-
-    def f2(a, b, **kwargs):
-        pass
-
-    def f3(a=None, b=10, *args, **kwargs):
-        pass
-
-    class Foo(object):
-        def f(self, a, b):
-            pass
-
-        @staticmethod
-        def f2(a, b):
-            pass
-
-    for f in (f1, f2, f3, Foo.f, Foo().f, Foo.f2, Foo().f2):
-        assert function_has_named_argument(f, "a")
-        assert function_has_named_argument(f, "b")
-        assert not function_has_named_argument(f, "c")
 
 
 def verif_all():

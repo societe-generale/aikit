@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 
 from aikit.tools.helper_functions import (
+    function_has_named_argument,
     diff,
     intersect,
     deep_flatten,
@@ -22,6 +23,32 @@ from aikit.tools.helper_functions import (
     clean_column,
 )
 
+def test_function_has_named_argument():
+    def f1(a, b):
+        pass
+
+    def f2(a, b, **kwargs):
+        pass
+
+    def f3(a=None, b=10, *args, **kwargs):
+        pass
+
+    class Foo(object):
+        def f(self, a, b):
+            pass
+
+        @staticmethod
+        def f2(a, b):
+            pass
+        
+    class Functor(object):
+        def __call__(self,a,b):
+            pass
+
+    for f in (f1, f2, f3, Foo.f, Foo().f, Foo.f2, Foo().f2, Functor()):
+        assert function_has_named_argument(f, "a")
+        assert function_has_named_argument(f, "b")
+        assert not function_has_named_argument(f, "c")
 
 def test_diff():
     list1 = [1, 2, 3]
@@ -216,14 +243,24 @@ def test_md5_hash():
 
 def test_clean_column():
     examples = [
+        ("UPPER_CASED","upper_cased"),
         ("already_clean", "already_clean"),
         ("too_many_dash___", "too_many_dash_"),
         ("$ and €", "usd_and_eur"),
+        ("£ and ¥","gbp_and_jpy"),
         ("(something)", "something"),
         ("[something]", "something"),
         ("[?/something]", "something"),
         ("#_of_thing", "number_of_thing"),
         ("% notional", "pct_notional"),
+        ("with.dots","with_dots"),
+        ("with space","with_space"),
+        ("with ? question mark","with_question_mark"),
+        ("slash/","slash"),
+        ("antislash\\","antislash"),
+        ("quote'","quote_"),
+        ("dash-dash","dash_dash"),
+        ("more\nthan\none\nline","more_than_one_line")
     ]
 
     for s, expected_result in examples:
