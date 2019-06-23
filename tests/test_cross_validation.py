@@ -22,7 +22,7 @@ from sklearn.cluster import KMeans
 from sklearn.pipeline import Pipeline
 from sklearn.base import is_classifier, is_regressor, RegressorMixin, BaseEstimator
 
-from sklearn.datasets import make_classification
+from sklearn.datasets import make_classification, make_regression
 import sklearn.model_selection
 from sklearn.model_selection import (StratifiedKFold,
                                      KFold,
@@ -1260,3 +1260,100 @@ def test_cross_validation_with_max_proba_accuracy():
     assert cv_res["test_mp_acc"].max() <= 1
     assert cv_res["test_mp_acc"].min() >= 0
 
+@pytest.mark.parametrize('add_third_class, cast_data_frame, cast_string',
+                         list(itertools.product([True,False],[True,False],[True,False])) )
+def test_cross_validation_classifier_multi_output(add_third_class,
+                                       cast_data_frame,
+                                       cast_string):
+
+    estimator = RandomForestClassifier(n_estimators=10, random_state=123)
+    
+    X, y = make_classification(n_samples=10)
+    yd2 = np.concatenate((y.reshape((-1,1)),y.reshape((-1,1))),axis=1)
+    
+    if add_third_class:
+        yd2[0,1] = 2
+
+    if cast_string:
+        yd2 = 'cl'+yd2.astype('str').astype('object')
+    
+    if cast_data_frame:
+        yd2 = pd.DataFrame(yd2)
+
+
+    cv_res = cross_validation(estimator, X, yd2, cv=2,scoring="accuracy")
+    assert cv_res.shape[0] == 2
+    assert isinstance(cv_res, pd.DataFrame)
+    assert "test_accuracy" in cv_res.columns
+    assert "train_accuracy" in cv_res.columns
+    
+    cv_res, yhat = cross_validation(estimator, X, yd2,
+                                    cv=2,
+                                    scoring="accuracy",
+                                    return_predict=True,
+                                    method="predict")
+
+    assert cv_res.shape[0] == 2
+    assert isinstance(cv_res, pd.DataFrame)
+    assert "test_accuracy" in cv_res.columns
+    assert "train_accuracy" in cv_res.columns
+    assert isinstance(yhat, np.ndarray)
+    assert yhat.shape == yd2.shape
+    
+    cv_res, yhat_proba = cross_validation(estimator, X,
+                                          yd2,
+                                          cv=2,
+                                          scoring="accuracy",
+                                          return_predict=True,
+                                          method="predict_proba")
+
+    assert cv_res.shape[0] == 2
+    assert isinstance(cv_res, pd.DataFrame)
+    assert "test_accuracy" in cv_res.columns
+    assert "train_accuracy" in cv_res.columns
+    assert isinstance(yhat_proba, list)
+    assert len(yhat_proba) == 2
+    for j, p in enumerate(yhat_proba):
+        assert p.shape == (yd2.shape[0], 2)
+        assert (p.sum(axis=1)== 1).all()
+        assert isinstance(p, pd.DataFrame)
+        assert p.min().min() >= 0
+        assert p.max().max() <= 1
+        
+        if cast_data_frame:
+            assert list(p.columns) == list(np.sort(np.unique(yd2.iloc[:,j])))
+        else:
+            assert list(p.columns) == list(np.sort(np.unique(yd2[:,j])))
+
+
+@pytest.mark.parametrize('cast_data_frame', [True, False])
+def test_cross_validation_regressor_multi_output(cast_data_frame):
+
+    estimator = RandomForestRegressor(n_estimators=10, random_state=123)
+    
+    X, y = make_regression(n_samples=10)
+    yd2 = np.concatenate((y.reshape((-1,1)),y.reshape((-1,1))),axis=1)
+    
+    if cast_data_frame:
+        yd2 = pd.DataFrame(yd2)
+
+
+    cv_res = cross_validation(estimator, X, yd2, cv=2,scoring="r2")
+    assert cv_res.shape[0] == 2
+    assert isinstance(cv_res, pd.DataFrame)
+    assert "test_r2" in cv_res.columns
+    assert "train_r2" in cv_res.columns
+    
+    cv_res, yhat = cross_validation(estimator, X, yd2,
+                                    cv=2,
+                                    scoring="r2",
+                                    return_predict=True,
+                                    method="predict")
+
+    assert cv_res.shape[0] == 2
+    assert isinstance(cv_res, pd.DataFrame)
+    assert "test_r2" in cv_res.columns
+    assert "train_r2" in cv_res.columns
+    assert isinstance(yhat, np.ndarray)
+    assert yhat.shape == yd2.shape
+    
