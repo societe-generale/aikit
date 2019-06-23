@@ -293,6 +293,33 @@ class OutSamplerTransformer(BaseEstimator, TransformerMixin):
 
         self._already_fitted = False
 
+    @staticmethod
+    def _get_target_info(y, is_classifier):
+            
+        multi_output=False
+        y_names = None
+        nby = None
+        if getattr(y,"ndim", 1) > 1 and y.shape[1] > 1:
+            multi_output=True
+            if hasattr(y, "columns"):
+                y_names = list(y.columns)
+            else:
+                y_names = ["output%d" % d for d in range(y.shape[1])]
+                
+            if is_classifier:
+                if hasattr(y, "iloc"):
+                    nby = [len(np.unique(y.iloc[:,j])) for j in range(y.shape[1])]
+                else:
+                    nby = [len(np.unique(y[:,j])) for j in range(y.shape[1])]
+        else:
+            if is_classifier:
+                nby = len(np.unique(y)) # won't work for multi output
+
+        return {"multi_output":multi_output,
+                "nby":nby,
+                "y_names":y_names}
+                
+
     def fit(self, X, y):
 
         self._already_fitted = True
@@ -306,26 +333,65 @@ class OutSamplerTransformer(BaseEstimator, TransformerMixin):
         else:
             raise ValueError("model should either be a Classifier or a Regressor")
 
-        if self._is_classifier:
-            self._nby = len(np.unique(y))
-
+        self._target_info = self._get_target_info(y, self._is_classifier)
+        
         self.model.fit(X, y)
 
         if self._is_classifier:
             # Classification model
-            if self._nby == 2:
-                self._feature_names = ["%s__%s" % (self.model.__class__.__name__, self.model.classes_[1])]
+            if self._target_info["multi_output"]:
+                all_features_names = []
+                for d in range(y.shape[1]):
+                    if self._target_info["nby"][d] == 2:
+                        all_features_names += ["%s__%s__%s" % (self._target_info["y_names"][d], self.model.__class__.__name__, self.model.classes_[d][1])]
+                    else:
+                        all_features_names += ["%s__%s__%s" % (self._target_info["y_names"][d], self.model.__class__.__name__, c) for c in self.model.classes_[d]]
+                        
+                self._feature_names = all_features_names
             else:
-                self._feature_names = ["%s__%s" % (self.model.__class__.__name__, c) for c in self.model.classes_]
+                if self._target_info["nby"] == 2:
+                    self._feature_names = ["%s__%s" % (self.model.__class__.__name__, self.model.classes_[1])]
+                else:
+                    self._feature_names = ["%s__%s" % (self.model.__class__.__name__, c) for c in self.model.classes_]
 
         else:
             # Regression model
-            self._feature_names = ["%s__target" % self.model.__class__.__name__]
+            if self._target_info["multi_output"]:
+                self._feature_names = ["%s__%s__target" % (yname, self.model.__class__.__name__) for yname in self._target_info["y_names"]]
+            else:
+                self._feature_names = ["%s__target" % self.model.__class__.__name__]
 
         if self.columns_prefix is not None:
             self._feature_names = ["%s__%s" % (self.columns_prefix, c) for c in self._feature_names]
 
         return self
+    
+    @staticmethod
+    def _format_predictions(predictions,
+                            is_classifier,
+                            target_info,
+                            ):
+        if is_classifier:
+            if target_info["multi_output"]:
+                
+                all_res = []
+                for d, p in enumerate(predictions):
+                    if target_info["nby"][d] == 2:
+                        all_res.append( maketwodimensions( p[:,1] ) )
+                    else:
+                        all_res.append( maketwodimensions( p ) )
+                res = np.concatenate(all_res, axis=1)
+
+            else:
+                if target_info["nby"] == 2:
+                    res = maketwodimensions(predictions[:, 1])
+                else:
+                    res = maketwodimensions(predictions)
+
+        else:
+            res = maketwodimensions(predictions) 
+             
+        return res
 
     def transform(self, X):
 
@@ -334,22 +400,23 @@ class OutSamplerTransformer(BaseEstimator, TransformerMixin):
                 "This %s instance is not fitted yet. Call 'fit' with "
                 "appropriate arguments before using this method." % type(self).__name__
             )
-
+            
         if self._is_classifier:
-            if self._nby == 2:
-                res = maketwodimensions(self.model.predict_proba(X)[:, 1])
-            else:
-                res = maketwodimensions(self.model.predict_proba(X))
-
+            predictions = self.model.predict_proba(X)
         else:
-            res = maketwodimensions(self.model.predict(X))
-
+            predictions = self.model.predict(X)
+    
+        res = self._format_predictions(predictions,
+                                       is_classifier=self._is_classifier,
+                                       target_info=self._target_info)
+        
         res = convert_generic(res, output_type=self.desired_output_type)
 
         if hasattr(res, "columns"):
             res.columns = self.get_feature_names()
-
+            
         return res
+
 
     def fit_transform(self, X, y, groups=None):
 
@@ -370,47 +437,24 @@ class OutSamplerTransformer(BaseEstimator, TransformerMixin):
             return self.fit(X, y).transform(X)
             # No CV in that case
 
-        else:
-            self._cv = create_cv(
-                self.cv, y, random_state=self.random_state, classifier=self._is_classifier, shuffle=True
-            )
-
+        self._cv = create_cv(
+            self.cv, y, random_state=self.random_state, classifier=self._is_classifier, shuffle=True
+        )
+        
         if self._is_classifier:
-            self._nby = len(np.unique(y))
-
-            if self._nby == 2:
-                all_yhat_pred = maketwodimensions(
-                    cross_val_predict(self.model, X, y, groups=groups, cv=self._cv, method="predict_proba")[:, 1]
-                )
-            else:
-                all_yhat_pred = maketwodimensions(
-                    cross_val_predict(self.model, X, y, groups=groups, cv=self._cv, method="predict_proba")
-                )
+            predictions = cross_val_predict(self.model, X, y, groups=groups, cv=self._cv, method="predict_proba")
         else:
-            all_yhat_pred = maketwodimensions(
-                cross_val_predict(self.model, X, y, groups=groups, cv=self._cv, method="predict")
-            )
+            predictions = cross_val_predict(self.model, X, y, groups=groups, cv=self._cv, method="predict")
+            
+            
+        self.fit(X, y)
+        
+        result = self._format_predictions(predictions,
+                                          is_classifier=self._is_classifier,
+                                          target_info = self._target_info)
 
-        self.model.fit(X, y)
 
-        if self._is_classifier:
-            # Classification model
-            if self._nby == 2:
-                self._feature_names = ["%s__%s" % (self.model.__class__.__name__, self.model.classes_[1])]
-            else:
-                self._feature_names = ["%s__%s" % (self.model.__class__.__name__, c) for c in self.model.classes_]
-
-        else:
-            # Regression model
-            self._feature_names = ["%s__target" % self.model.__class__.__name__]
-
-        if self.columns_prefix is not None:
-            self._feature_names = ["%s__%s" % (self.columns_prefix, c) for c in self._feature_names]
-
-        if hasattr(all_yhat_pred, "columns"):
-            all_yhat_pred.columns = self.get_feature_names()
-
-        return all_yhat_pred
+        return result
 
     def get_feature_names(self):
         return self._feature_names
@@ -445,29 +489,28 @@ class OutSamplerTransformer(BaseEstimator, TransformerMixin):
             raise ValueError("I need a cv do cross-validate")
             # cv = create_cv(self.cv, y, random_state = self.random_state, classifier = self._is_classifier, shuffle = True)
 
-        cv = create_cv(cv, y, random_state=123, classifier=_is_classifier, shuffle=True)
+        cv = create_cv(cv, y, random_state=123, classifier=is_classifier, shuffle=True)
 
+        target_info = self._get_target_info(y, is_classifier)
         if not no_scoring:
             raise ValueError("no scoring should be True for a transformer")
 
         if method != "transform":
             raise ValueError("method should be 'transform' for a transformer")
+            
+            
 
         if _is_classifier:
-            _nby = len(np.unique(y))
-
-            if _nby == 2:
-                all_yhat_pred = maketwodimensions(
-                    cross_val_predict(self.model, X, y, groups=groups, cv=cv, method="predict_proba")[:, 1]
-                )
-            else:
-                all_yhat_pred = maketwodimensions(
-                    cross_val_predict(self.model, X, y, groups=groups, cv=cv, method="predict_proba")
-                )
+            predictions = cross_val_predict(self.model, X, y, groups=groups, cv=cv, method="predict_proba")
         else:
-            all_yhat_pred = maketwodimensions(
-                cross_val_predict(self.model, X, y, groups=groups, cv=cv, method="predict")
-            )
+            predictions = cross_val_predict(self.model, X, y, groups=groups, cv=cv, method="predict")
+            
+        result = self._format_predictions(predictions,
+                                          is_classifier = _is_classifier,
+                                          target_info   = target_info)
+        
+        
+        
 
         # None : no scoring, this is a transformer
-        return None, all_yhat_pred
+        return None, result
