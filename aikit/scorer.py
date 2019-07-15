@@ -9,7 +9,8 @@ import sklearn.metrics
 from sklearn.metrics.regression import _check_reg_targets, r2_score
 from sklearn.metrics import silhouette_score, calinski_harabaz_score, davies_bouldin_score
 
-from sklearn.metrics.scorer import SCORERS, _BaseScorer
+from sklearn.metrics.scorer import SCORERS, _BaseScorer, type_of_target
+
 
 import numpy as np
 import pandas as pd
@@ -163,6 +164,74 @@ class _CustomPredictScorer(_BaseScorer):
 def make_scorer_clustering(score_func, greater_is_better, **kwargs):
     sign = 1 if greater_is_better else -1
     return _CustomPredictScorer(score_func, sign, kwargs)
+
+
+class _GroupProbaScorer(_BaseScorer):
+    def __call__(self, clf, X, y, groups, sample_weight=None):
+        """Evaluate predicted probabilities for X relative to y_true.
+
+        Parameters
+        ----------
+        clf : object
+            Trained classifier to use for scoring. Must have a predict_proba
+            method; the output of that is used to compute the score.
+
+        X : array-like or sparse matrix
+            Test data that will be fed to clf.predict_proba.
+
+        y : array-like
+            Gold standard target values for X. These must be class labels,
+            not probabilities.
+        
+        groups : array-like
+            The groups to use for the scoring
+
+        sample_weight : array-like, optional (default=None)
+            Sample weights.
+
+        Returns
+        -------
+        score : float
+            Score function applied to prediction of estimator on X.
+        """
+        y_type = type_of_target(y)
+        y_pred = clf.predict_proba(X)
+        if y_type == "binary":
+            if y_pred.shape[1] == 2:
+                y_pred = y_pred[:, 1]
+            else:
+                raise ValueError('got predict_proba of shape {},'
+                                 ' but need classifier with two'
+                                 ' classes for {} scoring'.format(
+                                     y_pred.shape, self._score_func.__name__))
+        if sample_weight is not None:
+            return self._sign * self._score_func(y,
+                                                 y_pred,
+                                                 groups,
+                                                 sample_weight=sample_weight,
+                                                 **self._kwargs)
+        else:
+            return self._sign * self._score_func(y,
+                                                 y_pred,
+                                                 groups, **self._kwargs)
+
+    def _factory_args(self):
+        return ", needs_proba=True"
+    
+def max_proba_group_accuracy(y, y_pred, groups):
+    """ group by group average of 'True' if prediction with highest probability is True """
+    if y_pred.ndim != 1:
+        raise ValueError("this function is for binary classification only")
+
+    df = pd.DataFrame({"proba":y_pred,"groups":groups,"y":y})
+    
+    def _max_proba_is_true(sub_group):
+        return sub_group.sort_values(by="proba",ascending=False)["y"].iloc[0]
+    
+    return df.groupby("groups").apply(_max_proba_is_true).mean()
+
+
+
 
 
 log_r2_scorer = sklearn.metrics.make_scorer(log_r2_score)

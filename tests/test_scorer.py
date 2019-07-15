@@ -15,8 +15,8 @@ from sklearn.cluster import KMeans
 import pytest
 
 import aikit.scorer  # import this will add to the list of scorer
+from aikit.scorer import _GroupProbaScorer, max_proba_group_accuracy
 
-assert aikit.scorer  # to remove python warning 'imported but unused'
 
 
 @pytest.mark.xfail
@@ -141,3 +141,52 @@ def test_davies_bouldin_score():
     assert score1 <= 0
     assert math.isnan(score2)
     assert math.isnan(score3)
+
+
+def test_max_proba_group_accuracy():
+    y = np.array([
+         1,0,0,0,
+         1,0,0,0,
+         1,0,0,0,
+         1,0,0,0])
+    groups = np.array([
+            0,0,0,0,
+            1,1,1,1,
+            2,2,2,2,
+            3,3,3,3])
+    
+    p = np.array([
+         0.25,0.1,0.1,0.1,     # max proba is True
+         0.25,0.5,0.1,0.1,     # max proba is False
+         0,0.1,0,0.1,          # max proba is False
+         0.75,0.1, 0.2,0.1])   # max proba is True
+         
+    r = max_proba_group_accuracy(y,p,groups)
+
+    assert r == 0.5
+    
+# In[]
+    
+def test__GroupProbaScorer():
+    np.random.seed(123)
+    X = np.random.randn(100,10)
+    y = 1*(np.random.randn(100)>0)
+    groups = np.array([0]*25 + [1] * 25 + [2] * 25 + [3]*25)
+    
+    
+    logit = LogisticRegression(solver="lbfgs", random_state=123)
+    logit.fit(X,y)
+    
+    
+    scorer = _GroupProbaScorer(score_func=max_proba_group_accuracy, sign=1, kwargs={})
+    
+    res = scorer(logit, X, y, groups)
+    
+    assert isinstance(res, float)
+    assert 0 <= res <= 1
+    assert not pd.isnull(res)
+    
+    
+    with pytest.raises(TypeError):
+        res = scorer(logit, X, y) # should not work because group is missing
+        

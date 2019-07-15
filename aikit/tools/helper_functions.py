@@ -12,6 +12,7 @@ import numpy as np
 
 from decorator import decorate
 import sys
+import inspect
 
 from collections import OrderedDict
 
@@ -27,6 +28,10 @@ from sklearn.utils import check_random_state, safe_indexing
 
 from aikit.tools.json_helper import SpecialJSONEncoder
 
+
+def function_has_named_argument(f, attr):
+    """ return True if a given function accept a given attribute """
+    return attr in inspect.getfullargspec(f).args
 
 def diff(list1, list2):
     """ difference list1 minus list2 """

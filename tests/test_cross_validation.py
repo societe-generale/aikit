@@ -12,6 +12,7 @@ import numpy as np
 
 import itertools
 from collections import OrderedDict
+import numbers
 
 import sklearn
 from sklearn.linear_model import LogisticRegression
@@ -20,21 +21,33 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.pipeline import Pipeline
 from sklearn.base import is_classifier, is_regressor, RegressorMixin, BaseEstimator
-from aikit.cross_validation import is_clusterer
 
 from sklearn.datasets import make_classification
 import sklearn.model_selection
-from sklearn.model_selection import StratifiedKFold, KFold, TimeSeriesSplit, cross_val_predict
-from sklearn.exceptions import NotFittedError
+from sklearn.model_selection import (StratifiedKFold,
+                                     KFold,
+                                     TimeSeriesSplit,
+                                     GroupKFold,
+                                     cross_val_predict)
 
+from sklearn.model_selection._validation import _score, _multimetric_score
+from sklearn.exceptions import NotFittedError
 
 from aikit.tools.data_structure_helper import convert_generic
 from aikit.enums import DataTypes
 from aikit.transformers.model_wrapper import DebugPassThrough
 from aikit.pipeline import GraphPipeline
 
-from aikit.cross_validation import cross_validation, create_scoring, create_cv, score_from_params_clustering
-from aikit.scorer import SCORERS
+from aikit.cross_validation import (cross_validation,
+                                    create_scoring,
+                                    create_cv,
+                                    score_from_params_clustering,
+                                    is_clusterer,
+                                    _score_with_group,
+                                    _multimetric_score_with_group
+                                    )
+
+from aikit.scorer import SCORERS, _GroupProbaScorer, max_proba_group_accuracy
 
 # In[] : verification of sklearn behavior
 
@@ -240,13 +253,19 @@ def test_create_cv():
     assert cv is cv_res
 
 
-def test_cross_validation0():
+@pytest.mark.parametrize("with_groups", [True, False])
+def test_cross_validation0(with_groups):
     np.random.seed(123)
     X = np.random.randn(100, 10)
     y = np.random.randn(100)
 
+    if with_groups:
+        groups = np.array([0]*25+[1]*25+[2]*25+[3]*25)
+    else:
+        groups = None
+
     forest = RandomForestRegressor(n_estimators=10)
-    result = cross_validation(forest, X, y, scoring=["neg_mean_squared_error", "r2"], cv=10)
+    result = cross_validation(forest, X, y, groups=groups, scoring=["neg_mean_squared_error", "r2"], cv=10)
 
     with pytest.raises(sklearn.exceptions.NotFittedError):
         forest.predict(X)
@@ -265,7 +284,7 @@ def test_cross_validation0():
     assert len(result) == 10
 
     forest = RandomForestRegressor(n_estimators=10,random_state=123)
-    result, yhat = cross_validation(forest, X, y, scoring=["neg_mean_squared_error", "r2"], cv=10, return_predict=True)
+    result, yhat = cross_validation(forest, X, y, groups=groups, scoring=["neg_mean_squared_error", "r2"], cv=10, return_predict=True)
     with pytest.raises(sklearn.exceptions.NotFittedError):
         forest.predict(X)
 
@@ -288,7 +307,7 @@ def test_cross_validation0():
     y = np.array(["A"] * 33 + ["B"] * 33 + ["C"] * 34)
     forest = RandomForestClassifier(n_estimators=10,random_state=123)
 
-    result = cross_validation(forest, X, y, scoring=["accuracy", "neg_log_loss"], cv=10)
+    result = cross_validation(forest, X, y, groups=groups, scoring=["accuracy", "neg_log_loss"], cv=10)
     with pytest.raises(sklearn.exceptions.NotFittedError):
         forest.predict(X)
 
@@ -308,7 +327,7 @@ def test_cross_validation0():
 
     forest = RandomForestClassifier(random_state=123, n_estimators=10)
     result, yhat = cross_validation(
-        forest, X, y, scoring=["accuracy", "neg_log_loss"], cv=10, return_predict=True, method="predict"
+        forest, X, y, groups=groups, scoring=["accuracy", "neg_log_loss"], cv=10, return_predict=True, method="predict"
     )
     with pytest.raises(sklearn.exceptions.NotFittedError):
         forest.predict(X)
@@ -318,7 +337,7 @@ def test_cross_validation0():
 
     forest = RandomForestClassifier(random_state=123, n_estimators=10)
     result, yhat = cross_validation(
-        forest, X, y, scoring=["accuracy", "neg_log_loss"], cv=10, return_predict=True, method="predict_proba"
+        forest, X, y, groups=groups, scoring=["accuracy", "neg_log_loss"], cv=10, return_predict=True, method="predict_proba"
     )
 
     with pytest.raises(sklearn.exceptions.NotFittedError):
@@ -380,7 +399,7 @@ def test_cross_validation_with_scorer_object_classifier():
 
 
 @pytest.mark.parametrize(
-    "add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline",
+    "add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline, with_groups",
     list(
         itertools.product(
             (True, False),
@@ -388,12 +407,17 @@ def test_cross_validation_with_scorer_object_classifier():
             (True, False),
             (True, False),
             (True, False),
+            (True, False)
         )
     ),
 )
-def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline):
+def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline, with_groups):
 
     X, y = make_classification(n_samples=100, random_state=123)
+    if with_groups:
+        groups = np.array([0]*25+[1]*25+[2]*25+[3]*25)
+    else:
+        groups=None
 
     X = convert_generic(X, output_type=x_data_type)
     if x_data_type == DataTypes.DataFrame:
@@ -430,7 +454,7 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
     ### Only score ###
     ##################
 
-    cv_res = cross_validation(estimator, X, y, cv=10, scoring=scoring, verbose=0)
+    cv_res = cross_validation(estimator, X, y, groups=groups, cv=10, scoring=scoring, verbose=0)
 
     assert isinstance(cv_res, pd.DataFrame)
     assert cv_res.shape[0] == 10
@@ -444,7 +468,7 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
     #####################
     ### Score + Proba ###
     #####################
-    cv_res, yhat_proba = cross_validation(estimator, X, y, cv=10, scoring=scoring, verbose=0, return_predict=True)
+    cv_res, yhat_proba = cross_validation(estimator, X, y, groups=groups, cv=10, scoring=scoring, verbose=0, return_predict=True)
 
     assert isinstance(cv_res, pd.DataFrame)
     assert cv_res.shape[0] == 10
@@ -468,7 +492,7 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
     ### Score + Predict ###
     #######################
     cv_res, yhat = cross_validation(
-        estimator, X, y, cv=10, scoring=scoring, verbose=0, return_predict=True, method="predict"
+        estimator, X, y, groups=groups, cv=10, scoring=scoring, verbose=0, return_predict=True, method="predict"
     )
 
     assert isinstance(cv_res, pd.DataFrame)
@@ -489,7 +513,7 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
     ### Predict only ###
     ####################
     cv_res, yhat = cross_validation(
-        estimator, X, y, cv=10, scoring=scoring, verbose=0, return_predict=True, method="predict", no_scoring=True
+        estimator, X, y, groups=groups, cv=10, scoring=scoring, verbose=0, return_predict=True, method="predict", no_scoring=True
     )
 
     assert yhat.shape[0] == y.shape[0]
@@ -503,7 +527,7 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
 
 
 @pytest.mark.parametrize(
-    "add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline",
+    "add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline, with_groups",
     list(
         itertools.product(
             (True, False),
@@ -511,12 +535,18 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
             (True, False),
             (True, False),
             (True, False),
+            (True, False)
         )
     ),
 )
-def test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline):
+def test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline, with_groups):
 
     X, y = make_classification(n_samples=100, random_state=123)
+    
+    if with_groups:
+        groups = np.array([0]*25+[1]*25+[2]*25+[3]*25)
+    else:
+        groups=None
 
     if add_third_class:
         y[0:2] = 2
@@ -553,6 +583,7 @@ def test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_stri
         estimator,
         X,
         y,
+        groups,
         cv=10,
         scoring=scoring,
         verbose=0,
@@ -574,6 +605,7 @@ def test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_stri
         estimator,
         X,
         y,
+        groups,
         cv=10,
         scoring=scoring,
         verbose=0,
@@ -594,14 +626,14 @@ def test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_stri
 
 
 @pytest.mark.parametrize(
-    "x_data_type, shuffle, graph_pipeline",
+    "x_data_type, shuffle, graph_pipeline, with_groups",
     list(
         itertools.product(
-            (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray), (True, False), (True, False)
+            (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray), (True, False), (True, False), (True, False)
         )
     ),
 )
-def test_approx_cross_validation_transformer(x_data_type, shuffle, graph_pipeline):
+def test_approx_cross_validation_transformer(x_data_type, shuffle, graph_pipeline, with_groups):
 
     if graph_pipeline:
         estimator = GraphPipeline({"ptA": DebugPassThrough(), "ptB": DebugPassThrough()}, edges=[("ptA", "ptB")])
@@ -609,6 +641,10 @@ def test_approx_cross_validation_transformer(x_data_type, shuffle, graph_pipelin
         estimator = DebugPassThrough()
 
     X, y = make_classification(n_samples=100, random_state=123)
+    if with_groups:
+        groups = np.array([0]*25+[1]*25+[2]*25+[3]*25)
+    else:
+        groups=None
 
     X = convert_generic(X, output_type=x_data_type)
     if x_data_type == DataTypes.DataFrame:
@@ -631,14 +667,14 @@ def test_approx_cross_validation_transformer(x_data_type, shuffle, graph_pipelin
     ### Score only ###
     ##################
     with pytest.raises(Exception):
-        cross_validation(estimator, X, y, cv=10, scoring=scoring, verbose=0)
+        cross_validation(estimator, X, y, groups, cv=10, scoring=scoring, verbose=0)
         # shouldn't work since DebugPassThrough can't be scored
 
     #################
     ### Transform ###
     #################
     cv_res, Xhat = cross_validation(
-        estimator, X, y, cv=10, scoring=scoring, verbose=0, return_predict=True, no_scoring=True
+        estimator, X, y, groups, cv=10, scoring=scoring, verbose=0, return_predict=True, no_scoring=True
     )
 
     assert type(Xhat) == type(X)
@@ -666,32 +702,6 @@ def test_cross_validation_time_serie_split():
     assert yhat is None  # because I can't return predictions
     assert len(cv_res) == 10
     assert isinstance(cv_res, pd.DataFrame)
-
-
-def verif_approx_cross_validation():
-
-    for add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline in itertools.product(
-        (True, False),
-        (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
-        (True, False),
-        (True, False),
-        (True, False),
-    ):
-        test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline)
-
-    for add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline in itertools.product(
-        (True, False),
-        (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
-        (True, False),
-        (True, False),
-        (True, False),
-    ):
-        test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline)
-
-    for x_data_type, shuffle, graph_pipeline in itertools.product(
-        (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray), (True, False), (True, False)
-    ):
-        test_approx_cross_validation_transformer(x_data_type, shuffle, graph_pipeline)
 
 
 def test_score_from_params_clustering():
@@ -1118,19 +1128,135 @@ def test_cross_val_predict_sklearn_few_sample_per_classes():
 
     assert (yhat_proba.max(axis=1) > 0).all()
 
-
-def test_cross_validation_few_sample_per_classes():
+@pytest.mark.parametrize("with_groups", [True, False])
+def test_cross_validation_few_sample_per_classes(with_groups):
     np.random.seed(123)
     X = np.random.randn(100, 2)
 
     y = np.array(["AA"] * 33 + ["BB"] * 33 + ["CC"] * 33 + ["DD"])
+    if with_groups:
+        groups = np.array([0]*25+[1]*25+[2]*25+[3]*25)
+    else:
+        groups = None
 
     cv = StratifiedKFold(n_splits=10)
 
     logit = LogisticRegression()
 
-    _, yhat_proba = cross_validation(logit, X, y, cv=cv, return_predict=True, no_scoring=True)
+    _, yhat_proba = cross_validation(logit, X, y, groups=groups,cv=cv, return_predict=True, no_scoring=True)
     assert (yhat_proba.max(axis=1) > 0).all()
 
     assert yhat_proba.shape == (100, 4)
     assert list(yhat_proba.columns) == ["AA", "BB", "CC", "DD"]
+
+
+def test__score_with_group__multimetric_score_with_group():
+    roc_auc_scorer = SCORERS["roc_auc"]
+    
+    np.random.seed(123)
+    X_test = np.random.randn(100,10)
+    y_test = 1*(np.random.randn(100)>0)
+    group_test = np.array([0]*25 + [1] * 25 + [2] * 25 + [3]*25)
+    
+    
+    estimator = LogisticRegression(solver="lbfgs", random_state=123)
+    estimator.fit(X_test,y_test)
+    
+    #######################################################
+    ###   Test with a scorer that doesn't accept group  ###
+    #######################################################
+    for i in range(2):
+        if i == 0:
+            result1 = _score_with_group(estimator, X_test, y_test, None, roc_auc_scorer)
+        else:
+            result1 = _score_with_group(estimator, X_test, y_test, group_test, roc_auc_scorer)
+        result2 = _score(estimator, X_test, y_test, roc_auc_scorer)
+        
+        assert not pd.isnull(result1)
+        assert isinstance(result1, numbers.Number)
+        assert abs(result1 - result2) <= 10**(-10)
+        
+    for i in range(2):
+        if i == 0:
+            result1 = _multimetric_score_with_group(estimator, X_test, y_test, None, {"auc":roc_auc_scorer})
+        else:
+            result1 = _multimetric_score_with_group(estimator, X_test, y_test, group_test, {"auc":roc_auc_scorer})
+        result2 = _multimetric_score(estimator, X_test, y_test, {"auc":roc_auc_scorer})
+        
+        assert isinstance(result1,dict)
+        assert set(result1.keys()) == {"auc"}
+        assert not pd.isnull(result1["auc"])
+        assert isinstance(result1["auc"],numbers.Number)
+        assert abs(result1["auc"] - result2["auc"]) <= 10**(-10)
+    
+    ##############################################
+    ### test with a scorer that accepts group  ###
+    ##############################################
+        
+    max_proba_scorer = _GroupProbaScorer(score_func=max_proba_group_accuracy, sign=1, kwargs={})
+    
+    result1 = _score_with_group(estimator, X_test, y_test, group_test, max_proba_scorer)
+    assert not pd.isnull(result1)
+    assert isinstance(result1, numbers.Number)
+    assert 0 <= result1 <= 1
+    
+    with pytest.raises(TypeError):
+        result1 = _score_with_group(estimator, X_test, y_test, None, max_proba_scorer)
+    # raise error because scorer expects group
+
+    result1 = _multimetric_score_with_group(estimator, X_test, y_test, group_test, {"mp_score":max_proba_scorer})
+    assert isinstance(result1, dict)
+    assert set(result1.keys()) == {"mp_score"}
+    r = result1["mp_score"]
+    assert not pd.isnull(r)
+    assert isinstance(r, numbers.Number)
+    assert 0 <= r <= 1
+    
+    with pytest.raises(TypeError):
+        result1 = _multimetric_score_with_group(estimator, X_test, y_test, None, {"mp_score":max_proba_scorer})
+        # raise error because scorer expects group
+    
+    #######################
+    ###  test with both ###
+    #######################
+    result1 = _multimetric_score_with_group(estimator, X_test, y_test, group_test, {"mp_score":max_proba_scorer,
+                                                                                    "auc":roc_auc_scorer
+                                                                                    })
+    assert isinstance(result1, dict)
+    assert set(result1.keys()) == {"auc","mp_score"}
+    r = result1["mp_score"]
+    assert not pd.isnull(r)
+    assert isinstance(r, numbers.Number)
+    assert 0 <= r <= 1  
+
+
+def test_cross_validation_with_max_proba_accuracy():
+    np.random.seed(123)
+    cv = GroupKFold(n_splits=4)
+
+    max_proba_scorer = _GroupProbaScorer(score_func=max_proba_group_accuracy, sign=1, kwargs={})
+    
+
+    X = np.random.randn(100,10)
+    y = 1*(np.random.randn(100)>0)
+    groups = np.array([0]*25 + [1] * 25 + [2] * 25 + [3]*25)
+    
+    estimator = LogisticRegression(solver="lbfgs", random_state=123)
+    
+    cv_res = cross_validation(estimator,X,y,groups,scoring=max_proba_scorer,cv=cv)
+    
+    assert isinstance(cv_res, pd.DataFrame)
+    assert cv_res.shape == (4,6)
+    
+    cv_res = cross_validation(estimator,X,y,groups,scoring={"mp_acc":max_proba_scorer},cv=cv)
+    
+    assert isinstance(cv_res, pd.DataFrame)
+    assert cv_res.shape == (4,6)
+    assert "train_mp_acc" in cv_res.columns
+    assert "test_mp_acc" in cv_res.columns
+    assert cv_res["train_mp_acc"].max() <= 1
+    assert cv_res["train_mp_acc"].min() >= 0
+    
+    assert cv_res["test_mp_acc"].max() <= 1
+    assert cv_res["test_mp_acc"].min() >= 0
+
