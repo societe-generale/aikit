@@ -1,0 +1,12 @@
+name: aikit_demo_environment
+channels:
+  - conda-forge
+dependencies:
+  - python=3.6
+  - pip
+  - pip:
+    - graphviz
+    - matplotlib
+    - lightgbm
+    - nltk
+    - gensim

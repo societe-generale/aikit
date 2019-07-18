@@ -2,6 +2,7 @@
 [![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://github.com/societe-generale/aikit)
 [![PyPI version](https://badge.fury.io/py/aikit.svg)](https://badge.fury.io/py/aikit)
 [![Documentation Status](https://readthedocs.org/projects/aikit/badge/?version=latest)](https://aikit.readthedocs.io/en/latest/?badge=latest)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/societe-generale/aikit/master?filepath=/notebooks)
 
 # aikit
 Automatic Tool Kit for Machine Learning and Datascience.
@@ -11,9 +12,12 @@ Its mains features are:
  * improved and new "scikit-learn like" transformers ;
  * GraphPipeline : an extension of sklearn Pipeline that handles more generic chains of tranformations ;
  * an AutoML to automatically search throught several transformers and models.
- 
- Full documentation is available here: https://aikit.readthedocs.io/en/latest/
- 
+
+Full documentation is available here: https://aikit.readthedocs.io/en/latest/
+
+You can run examples [here](https://mybinder.org/v2/gh/societe-generale/aikit/master?filepath=/notebooks), thanks to [Binder](https://mybinder.org).
+
+
 ### GraphPipeline
 
 The GraphPipeline object is an extension of `sklearn.pipeline.Pipeline` but the transformers/models can be chained with any directed graph.
@@ -29,7 +33,7 @@ gpipeline = GraphPipeline(
         "vect": CountVectorizerWrapper(analyzer="char",
                                        ngram_range=(1, 4),
                                        columns_to_use=["text1", "text2"]),
-        "cat": NumericalEncoder(columns_to_use=["cat1", "cat2"]), 
+        "cat": NumericalEncoder(columns_to_use=["cat1", "cat2"]),
         "rf": RandomForestClassifier(n_estimators=100)
     },
     edges = [("vect", "rf"), ("cat", "rf")]
@@ -58,7 +62,7 @@ def set_configs(launcher):
     return launcher
 
 if __name__ == "__main__":
-    launcher = MlMachineLauncher(base_folder = "~/automl/titanic", 
+    launcher = MlMachineLauncher(base_folder = "~/automl/titanic",
                                  name = "titanic",
                                  loader = loader,
                                  set_configs = set_configs)
