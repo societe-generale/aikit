@@ -1260,11 +1260,15 @@ def test_cross_validation_with_max_proba_accuracy():
     assert cv_res["test_mp_acc"].max() <= 1
     assert cv_res["test_mp_acc"].min() >= 0
 
+    
+
 @pytest.mark.parametrize('add_third_class, cast_data_frame, cast_string',
                          list(itertools.product([True,False],[True,False],[True,False])) )
 def test_cross_validation_classifier_multi_output(add_third_class,
                                        cast_data_frame,
                                        cast_string):
+
+    
 
     estimator = RandomForestClassifier(n_estimators=10, random_state=123)
     
@@ -1275,47 +1279,49 @@ def test_cross_validation_classifier_multi_output(add_third_class,
         yd2[0,1] = 2
 
     if cast_string:
-        yd2 = 'cl'+yd2.astype('str').astype('object')
-    
+        yd2 = yd2.astype('str').astype('object')
+        yd2[:,0] = "cl_a_" + yd2[:,0]
+        yd2[:,1] = "cl_b_" + yd2[:,1]
+
     if cast_data_frame:
         yd2 = pd.DataFrame(yd2)
 
 
-    cv_res = cross_validation(estimator, X, yd2, cv=2,scoring="accuracy")
-    assert cv_res.shape[0] == 2
+    cv_res = cross_validation(estimator, X, yd2, cv=3,scoring="log_loss_patched")
+    assert cv_res.shape[0] == 3
     assert isinstance(cv_res, pd.DataFrame)
-    assert "test_accuracy" in cv_res.columns
-    assert "train_accuracy" in cv_res.columns
-    
+    assert "test_log_loss_patched" in cv_res.columns
+    assert "train_log_loss_patched" in cv_res.columns
+
     cv_res, yhat = cross_validation(estimator, X, yd2,
-                                    cv=2,
-                                    scoring="accuracy",
+                                    cv=3,
+                                    scoring="log_loss_patched",
                                     return_predict=True,
                                     method="predict")
 
-    assert cv_res.shape[0] == 2
+    assert cv_res.shape[0] == 3
     assert isinstance(cv_res, pd.DataFrame)
-    assert "test_accuracy" in cv_res.columns
-    assert "train_accuracy" in cv_res.columns
+    assert "test_log_loss_patched" in cv_res.columns
+    assert "train_log_loss_patched" in cv_res.columns
     assert isinstance(yhat, np.ndarray)
     assert yhat.shape == yd2.shape
-    
+
     cv_res, yhat_proba = cross_validation(estimator, X,
                                           yd2,
-                                          cv=2,
-                                          scoring="accuracy",
+                                          cv=3,
+                                          scoring="log_loss_patched",
                                           return_predict=True,
                                           method="predict_proba")
 
-    assert cv_res.shape[0] == 2
+    assert cv_res.shape[0] == 3
     assert isinstance(cv_res, pd.DataFrame)
-    assert "test_accuracy" in cv_res.columns
-    assert "train_accuracy" in cv_res.columns
+    assert "test_log_loss_patched" in cv_res.columns
+    assert "train_log_loss_patched" in cv_res.columns
     assert isinstance(yhat_proba, list)
     assert len(yhat_proba) == 2
     for j, p in enumerate(yhat_proba):
-        assert p.shape == (yd2.shape[0], 2)
-        assert (p.sum(axis=1)== 1).all()
+        assert p.shape == (yd2.shape[0], 2 + 1*(j==1)*(add_third_class))
+        assert (p.sum(axis=1) - 1).abs().max() <= 10**(-10)
         assert isinstance(p, pd.DataFrame)
         assert p.min().min() >= 0
         assert p.max().max() <= 1
