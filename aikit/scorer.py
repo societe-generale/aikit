@@ -11,14 +11,14 @@ from sklearn.metrics import silhouette_score, calinski_harabaz_score, davies_bou
 
 from sklearn.metrics.scorer import SCORERS, _BaseScorer, type_of_target
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 import numpy as np
 import pandas as pd
 
 from aikit.pipeline import GraphPipeline
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 class log_loss_scorer_patched(object):
@@ -31,7 +31,18 @@ class log_loss_scorer_patched(object):
         y_pred = clf.predict_proba(X)
         if not hasattr(clf, "classes_"):
             raise ValueError("estimator should have a 'classes_' attribute")
-        return -1.0 * sklearn.metrics.log_loss(y, y_pred, sample_weight=sample_weight, labels=clf.classes_)
+        if isinstance(y_pred, list):
+            # this means that this is a multi-target prediction
+            all_log_losses = [
+            -1.0 * sklearn.metrics.log_loss(y[:,j], y_pred[j], sample_weight=sample_weight, labels=clf.classes_[j])
+                for j in range(len(y_pred)) ]
+        
+            # Avg of all log-loss
+            # TODO : we could also returns everythings
+            return np.mean(all_log_losses)
+        
+        else:
+            return -1.0 * sklearn.metrics.log_loss(y, y_pred, sample_weight=sample_weight, labels=clf.classes_)
 
 
 class avg_roc_auc_score(object):
