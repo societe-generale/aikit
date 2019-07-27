@@ -149,7 +149,8 @@ def _score_with_group(estimator,
     if is_multimetric is True
     """
     # Copy of sklearn '_score' but where the 'groups' can be passed to the scorer
-    
+    if isinstance(y_test,pd.DataFrame):
+        y_test = y_test.values
 
     if is_multimetric:
         return _multimetric_score_with_group(estimator, X_test, y_test, groups_test, scorer)
@@ -433,10 +434,7 @@ def cross_validation(
                 else:
                     classes = np.sort(np.unique(y[:,d]))
                 all_classes.append(classes)
-                
-            
-                
-                
+
 
     stop_cv = False
     max_main_scorer = None
@@ -616,7 +614,7 @@ def cross_validation(
                     return predictions
 
                 if multi_output_proba:
-                    predictions = [_concat(predictions[d], inv_test_indices) for d in range(y.shape[1])]
+                    predictions = [_concat([p[d] for p in predictions], inv_test_indices) for d in range(y.shape[1])]
                 else:
                     predictions = _concat(predictions, inv_test_indices)
 
