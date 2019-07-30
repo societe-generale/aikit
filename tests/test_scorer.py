@@ -4,18 +4,23 @@ Created on Mon Jan 28 11:29:33 2019
 
 @author: Lionel Massoulard
 """
+import pytest
 
 import math
 import numpy as np
 import pandas as pd
+
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.cluster import KMeans
+from sklearn.metrics import log_loss
 
-import pytest
 
 import aikit.scorer  # import this will add to the list of scorer
-from aikit.scorer import _GroupProbaScorer, max_proba_group_accuracy
+from aikit.scorer import (_GroupProbaScorer,
+                          max_proba_group_accuracy,
+                          log_loss_scorer_patched)
 
 
 
@@ -54,6 +59,26 @@ def test_log_loss_patched_scorer_aikit():
     assert not pd.isnull(cv_res2).any()
 
     assert np.abs(cv_res1 - cv_res2).max() <= 10 ** (-5)
+    
+def test_log_loss_patched_multioutput():
+    np.random.seed(123)
+    X = np.random.randn(100, 2)
+
+    y1 = np.array(["AA"] * 33 +  ["BB"] * 33 + ["CC"] * 33 + ["DD"])
+    y2 = np.array(["aaa"] * 50+ ["bbb"] * 40 + ["ccc"]* 9 + ["ddd"])
+    y2d = np.concatenate((y1[:,np.newaxis],y2[:,np.newaxis]),axis=1)
+    
+    clf = RandomForestClassifier(n_estimators=10,random_state=123)
+    clf.fit(X,y2d)
+    
+    scorer = log_loss_scorer_patched()
+    
+    s = scorer(clf,X,y2d)
+    assert isinstance(s, float) # verify that the scorer works
+    
+    y_pred = clf.predict_proba(X)
+    s2 = -0.5*log_loss(y2d[:,0],y_pred[0]) -0.5*log_loss(y2d[:,1],y_pred[1])
+    assert s == s2
 
 
 def test_log_loss_patched_same_result_sklearn():

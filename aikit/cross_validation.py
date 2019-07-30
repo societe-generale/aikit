@@ -149,7 +149,8 @@ def _score_with_group(estimator,
     if is_multimetric is True
     """
     # Copy of sklearn '_score' but where the 'groups' can be passed to the scorer
-    
+    if isinstance(y_test,pd.DataFrame):
+        y_test = y_test.values
 
     if is_multimetric:
         return _multimetric_score_with_group(estimator, X_test, y_test, groups_test, scorer)
@@ -415,8 +416,25 @@ def cross_validation(
 
     prediction_blocks = []
     all_results = []
+    
+    multi_output_proba=False
     if method in ("predict_proba", "predict_log_proba", "decision_function"):
-        classes = np.sort(np.unique(y))
+        if getattr(y,"ndim",1) == 1 or y.shape[1] == 1:
+            classes = np.sort(np.unique(y)) # ca vda pas marcher en multi output 
+            multi_output_proba = False
+        else:
+            if y.ndim > 2:
+                raise TypeError("This function doesn't work for y that has %d dimension" % y.ndim)
+                
+            multi_output_proba = True
+            all_classes = []
+            for d in range(y.shape[1]):
+                if hasattr(y,"iloc"):
+                    classes = np.sort(np.unique(y.iloc[:,d].values))
+                else:
+                    classes = np.sort(np.unique(y[:,d]))
+                all_classes.append(classes)
+
 
     stop_cv = False
     max_main_scorer = None
@@ -468,14 +486,32 @@ def cross_validation(
             ## re-alignement with class ##
             if method in ("predict_proba", "predict_log_proba", "decision_function"):
 
-                float_min = np.finfo(predictions.dtype).min
-                default_values = {"decision_function": float_min, "predict_log_proba": float_min, "predict_proba": 0}
+                def _align_predict(predictions,
+                                   classes,
+                                   cloned_estimator_classes_):
 
-                predictions_for_all_classes = pd.DataFrame(default_values[method], index=index_test, columns=classes)
-                for j, c in enumerate(cloned_estimator.classes_):
-                    predictions_for_all_classes[c] = predictions[:, j]
+                    float_min = np.finfo(predictions.dtype).min
+                    default_values = {"decision_function": float_min,
+                                      "predict_log_proba": float_min,
+                                      "predict_proba": 0}
+                    
+                    predictions_for_all_classes = pd.DataFrame(default_values[method],
+                                                               index=index_test,
+                                                               columns=classes)
 
-                predictions = predictions_for_all_classes
+                    for j, c in enumerate(cloned_estimator_classes_):
+                        predictions_for_all_classes[c] = predictions[:, j]
+                        
+                    return predictions_for_all_classes
+
+                if multi_output_proba:
+                    predictions = [_align_predict(p, c, cloned_c)
+                        for p, c, cloned_c in zip(predictions,
+                                                  all_classes,
+                                                  cloned_estimator.classes_
+                                                  )]
+                else:
+                    predictions = _align_predict(predictions, classes, cloned_estimator.classes_)
 
             prediction_blocks.append((predictions, test))
 
@@ -561,18 +597,27 @@ def cross_validation(
                 inv_test_indices = np.empty(len(test_indices), dtype=int)
                 inv_test_indices[test_indices] = np.arange(len(test_indices))
 
-                # Check for sparse predictions
-                if sp.issparse(predictions[0]):
-                    predictions = sp.vstack(predictions, format=predictions[0].format)
-                    predictions = predictions[inv_test_indices]
+                def _concat(predictions, inv_test_indices):
+                    # Check for sparse predictions
+                    if sp.issparse(predictions[0]):
+                        predictions = sp.vstack(predictions, format=predictions[0].format)
+                        predictions = predictions[inv_test_indices]
+    
+                    elif hasattr(predictions[0], "iloc"):
+                        predictions = pd.concat(predictions, axis=0)
+                        predictions = predictions.iloc[inv_test_indices, :]
+    
+                    else:
+                        predictions = np.concatenate(predictions)
+                        predictions = predictions[inv_test_indices]
+                        
+                    return predictions
 
-                elif hasattr(predictions[0], "iloc"):
-                    predictions = pd.concat(predictions, axis=0)
-                    predictions = predictions.iloc[inv_test_indices, :]
-
+                if multi_output_proba:
+                    predictions = [_concat([p[d] for p in predictions], inv_test_indices) for d in range(y.shape[1])]
                 else:
-                    predictions = np.concatenate(predictions)
-                    predictions = predictions[inv_test_indices]
+                    predictions = _concat(predictions, inv_test_indices)
+
 
     ### Result ###
     if not no_scoring:
