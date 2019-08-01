@@ -28,6 +28,28 @@ from aikit.transformers.block_selector import BlockSelector, BlockManager
 from aikit.cross_validation import cross_validation, create_cv
 
 
+def make_pipeline(*steps):
+    """ Construct of linear GraphPipeline from a list of steps """
+    models = {}
+    edges  = []
+    for model in steps:
+        if not hasattr(model, "fit"):
+            raise TypeError("the argument should be model with a 'fit' method")
+        name = model.__class__.__name__.lower()
+        if name in models:
+            i = 1
+            while (name + "_" + str(i)) in models:
+                i+=1
+            name = name + "_" + str(i)
+            
+        models[name] = model
+        edges.append(name)
+
+    return GraphPipeline(models=models, edges=[tuple(edges)])
+        
+            
+        
+
 # In[]
 class GraphPipeline(TransformerMixin, BaseEstimator):
     """ sklearn Transformer that act like a pipeline but on a more generic graph structure
@@ -63,7 +85,7 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
         # Hidden
         self.verbose = verbose
 
-        self._if_fitted = False
+        self._already_fitted = False
 
         self.no_concat_nodes = no_concat_nodes
 
@@ -212,7 +234,7 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
         """ main method of GraphPipeline, handles the fit and predict of object """
         do_fit = method in ("fit", "fit_transform", "fit_predict")
 
-        if not self._if_fitted and not do_fit:
+        if not self._already_fitted and not do_fit:
             raise NotFittedError("Please fit the model before")
 
         # Split fit_params into a 'step-by-step' dictionnary
@@ -414,14 +436,14 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
     def fit(self, X, y=None, **fit_params):
         self._complete_init()
         self._fit_transform(X, y, method="fit", fit_params=fit_params)
-        self._if_fitted = True
+        self._already_fitted = True
         return self
 
     @if_delegate_has_method(delegate="_final_estimator")
     def fit_transform(self, X, y=None, **fit_params):
         self._complete_init()
         Xres = self._fit_transform(X, y, method="fit_transform", fit_params=fit_params)
-        self._if_fitted = True
+        self._already_fitted = True
         return Xres
 
     @if_delegate_has_method(delegate="_final_estimator")
@@ -438,7 +460,7 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
     def fit_predict(self, X, y=None, **fit_params):
         self._complete_init()
         Xres = self._fit_transform(X, y, method="fit_predict", fit_params=fit_params)
-        self._if_fitted = True
+        self._already_fitted = True
         return Xres
 
     @if_delegate_has_method(delegate="_final_estimator")
@@ -464,7 +486,7 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
     # @if_delegate_has_method(delegate='_final_estimator')
     def get_feature_names(self, input_features=None):
         """ retrieve the features name at the last node """
-        if not self._if_fitted:
+        if not self._already_fitted:
             raise NotFittedError("Please fit the model before")
 
         return self.get_feature_names_at_node(self._terminal_node, input_features=input_features)
@@ -525,7 +547,7 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
         
         """
 
-        if not self._if_fitted:
+        if not self._already_fitted:
             raise NotFittedError("Please fit the model before")
 
         if input_features is None:

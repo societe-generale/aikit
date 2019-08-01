@@ -45,6 +45,8 @@ from aikit.cross_validation import (cross_validation,
                                     is_clusterer,
                                     _score_with_group,
                                     _multimetric_score_with_group
+                                    IndexTrainTestCv,
+                                    RandomTrainTestCv
                                     )
 
 from aikit.scorer import SCORERS, _GroupProbaScorer, max_proba_group_accuracy
@@ -1148,8 +1150,64 @@ def test_cross_validation_few_sample_per_classes(with_groups):
 
     assert yhat_proba.shape == (100, 4)
     assert list(yhat_proba.columns) == ["AA", "BB", "CC", "DD"]
+    
+def test_IndexTrainTestCv():
+    np.random.seed(123)
+    X = np.random.randn(100,10)
+    
+    test_index = [0,1,10]
+    cv = IndexTrainTestCv(test_index=test_index)
+    
+    assert hasattr(cv,"split")
+    assert hasattr(cv,"get_n_splits")
+    
+    assert cv.get_n_splits(X) == 1
+    
+    splits = list(cv.split(X))
+    assert len(splits) == 1
+    assert len(splits[0]) == 2
+    train, test = splits[0]
+    assert (test == test_index).all()
+    assert len(np.intersect1d(train,test)) == 0
+    assert (np.sort(np.union1d(train,test)) == np.arange(100)).all()
 
-
+def test_RandomTrainTestCv():
+    np.random.seed(123)
+    X = np.random.randn(100,10)
+    
+    cv = RandomTrainTestCv(test_size=0.1, random_state=123)
+    
+    assert hasattr(cv,"split")
+    assert hasattr(cv,"get_n_splits")
+    
+    assert cv.get_n_splits(X) == 1
+    
+    splits = list(cv.split(X))
+    assert len(splits) == 1
+    assert len(splits[0]) == 2
+    train, test = splits[0]
+    assert len(test) == 10
+    
+    assert len(np.intersect1d(train,test)) == 0
+    
+    assert (np.sort(np.union1d(train,test)) == np.arange(100)).all()
+    
+    cv = RandomTrainTestCv(test_size=0.1, random_state=123)
+    splits = list(cv.split(X))
+    train2, test2 = splits[0]
+    
+    assert (test2 == test).all()
+    assert (train2 == train).all() # same result when seed is the the same
+    
+    
+    cv = RandomTrainTestCv(test_size=0.1, random_state=456)
+    splits = list(cv.split(X))
+    train3, test3 = splits[0]
+    
+    assert not (test3 == test).all()
+    assert not (train3 == train).all() # different result when seed is the the same
+    
+    
 def test__score_with_group__multimetric_score_with_group():
     roc_auc_scorer = SCORERS["roc_auc"]
     
@@ -1158,8 +1216,7 @@ def test__score_with_group__multimetric_score_with_group():
     y_test = 1*(np.random.randn(100)>0)
     group_test = np.array([0]*25 + [1] * 25 + [2] * 25 + [3]*25)
     
-    
-    estimator = LogisticRegression(solver="lbfgs", random_state=123)
+        estimator = LogisticRegression(solver="lbfgs", random_state=123)
     estimator.fit(X_test,y_test)
     
     #######################################################

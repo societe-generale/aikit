@@ -187,6 +187,10 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
         # Columns to encode and to keep
         if self.columns_to_encode is None:
             self._columns_to_encode = self.guess_columns_to_encode(X)
+            
+        elif isinstance(self.columns_to_encode, str) and self.columns_to_encode == "--object--":
+            self._columns_to_encode = list(X.columns[X.dtypes == "object"])
+
         else:
             self._columns_to_encode = list(self.columns_to_encode)
 

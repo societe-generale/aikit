@@ -75,7 +75,9 @@ class AutoMlConfig(object):
         self._type_of_problem = None
         self._columns_informations = None
         self._needed_steps = None
+        
         self._models_to_keep = None
+        self._models_to_keep_block_search = None
 
         self._specific_hyper = {}
 
@@ -368,7 +370,7 @@ class AutoMlConfig(object):
         if self.type_of_problem is None:
             raise ValueError("you need to set 'type_of_problem' first")
 
-        self.models_to_keep = filter_model_to_keep(self.type_of_problem)
+        self.models_to_keep = filter_model_to_keep(self.type_of_problem, block_search_only=False)
 
         return self.models_to_keep
 
@@ -398,7 +400,7 @@ class AutoMlConfig(object):
     @models_to_keep.deleter
     def models_to_keep(self):
         self._models_to_keep = None
-
+        
     def filter_models(self, **kwargs):
         """ use that method to filter the list of transformers/models that you want to test
 
@@ -448,6 +450,50 @@ class AutoMlConfig(object):
 
         return self
 
+
+    #######################################
+    ### models to keep for block search ###
+    #######################################
+    def guess_models_to_keep_block_search(self):
+
+        if self.type_of_problem is None:
+            raise ValueError("you need to set 'type_of_problem' first")
+            
+        if self.models_to_keep is None:
+            raise ValueError("models_to_keep need to be setted first")
+            
+        models_to_keep_block_search = filter_model_to_keep(self.type_of_problem, block_search_only=True)
+        self.models_to_keep_block_search = [m for m in models_to_keep_block_search if m in self.models_to_keep]
+
+        return self.models_to_keep_block_search 
+
+    @property
+    def models_to_keep_block_search(self):
+        return self._models_to_keep_block_search
+
+    @models_to_keep_block_search.setter
+    def models_to_keep_block_search(self, new_models_to_keep_block_search):
+        if not isinstance(new_models_to_keep_block_search, (list, tuple)):
+            raise TypeError("new_models_to_keep should be a list")
+
+        for n in new_models_to_keep_block_search:
+            if not isinstance(n, (tuple, list)):
+                raise TypeError("all models should be tuple")
+            if len(n) != 2:
+                raise ValueError("all models should be of size 2")
+
+            if n[0] not in en.StepCategories.alls:
+                raise ValueError("first item should be among StepCategories")
+
+            if n not in MODEL_REGISTER.all_registered:
+                raise ValueError("each item should have been registred")
+                
+            if n not in self.models_to_keep:
+                raise ValueError("each item should be in 'models_to_keep'")
+
+        self._models_to_keep_block_search = new_models_to_keep_block_search
+
+
     ################################
     ### Specific HyperParameters ###
     ################################
@@ -491,6 +537,7 @@ class AutoMlConfig(object):
         self.guess_type_of_problem(dfX, y)
         self.guess_needed_steps()
         self.guess_models_to_keep()
+        self.guess_models_to_keep_block_search()
 
         self.check_base()
         return self
@@ -504,8 +551,100 @@ class AutoMlConfig(object):
 
 
 # In[]
+def _create_all_combinations(all_blocks_to_use, max_number_of_blocks_to_test, max_number_of_blocks_to_remove ):
+    """ create all the combinations of 'all_blocks_to_use' that have either
+    * at most 'max_number_of_blocks_to_test' elements    OR
+    * at most 'max_number_of_blocks_to_remove' elements removed
+    
+    Parameters
+    ----------
+    max_number_of_blocks_to_test : int, default=1
+        will include ALL the models with at most 'max_number_of_blocks_to_test' (all combinations)
+        
+    max_number_of_blocks_to_remove : int, default=1
+        will include ALL the models with at most 'max_number_of_blocks_to_remove' blocks REMOVED (al combinations)
+    """
+    
+    if max_number_of_blocks_to_test < 1:
+        raise ValueError("'max_number_of_blocks_to_test' should be >= 1")
+    
+    if max_number_of_blocks_to_remove < 1:
+        raise ValueError("'max_number_of_blocks_to_remove' should be >= 1")
+        
+    if len(set(all_blocks_to_use)) != len(all_blocks_to_use):
+        raise ValueError("'all_blocks_to_use' shouldn't contain duplicate")
+
+    if max_number_of_blocks_to_test >= len(all_blocks_to_use) - 1:
+        max_number_of_blocks_to_test = len(all_blocks_to_use) - 1
+        
+    if max_number_of_blocks_to_remove >= len(all_blocks_to_use) - 1:
+        max_number_of_blocks_to_remove = len(all_blocks_to_use) - 1
+
+    # Create full list of blocks_to_use to be tried
+    set_blocks_to_use = set()                     
+    for r in range(1, max_number_of_blocks_to_test + 1):
+        for blocks_to_use in itertools.combinations(all_blocks_to_use, r=r):
+            if blocks_to_use not in set_blocks_to_use:
+                set_blocks_to_use.add(blocks_to_use)
+                
+    for r in range(1, max_number_of_blocks_to_remove + 1):
+        for blocks_to_remove in itertools.combinations(all_blocks_to_use, r=r):
+            blocks_to_use = tuple([b for b in all_blocks_to_use if b not in blocks_to_remove])
+            if blocks_to_use not in set_blocks_to_use:
+                set_blocks_to_use.add(blocks_to_use)
+                
+    return list(set_blocks_to_use)
 
 
+def random_list_generator(elements, probas=None, random_state=None):
+    """ helper to create a generator in a random order
+    
+    Parameters
+    ----------
+    elements : list or iterable
+        the list of elements
+        
+    probas : None or list of proba
+        if not None, the 'un-normalize' proba to draw each elements
+        
+    random_state : None, int, or generator
+        the random generator
+        
+    Yield
+    -----
+    element in random order
+    """
+    
+    elements = list(elements)
+
+    random_state = check_random_state(random_state)
+
+    if probas is not None:
+        probas = list(probas)
+        if len(elements) != len(probas):
+            raise ValueError("'elements' and 'probas' should have the same length")
+            
+        if np.array(probas).min() <= 0:
+            raise ValueError("'probas' should be >0")
+            
+    all_indexes = list(range(len(elements)))
+    
+    remaining_indexes = all_indexes
+    
+    while len(remaining_indexes) > 0:
+        if probas is None:
+            ind = random_state.choice(remaining_indexes)
+        else:
+            p = np.array([probas[i] for i in remaining_indexes])
+            p = p / p.sum()
+            ind = random_state.choice(remaining_indexes, p=p)
+
+        remaining_indexes = [r for r in remaining_indexes if r != ind]
+        
+        yield elements[ind]
+
+
+        
 class RandomModelGenerator(object):
     """ class to generate random model """
 
@@ -600,23 +739,125 @@ class RandomModelGenerator(object):
             )
 
             yield simplified_Graph, all_models_params, blocks_to_use
+            
+            
+    def iterate_block_search(self,
+                             max_number_of_blocks_to_test=1,
+                             max_number_of_blocks_to_remove=1,
+                             random_order=True
+                             ):
+        """ iterator that generate the list of models to test when we are searching for blocks
+        The iteration order can be random, in that case the order is drawn by a law depending on the size of the blocks to use
+        
+        Parameters
+        ----------
+        max_number_of_blocks_to_test : int, default=1
+            will include ALL the models with at most 'max_number_of_blocks_to_test' (all combinations)
+            
+        max_number_of_blocks_to_remove : int, default=1
+            will include ALL the models with at most 'max_number_of_blocks_to_remove' blocks REMOVED (al combinations)
+            
+        random_order: boolean, default=True
+            if True will iterate in a random order
+
+        Yields
+        ------
+        simplified_Graph, all_models_params, blocks_to_use
+        """
+        if random_order:
+            block_search_models = list(self._iterate_block_search_models(max_number_of_blocks_to_test=max_number_of_blocks_to_test,
+                                                                            max_number_of_blocks_to_remove=max_number_of_blocks_to_remove)
+            )
+        
+            N = len(self.auto_ml_config.columns_block.keys())
+
+            probas = []
+            for _ , _, blocks_to_use in block_search_models:
+                p = 1 / min(len(blocks_to_use), N - len(blocks_to_use))
+                probas.append(p)
+                
+            yield from random_list_generator(block_search_models,
+                                             probas=probas,
+                                             random_state=self.random_state)
+                
+        else:
+            yield from self._iterate_block_search_models(max_number_of_blocks_to_test=max_number_of_blocks_to_test,
+                                                         max_number_of_blocks_to_remove=max_number_of_blocks_to_remove)
+
+
+    def _iterate_block_search_models(self,
+                                    max_number_of_blocks_to_test=1,
+                                    max_number_of_blocks_to_remove=1):
+        """ iterator that generate the list of models to test when we are searching for blocks
+        
+        Parameters
+        ----------
+        max_number_of_blocks_to_test : int, default=1
+            will include ALL the models with at most 'max_number_of_blocks_to_test' (all combinations)
+            
+        max_number_of_blocks_to_remove : int, default=1
+            will include ALL the models with at most 'max_number_of_blocks_to_remove' blocks REMOVED (al combinations)
+            
+        Yields
+        ------
+        simplified_Graph, all_models_params, blocks_to_use
+        """
+        
+        
+        all_blocks_to_use = tuple(self.auto_ml_config.columns_block.keys())  # keep all blocks
+        if len(all_blocks_to_use) <= 1:
+            return # No models
+
+        list_blocks_to_use = _create_all_combinations(all_blocks_to_use,
+                                                      max_number_of_blocks_to_test=max_number_of_blocks_to_test,
+                                                      max_number_of_blocks_to_remove=max_number_of_blocks_to_remove
+                                                      )
+
+
+        for blocks_to_use in list_blocks_to_use:
+            
+            needed_steps_filtered, columns_informations_filtered, all_columns_keep = self._filter_based_on_blocks(blocks_to_use)
+
+            all_choices_by_steps = []
+            for step in needed_steps_filtered:
+    
+                if step["optional"]:
+                    all_choices = [(None, None)]
+                else:
+                    all_choices = [n for n in self.auto_ml_config.models_to_keep_block_search if n[0] == step["step"]]
+    
+                    # Peut etre qu'on veut enlever des choix ici pour certain steps
+    
+                all_choices_by_steps.append([(step["step"], c) for c in all_choices])
+                
+            all_models_steps = [OrderedDict(m) for m in itertools.product(*all_choices_by_steps)]
+            
+            for models_by_steps in all_models_steps:
+    
+                hyper_parameters_by_step = {}
+                for step_name, model_name in models_by_steps.items():
+                    if model_name[0] is not None:
+                        default_parameters = MODEL_REGISTER.informations.get(model_name, {}).get("default_parameters", {})
+                        # If default_parameters present in register use it, otherwise use {} (and so will go back to default parameter of the model)
+                        hyper_parameters_by_step[(step_name, model_name)] = default_parameters        
+                
+                
+                simplified_Graph, all_models_params, blocks_to_use = self.draw_random_graph(
+                    blocks_to_use=blocks_to_use,
+                    models_by_steps=models_by_steps,
+                    hyper_parameters_by_step=hyper_parameters_by_step,
+                )
+
+
+                yield simplified_Graph, all_models_params, blocks_to_use
+
 
     ###########################
     ### Everything Together ###
     ###########################
-
-    def draw_random_graph(self, blocks_to_use=None, models_by_steps=None, hyper_parameters_by_step=None):
-        """ draw a random model graph and its parameters """
-
-        ###################
-        ### Draw blocks ###
-        ###################
-        if blocks_to_use is None:
-            if self.allow_block_selection:
-                blocks_to_use = self._draw_blocks()
-            else:
-                blocks_to_use = tuple(sorted(self.auto_ml_config.columns_block.keys()))
-
+    
+    def _filter_based_on_blocks(self, blocks_to_use):
+        """ helper function to refilter what is needed when knowing which blocks are used """
         ######################
         ### Filter columns ###
         ######################
@@ -630,7 +871,7 @@ class RandomModelGenerator(object):
 
         all_columns_keep = sorted(columns_informations_filtered.keys()) == sorted(
             self.auto_ml_config.columns_informations
-        )
+        ) 
 
         #        else:
         #            columns_informations_filtered = self.auto_ml_config.columns_informations
@@ -646,8 +887,22 @@ class RandomModelGenerator(object):
             s2["step"] for s2 in self.auto_ml_config.needed_steps
         ]  # If user remove some step... I need to retake the intersection
         needed_steps_filtered = [s for s in needed_steps_filtered_temp if s["step"] in steps_in_config]
+        
+        return needed_steps_filtered, columns_informations_filtered, all_columns_keep
 
-        # Rmk : needed_steps_filtered will be 'smaller' if we remove some variable that requiered a step (like remove all texte variable => no more text encoding)
+    def draw_random_graph(self, blocks_to_use=None, models_by_steps=None, hyper_parameters_by_step=None):
+        """ draw a random model graph and its parameters """
+
+        ###################
+        ### Draw blocks ###
+        ###################
+        if blocks_to_use is None:
+            if self.allow_block_selection:
+                blocks_to_use = self._draw_blocks()
+            else:
+                blocks_to_use = tuple(sorted(self.auto_ml_config.columns_block.keys()))
+
+        needed_steps_filtered, columns_informations_filtered, all_columns_keep = self._filter_based_on_blocks(blocks_to_use)
 
         ###################
         ### Draw models ###
@@ -893,9 +1148,9 @@ class JobConfig(object):
 
         self._score_base_line = None
 
-        self.start_with_default = True
-
-        self.allow_approx_cv = True
+        self.start_with_default = True # if True, will start with default models
+        self.do_blocks_search = True   # if True, will add in the queue model aiming at searching which block add values
+        self.allow_approx_cv = True    # if True, will do 'approximate cv'
 
         self._main_scorer = None
 
@@ -905,8 +1160,10 @@ class JobConfig(object):
     def guess_cv(self, auto_ml_config, n_splits=10):
         if auto_ml_config.type_of_problem == en.TypeOfProblem.CLASSIFICATION:
             cv = sklearn.model_selection.StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=123)
+
         elif auto_ml_config.type_of_problem == en.TypeOfProblem.CLUSTERING:
             cv = sklearn.model_selection.KFold(n_splits=n_splits, shuffle=True, random_state=123)
+
         else:
             cv = sklearn.model_selection.KFold(n_splits=n_splits, shuffle=True, random_state=123)
 
@@ -942,8 +1199,10 @@ class JobConfig(object):
     def guess_scoring(self, auto_ml_config):
         if auto_ml_config.type_of_problem == en.TypeOfProblem.CLASSIFICATION:
             self.scoring = ["accuracy", "log_loss_patched", "avg_roc_auc", "f1_macro"]
+
         elif auto_ml_config.type_of_problem == en.TypeOfProblem.CLUSTERING:
             self.scoring = ["silhouette", "calinski_harabaz", "davies_bouldin"]
+
         else:
             self.scoring = ["r2", "neg_mean_squared_error", "neg_mean_absolute_error"]
 
@@ -1081,6 +1340,13 @@ class JobManagerQueue(object):
         else:
             self._default_iterator = None  # Will never be used
             self._default_iterator_empty = True
+            
+        if self.job_config.do_blocks_search:
+            self._block_search_iterator = self.random_model_generator.iterate_block_search(random_order=True)
+            self._block_search_iterator_empty=False
+        else:
+            self._block_search_iterator=None
+            self._block_search_iterator_empty=True
 
     def remove(self):
         """ main method that will generate a new job to be given to ml machine """
@@ -1094,7 +1360,7 @@ class JobManagerQueue(object):
         #########################################################
         if not self._default_iterator_empty:
 
-            # Ici : peut etre regarder si on a pas deja un truc qui dit que cette phase est deja faites ?
+            # Here : maybe look if something tells if this phase is not already done
             if self.data_persister.exists("phase", path="infos", write_type=SavingType.json):
                 phase = self.data_persister.read("phase", path="infos", write_type=SavingType.json)
             else:
@@ -1121,6 +1387,27 @@ class JobManagerQueue(object):
             else:
                 job_type = None
                 iter_next = None
+    
+        #################################################################
+        ###  Try to remove something from the block search iterator   ###
+        #################################################################
+        if job_type is None and not self._block_search_iterator_empty:
+
+            p_block_search = 0.2
+            if self.random_state.rand(1)[0] <= p_block_search:
+
+                try:
+                    iter_next = next(self._block_search_iterator)
+                except StopIteration:
+                    iter_next = None
+
+                if iter_next is None:
+                    logger.info("block_search iterator is empty...")
+                    self._block_search_iterator_empty = True
+                    job_type = None
+                else:
+                    job_type = "block_search"
+
 
         if job_type is None:
             # It means this is not a default model ...
@@ -1132,7 +1419,7 @@ class JobManagerQueue(object):
 
                 logger.debug("exploration proba : %2.2f%%" % (100 * p_exploration))
 
-                if np.random.rand(1)[0] <= p_exploration:
+                if self.random_state.rand(1)[0] <= p_exploration:
                     job_type = "exploration"
                 else:
                     job_type = "guided"
@@ -1246,9 +1533,13 @@ class JobManagerQueue(object):
             json_param = all_params1[ii]
             name_mapping = all_names_mapping[ii]
 
-        elif job_type == "default":
+        elif job_type in ("default","block_search"):
 
-            logger.info("I'll create a default model...")
+            if job_type == "default":
+                logger.info("I'll create a default model...")
+            else:
+                logger.info("I'll create a block-search model...")
+
             ###########################
             ### This is a defalt job ###
             ###########################
@@ -1260,6 +1551,7 @@ class JobManagerQueue(object):
             name_mapping = temp["name_mapping"]
 
             job_id = md5_hash(model_json_code)  # Or increment an id ? avec un SharedInteger
+            # TODO : check if we have already done that model... which can happen in the controller re-booted...
 
             json_param = {
                 "Graph": {"nodes": list(Graph.nodes), "edges": list(Graph.edges)},

@@ -33,6 +33,26 @@ def test_NumericalEncoder_dummy_output_dtype():
     
     assert (res.dtypes[res.columns.str.startswith("cat_col_")] == "int32").all() # check default encoding type = int32
 
+def test_NumericalEncoder_columns_to_encode_object():
+    np.random.seed(123)
+    Xnum = np.random.randn(1000,10)
+    
+    dfX = pd.DataFrame(Xnum,columns=["col_%d" % i for i in range(10)])
+    dfX["object_column"] = ["string_%2.4f" % x for x in dfX["col_0"]]
+    
+    # with --object--
+    encoder = NumericalEncoder(columns_to_encode="--object--")
+    dfX_enc = encoder.fit_transform(dfX)
+
+    assert not (dfX_enc.dtypes == "object").any()
+    
+    # with default behavior
+    encoder = NumericalEncoder()
+    dfX_enc = encoder.fit_transform(dfX)
+    
+    assert "object_column" in dfX_enc
+    assert (dfX_enc["object_column"] == dfX["object_column"]).all()
+
 def test_NumericalEncoder_dummy():
 
     ####################

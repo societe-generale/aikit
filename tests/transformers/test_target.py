@@ -24,6 +24,31 @@ def test_loc_align():
     assert list(s2.values) == [0, 10, 11]
 
 
+
+
+def test_TargetEncoderRegressor_columns_to_encode_object():
+    np.random.seed(123)
+    Xnum = np.random.randn(1000,10)
+
+    dfX = pd.DataFrame(Xnum,columns=["col_%d" % i for i in range(10)])
+    dfX["object_column"] = ["string_%2.4f" % x for x in dfX["col_0"]]
+
+    y = np.random.randn(1000)
+
+    # with --object--
+    encoder = TargetEncoderRegressor(columns_to_encode="--object--")
+    dfX_enc = encoder.fit_transform(dfX,y)
+
+    assert not (dfX_enc.dtypes == "object").any()
+
+    # with default behavior
+    encoder = TargetEncoderRegressor()
+    dfX_enc = encoder.fit_transform(dfX, y)
+
+    assert "object_column" in dfX_enc
+    assert (dfX_enc["object_column"] == dfX["object_column"]).all()
+
+
 def test_TargetEncoderRegressor():
     df = get_sample_df(100)
     df["cat_col"] = df["text_col"].apply(lambda s: s[0:3])

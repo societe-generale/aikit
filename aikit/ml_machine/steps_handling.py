@@ -51,7 +51,7 @@ def get_needed_steps(df_information, type_of_problem):
     return needed_steps
 
 
-def filter_model_to_keep(type_of_problem):
+def filter_model_to_keep(type_of_problem, block_search_only=False):
     """ filter the list of model that we want to keep based on the type of problem """
     # models_to_keep = [
     #     c
@@ -62,6 +62,13 @@ def filter_model_to_keep(type_of_problem):
     # Here : we could potentially also remove models that are not possible on a given machine (not installed, no enought ressources, ...)
     models_to_keep = []
     for c, v in MODEL_REGISTER.informations.items():
+        
+        if block_search_only:
+            use_for_block_search = v.get("use_for_block_search",False)
+            if not use_for_block_search:
+                # skip that models
+                continue
+            
         model_type_of_problem = v.get("type_of_model", None)
 
         if model_type_of_problem is None:
@@ -77,8 +84,6 @@ def filter_model_to_keep(type_of_problem):
             # The model has only one type of problem ==> I'll include it if the current type is that
             if type_of_problem == model_type_of_problem:
                 models_to_keep.append(c)
-
-    return models_to_keep
 
     return models_to_keep
 

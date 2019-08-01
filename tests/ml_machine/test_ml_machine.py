@@ -20,6 +20,9 @@ from aikit.ml_machine.ml_machine import (
     AutoMlResultReader,
     MlJobManager,
     MlJobRunner,
+    
+    _create_all_combinations,
+    random_list_generator
 )
 from aikit.ml_machine.model_graph import convert_graph_to_code
 from aikit.model_definition import sklearn_model_from_param
@@ -75,7 +78,72 @@ def test_AutoMlConfig():
 
     assert auto_ml_config.type_of_problem == TypeOfProblem.CLASSIFICATION
     assert auto_ml_config.columns_informations is not None
+    
+    ###############################
+    ###  Tests on needed steps  ###
+    ###############################
+    def _check_steps(auto_ml_config):
+        assert hasattr(auto_ml_config, "needed_steps")
+        assert isinstance(auto_ml_config.needed_steps, list)
+        for step in auto_ml_config.needed_steps:
+            assert isinstance(step, dict)
+            assert set(step.keys()) == {"optional","step"}
+            assert isinstance(step["optional"], bool)
+            assert isinstance(step["step"], str)
 
+    _check_steps(auto_ml_config)
+    assert "Model" in [step["step"] for step in auto_ml_config.needed_steps]
+    assert "Scaling" in [step["step"] for step in auto_ml_config.needed_steps]
+    
+    # Try assigning to needed steps
+    auto_ml_config.needed_steps = [s for s in auto_ml_config.needed_steps if s["step"] != "Scaling"]
+    
+    _check_steps(auto_ml_config)
+    assert "Model" in [step["step"] for step in auto_ml_config.needed_steps]
+    assert "Scaling" not in [step["step"] for step in auto_ml_config.needed_steps]
+    
+    with pytest.raises(TypeError):
+        auto_ml_config.needed_steps = "this shouldn't be accepted has steps"
+        
+    _check_steps(auto_ml_config)
+
+
+    #################################
+    ###  Tests on models to keep  ###
+    #################################
+    def _check_models(auto_ml_config):
+        assert hasattr(auto_ml_config, "models_to_keep")
+        assert isinstance(auto_ml_config.models_to_keep, list)
+        for model in auto_ml_config.models_to_keep:
+            assert isinstance(model, tuple)
+            assert len(model) == 2
+            assert isinstance(model[0], str)
+            assert isinstance(model[1], str)
+            
+    _check_models(auto_ml_config)
+    
+    assert ('Model', 'LogisticRegression') in auto_ml_config.models_to_keep
+    assert ('Model', 'RandomForestClassifier') in auto_ml_config.models_to_keep
+    assert ('Model', 'ExtraTreesClassifier') in auto_ml_config.models_to_keep
+    # try assignation
+    auto_ml_config.models_to_keep = [m for m in auto_ml_config.models_to_keep if m[1] != "LogisticRegression"]
+    
+    with pytest.raises(TypeError):
+        auto_ml_config.models_to_keep = "this shouldn't be accepted has models_to_keep"
+        
+    
+    _check_models(auto_ml_config)
+    assert ('Model', 'LogisticRegression') not in auto_ml_config.models_to_keep
+    assert ('Model', 'RandomForestClassifier') in auto_ml_config.models_to_keep
+    assert ('Model', 'ExtraTreesClassifier') in auto_ml_config.models_to_keep
+ 
+    auto_ml_config.filter_models(Model="ExtraTreesClassifier")
+    
+    _check_models(auto_ml_config)
+    assert ('Model', 'LogisticRegression') not in auto_ml_config.models_to_keep
+    assert ('Model', 'RandomForestClassifier') not in auto_ml_config.models_to_keep
+    assert ('Model', 'ExtraTreesClassifier') in auto_ml_config.models_to_keep
+    
 
 def test_JobConfig():
 
@@ -85,19 +153,44 @@ def test_JobConfig():
     job_config.guess_cv(auto_ml_config)
 
     assert job_config.cv is not None
+    assert hasattr(job_config.cv, "split")
+    
 
     job_config.guess_scoring(auto_ml_config)
     assert isinstance(job_config.scoring, list)
+    
+    assert hasattr(job_config, "allow_approx_cv")
+    assert hasattr(job_config, "start_with_default")
+    assert hasattr(job_config, "do_blocks_search")
+    
+    assert isinstance(job_config.allow_approx_cv, bool)
+    assert isinstance(job_config.start_with_default, bool)
+    assert isinstance(job_config.do_blocks_search, bool)
+    
+    with pytest.raises(ValueError):
+        job_config.cv = "this is not a cv"
+    
 
-
-def test_RandomModelGenerator_default():
+@pytest.mark.parametrize("type_of_iterator",["default", "block_search","block_search_random"])
+def test_RandomModelGenerator_iterator(type_of_iterator):
 
     dfX, y, auto_ml_config = get_automl_config()
 
     random_model_generator = RandomModelGenerator(auto_ml_config=auto_ml_config, random_state=123)
+    
+    if type_of_iterator == "default":
+        iterator = random_model_generator.iterator_default_models()
+
+    elif type_of_iterator == "block_search":
+        iterator = random_model_generator.iterate_block_search(random_order=False)
+        
+    elif type_of_iterator == "block_search_random":
+        iterator = random_model_generator.iterate_block_search(random_order=True)
+        
+    assert hasattr(iterator,"__iter__")
 
     # verif iterator
-    for model in random_model_generator.iterator_default_models():
+    for model in iterator:
 
         assert isinstance(model, tuple)
         assert len(model) == 3
@@ -122,6 +215,75 @@ def test_RandomModelGenerator_default():
         model = sklearn_model_from_param(result["json_code"])
         assert hasattr(model, "fit")
 
+#def test_RandomModelGenerator_block_search():
+#    dfX, y, auto_ml_config = get_automl_config()
+#
+#    random_model_generator = RandomModelGenerator(auto_ml_config=auto_ml_config, random_state=123)
+#
+#    # verif iterator
+#    for model in random_model_generator.iterate_block_search_models():
+#
+#        assert isinstance(model, tuple)
+#        assert len(model) == 3
+#        Graph, all_models_params, block_to_use = model
+#
+#        assert hasattr(Graph, "edges")
+#        assert hasattr(Graph, "nodes")
+#
+#        assert isinstance(all_models_params, dict)
+#        for node in Graph.node:
+#            assert node in all_models_params
+#
+#        assert isinstance(block_to_use, (tuple, list))
+#        for b in block_to_use:
+#            assert b in TypeOfVariables.alls
+#
+#        result = convert_graph_to_code(Graph, all_models_params, also_returns_mapping=True)
+#        assert isinstance(result, dict)
+#        assert "name_mapping" in result
+#        assert "json_code" in result
+#
+#        model = sklearn_model_from_param(result["json_code"])
+#        assert hasattr(model, "fit")
+
+
+def test_random_list_generator():
+    elements = ["a","b","c","d","e","f","g","h","i","j"]
+    
+    for i in range(2):
+        if i == 0:
+            probas = [1/min(i+1,10+1-i) for i in range(len(elements))]
+        else:
+            probas = None
+            
+        gen = random_list_generator(elements,probas, random_state=123)
+    
+        assert hasattr(gen,"__iter__")
+    
+        elements_random_order = list(gen)
+        assert len(elements_random_order) == len(elements)
+        assert set(elements_random_order) == set(elements)
+        
+        elements_random_order2 = list(random_list_generator(elements,probas=probas, random_state=123))
+        elements_random_order3 = list(random_list_generator(elements,probas=probas, random_state=456))
+        elements_random_order4 = list(random_list_generator(elements,probas=probas, random_state=check_random_state(123)))
+
+        assert len(elements_random_order2) == len(elements)
+        assert set(elements_random_order2) == set(elements)
+        
+        assert len(elements_random_order3) == len(elements)
+        assert set(elements_random_order3) == set(elements)
+        
+        assert elements_random_order2 == elements_random_order
+        assert elements_random_order3 != elements_random_order
+        assert elements_random_order4 == elements_random_order
+    
+    with pytest.raises(ValueError):
+        list(random_list_generator(elements,probas=[0.1], random_state=123)) # error : probas not the right length
+        
+    with pytest.raises(ValueError):
+        list(random_list_generator(elements,probas=[0] * len(elements), random_state=123)) # error : probas not the right length
+        
 
 def _all_same(all_gen):
     """ helper function to test if things are all the same """
@@ -217,6 +379,45 @@ def test_RandomModelGenerator_random():
     assert all_params1 == all_params4
     assert all_blocks1 == all_blocks4
 
+
+def test__create_all_combinations():
+    
+    def _check_all_list_of_blocks(all_list_of_blocks,all_blocks_to_use):
+        assert isinstance(all_list_of_blocks, list)
+        for blocks_to_use in all_list_of_blocks:
+            assert isinstance(blocks_to_use, tuple)
+            assert 1 <= len(blocks_to_use) <= len(all_blocks_to_use)
+            for b in blocks_to_use:
+                assert b in all_blocks_to_use
+                
+            assert len(set(blocks_to_use)) == len(blocks_to_use)
+        assert len(set(all_list_of_blocks)) == len(all_list_of_blocks) # no duplicate
+    
+    all_blocks_to_use = ("CAT","NUM","TEXT")    
+    all_list_of_blocks = _create_all_combinations(all_blocks_to_use, 1,1)    
+    
+    _check_all_list_of_blocks(all_list_of_blocks, all_blocks_to_use)
+    
+    
+    all_blocks_to_use = ("a","b","c","d")
+    all_list_of_blocks = _create_all_combinations(all_blocks_to_use, 2,2)  
+    _check_all_list_of_blocks(all_list_of_blocks, all_blocks_to_use)
+
+
+    with pytest.raises(ValueError):
+        all_list_of_blocks = _create_all_combinations(all_blocks_to_use, 0,2)   # 0 : not possible
+
+    with pytest.raises(ValueError):
+        all_list_of_blocks = _create_all_combinations(all_blocks_to_use, 2,0)   # 0 : not possible
+        
+    with pytest.raises(ValueError):
+        all_list_of_blocks = _create_all_combinations(["a","a"], 2,2)          # duplicate entry
+        
+    
+    assert _create_all_combinations(("a",), 1,1) == []
+    assert set(_create_all_combinations(("a","b"),1,1)) == set([("a",),("b",)])
+    assert set(_create_all_combinations(("a","b","c"),1,1)) == set([("a",),("b",),("c",),("a","b"),("a","c"),("b","c")])
+    
 
 # In[] :
 def test_create_everything_sequentially(tmpdir):

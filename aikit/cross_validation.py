@@ -15,6 +15,7 @@ from time import time
 import numbers
 
 import sklearn.model_selection
+from sklearn.model_selection._split import BaseCrossValidator, _num_samples, train_test_split
 
 import sklearn.base
 
@@ -766,3 +767,35 @@ def score_from_params_clustering(
         return res, predictions
     else:
         return res
+
+
+# In[]
+
+class IndexTrainTestCv(BaseCrossValidator):
+    """ cv like object but with only 1 fold """
+    def __init__(self, test_index):
+        self.test_index = test_index
+        
+    def get_n_splits(self, X, y=None, groups=None):
+        return 1
+    
+    def _iter_test_indices(self, X, y=None, groups=None):
+        yield self.test_index
+
+
+class RandomTrainTestCv(BaseCrossValidator):
+    """ cv like object but with only 1 fold """
+    def __init__(self, test_size=0.1, random_state=123):
+        self.test_size=test_size
+        self.random_state=random_state
+
+    def get_n_splits(self,X, y=None, groups=None):
+        return 1
+        
+    def _iter_test_indices(self, X, y=None, groups=None):
+        n = _num_samples(X)
+        index = np.arange(n)
+        
+        train_index, test_index = train_test_split(index,test_size=self.test_size,random_state=self.random_state)
+        yield test_index
+

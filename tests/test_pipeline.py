@@ -32,7 +32,7 @@ from aikit.tools.helper_functions import diff
 from aikit.transformers.base import PassThrough, ColumnsSelector
 from aikit.transformers.model_wrapper import DebugPassThrough
 
-from aikit.pipeline import GraphPipeline
+from aikit.pipeline import GraphPipeline, make_pipeline
 from aikit.enums import DataTypes
 
 from aikit.transformers.text import CountVectorizerWrapper
@@ -61,7 +61,21 @@ yc = 1 * (y > 0)
 
 
 # In[]
-
+def test_make_pipeline():
+    s = StandardScaler()
+    d = DecisionTreeClassifier()
+    gpipeline = make_pipeline(s,d)
+    assert isinstance(gpipeline, GraphPipeline)
+    
+    assert set(gpipeline.models.keys()) == set(['standardscaler', 'decisiontreeclassifier'])
+    assert gpipeline.edges == [('standardscaler', 'decisiontreeclassifier')]
+    
+    assert gpipeline.models["standardscaler"] is s
+    assert gpipeline.models["decisiontreeclassifier"] is d
+    
+    
+    
+    
 
 def test_gpipeline_regression():
     gpipeline = GraphPipeline({"PT": PassThrough(), "Ridge": Ridge()}, [("PT", "Ridge")])

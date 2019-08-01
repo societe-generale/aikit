@@ -83,17 +83,17 @@ def test_HyperRangeInt():
 
 
 def test_HyperRangeBetaInt():
-    hp = HyperRangeInt(10, 100, random_state=123)
+    hp = HyperRangeBetaInt(2, 5, random_state=123)
 
     all_x = []
     for _ in range(100):
         x = hp.get_rand()
         assert isinstance(x, int)
-        assert x >= 10
-        assert x <= 100
+        assert x >= 2
+        assert x <= 5
         all_x.append(x)
 
-    assert len(set(all_x)) > 1
+    assert set(all_x) == {2, 3, 4, 5}
 
 
 def _all_same(all_gen):

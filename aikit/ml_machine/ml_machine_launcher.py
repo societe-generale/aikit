@@ -69,16 +69,28 @@ class MlMachineLauncher(object):
         self.groups = None
 
         self.command = None
-
-    def _process_command_arguments(self):
-        """ process the command arguments to save in the manager the command to launch and its parameters """
-
+        
+        
+    @staticmethod
+    def _get_args_parse():
         parser = argparse.ArgumentParser(description="Ml Machine launcher")
         parser.add_argument(
             "command", help="choice among 'run', 'init', 'controller', 'worker', 'stop', 'result'", type=str
         )
         parser.add_argument("--nbworkers", "-n", help="number of workers to start", type=int, default=1)
         parser.add_argument("--seed", help="force seed of worker(s) or controllers", type=int, default=None)
+        
+        return parser
+
+
+    def _process_command_arguments(self, parser=None):
+        """ process the command arguments to save in the manager the command to launch and its parameters """
+
+        if parser is None:
+            parser = self._get_args_parse()
+        
+        if not hasattr(parser, "parse_args"):
+            raise TypeError("'parser' should have a 'parse_args' method")
 
         args = parser.parse_args()
 
@@ -92,9 +104,9 @@ class MlMachineLauncher(object):
 
         return self
 
-    def execute_processed_command_argument(self):
+    def execute_processed_command_argument(self, parser=None):
 
-        self._process_command_arguments()
+        self._process_command_arguments(parser)
 
         if self.command == self.Commands.run:
             self.run_command()
