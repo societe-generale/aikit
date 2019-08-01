@@ -160,11 +160,15 @@ def dico_keyvalue_filter(dico, f):
 
 
 def dico_key_filter(dico, f):
-    """ filter a dictionnary according to a function on its keys """
-    if isinstance(dico, dict):
-        return {k: v for k, v in dico.items() if f(k)}
-    elif isinstance(dico, OrderedDict):
+    """ filter a dictionnary according to a function on its keys 
+    keep original type of dict
+    """
+    if isinstance(dico, OrderedDict):
         return OrderedDict([(k, v) for k, v in dico.items() if f(k)])
+    
+    elif isinstance(dico, dict):
+        return {k: v for k, v in dico.items() if f(k)}
+    
     else:
         res = dico.__class__()
         for k, v in res.items():
@@ -175,10 +179,12 @@ def dico_key_filter(dico, f):
 
 def dico_value_filter(dico, f):
     """ filter a dictionnary according to a function on its values """
-    if isinstance(dico, dict):
-        return {k: v for k, v in dico.items() if f(v)}
-    elif isinstance(dico, OrderedDict):
+    if isinstance(dico, OrderedDict):
         return OrderedDict([(k, v) for k, v in dico.items() if f(v)])
+
+    elif isinstance(dico, dict):
+        return {k: v for k, v in dico.items() if f(v)}
+
     else:
         res = dico.__class__()
         for k, v in res.items():
@@ -189,10 +195,12 @@ def dico_value_filter(dico, f):
 
 def dico_key_map(dico, f):
     """ apply a function on the key of a dictionnary """
-    if isinstance(dico, dict):
-        return {f(k): v for k, v in dico.items()}
-    elif isinstance(dico, OrderedDict):
+    if isinstance(dico, OrderedDict):
         return OrderedDict([(f(k), v) for k, v in dico.items()])
+
+    elif isinstance(dico, dict):
+        return {f(k): v for k, v in dico.items()}
+    
     else:
         res = dico.__class__()
         for k, v in res.items():
@@ -202,10 +210,10 @@ def dico_key_map(dico, f):
 
 def dico_value_map(dico, f):
     """ apply a function on the values of a dictionnary """
-    if isinstance(dico, dict):
-        return {k: f(v) for k, v in dico.items()}
-    elif isinstance(dico, OrderedDict):
+    if isinstance(dico, OrderedDict):
         return OrderedDict([(k, f(v)) for k, v in dico.items()])
+    elif isinstance(dico, dict):
+        return {k: f(v) for k, v in dico.items()}
     else:
         res = dico.__class__()
         for k, v in res.items():

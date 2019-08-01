@@ -411,7 +411,7 @@ class DebugPassThrough(TransformerMixin, BaseEstimator):
     def __init__(self, verbose=False, name=None, column_prefix=None, debug=False):
         self.verbose = verbose
         self.name = name
-        self.column_prefix = None
+        self.column_prefix = column_prefix
         self.debug = debug
 
     def fit(self, X, y=None, **fit_params):
