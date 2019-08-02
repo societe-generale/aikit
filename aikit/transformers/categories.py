@@ -97,7 +97,7 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
         value_count = input_serie.value_counts()
         nb_null = input_serie.isnull().sum()
 
-        if nb_null >= self.max_na_percentage * len(input_serie):
+        if nb_null > self.max_na_percentage * len(input_serie):
             value_count["__null__"] = nb_null
             value_count.sort_values(ascending=False, inplace=True)
             # Careful : pandas behavior, change order of index with equality ...
@@ -112,12 +112,8 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
 
             ### Filter 1 => using 'Max Cum Proba' ###
             if self.max_cum_proba is not None:
-                cum_proba = value_count.cumsum() / NN
-                if cum_proba.iloc[0] > self.max_cum_proba:
-                    # The first modality have higher proba than 'max_cum_proba' ...
-                    to_keep.iloc[1:] = False  # ... I'll keep only the first modality i
-                else:
-                    to_keep = to_keep & (cum_proba < self.max_cum_proba)
+                cum_proba = value_count.cumsum().shift().fillna(0) / NN
+                to_keep = to_keep & (cum_proba < self.max_cum_proba)
 
             ### Filter2 => using 'Min Nb Of Observations' ###
             if self.min_nb_observations is not None:
@@ -132,7 +128,7 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
 
             ### Filter 3 => If I still have too many modalities, keep only the first one ###
             if self.max_modalities_number is not None and modalities_to_keep.shape[0] > self.max_modalities_number:
-                modalities_to_keep = modalities_to_keep.iloc[0 : self.max_modalities_number]
+                modalities_to_keep = modalities_to_keep.iloc[0:self.max_modalities_number]
 
         else:
             modalities_to_keep = value_count

@@ -179,8 +179,6 @@ def test_NumericalEncoder_num():
 
     assert res.shape == df.shape
     assert (res.index == df.index).all()
-    
-
 
     assert encoder.get_feature_names() == encoder.model._feature_names
     assert encoder.get_feature_names() == list(res.columns)
@@ -202,6 +200,49 @@ def test_NumericalEncoder_num():
 
     assert (df_with_none["cat_col_3"].isnull() == (res2["cat_col_3"] == 0)).all()
 
+def test_NumericalEncoder_num_fit_parameters():
+
+    np.random.seed(123)
+    df = get_sample_df(100, seed=123)
+    ind = np.arange(len(df))
+    df.index = ind
+
+    df["cat_col_1"] = df["text_col"].apply(lambda s: s[0:3])
+    df["cat_col_2"] = df["text_col"].apply(lambda s: s[4:7])
+    df["cat_col_3"] = df["text_col"].apply(lambda s: s[8:11])
+    df.loc[0:10, "cat_col_3"] = None
+
+    # All modalities are kept, __null__ category is created
+    encoder = NumericalEncoder(encoding_type="num", min_modalities_number=10, max_modalities_number=100,
+                               max_na_percentage=0, min_nb_observations=1, max_cum_proba=1)
+    res = encoder.fit_transform(df)
+    assert len(encoder.model.variable_modality_mapping['cat_col_1']) == 7
+    assert len(encoder.model.variable_modality_mapping['cat_col_3']) == 8
+
+    # We filter on max_cum_proba, __null__ category is created
+    encoder = NumericalEncoder(encoding_type="num", min_modalities_number=1, max_modalities_number=100,
+                               max_na_percentage=0, min_nb_observations=1, max_cum_proba=0.6)
+    res = encoder.fit_transform(df)
+    map1 = encoder.model.variable_modality_mapping['cat_col_1']
+    assert len(map1) == 5
+    assert np.all([v in map1 for v in ['eee', 'bbb', 'ddd', 'jjj', '__default__']])
+    map3 = encoder.model.variable_modality_mapping['cat_col_3']
+    assert len(map3) == 6
+    assert np.all([v in map3 for v in ['bbb', 'ddd', 'ccc', 'aaa', 'jjj', '__default__']])
+
+    # No __null__ category
+    encoder = NumericalEncoder(encoding_type="num", min_modalities_number=1, max_modalities_number=100,
+                               max_na_percentage=0.2, min_nb_observations=1, max_cum_proba=1)
+    res = encoder.fit_transform(df)
+    assert len(encoder.model.variable_modality_mapping['cat_col_3']) == 7
+
+    # Max modalities
+    encoder = NumericalEncoder(encoding_type="num", min_modalities_number=1, max_modalities_number=3,
+                               max_na_percentage=0.2, min_nb_observations=1, max_cum_proba=1)
+    res = encoder.fit_transform(df)
+    assert len(encoder.model.variable_modality_mapping['cat_col_1']) == 4
+    assert len(encoder.model.variable_modality_mapping['cat_col_2']) == 4
+    assert len(encoder.model.variable_modality_mapping['cat_col_3']) == 4
 
 @pytest.mark.xfail()
 def test_bug_CategoryEncoder():
