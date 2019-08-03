@@ -59,6 +59,59 @@ def test_log_loss_patched_scorer_aikit():
     assert not pd.isnull(cv_res2).any()
 
     assert np.abs(cv_res1 - cv_res2).max() <= 10 ** (-5)
+
+
+def test_avg_roc_auc_scorer_aikit():
+    np.random.seed(123)
+    X = np.random.randn(100, 2)
+
+    y = np.array(["AA"] * 33 + ["BB"] * 33 + ["CC"] * 33 + ["DD"])
+
+    cv = StratifiedKFold(n_splits=10)
+
+    logit = LogisticRegression()
+
+    cv_res1 = cross_val_score(logit, X, y, cv=cv, scoring="avg_roc_auc")
+    assert cv_res1.shape == (10,)
+    assert not pd.isnull(cv_res1).any()
+
+    cv_res2 = cross_val_score(logit, X, y, cv=cv, scoring=aikit.scorer.avg_roc_auc_score())
+    assert cv_res2.shape == (10,)
+    assert not pd.isnull(cv_res2).any()
+
+    assert np.abs(cv_res1 - cv_res2).max() <= 10 ** (-5)
+
+    with pytest.raises(ValueError):
+        cross_val_score(logit, X, y, cv=cv, scoring="roc_auc") # sklearn doesn't handle that
+        
+    cv_res_aikit   = cross_val_score(logit, X, 1*(y=="AA"), cv=cv, scoring="avg_roc_auc")
+    cv_res_sklearn = cross_val_score(logit, X, 1*(y=="AA"), cv=cv, scoring="roc_auc")
+
+    assert np.abs(cv_res_aikit - cv_res_sklearn).max() <= 10 **(-5)
+
+def test_average_precision_scorer_aikit():
+    np.random.seed(123)
+    X = np.random.randn(100, 2)
+
+    y = np.array(["AA"] * 33 + ["BB"] * 33 + ["CC"] * 33 + ["DD"])
+
+    cv = StratifiedKFold(n_splits=10)
+
+    logit = LogisticRegression()
+
+    cv_res1 = cross_val_score(logit, X, y, cv=cv, scoring="avg_average_precision")
+    assert cv_res1.shape == (10,)
+    assert not pd.isnull(cv_res1).any()
+
+    cv_res2 = cross_val_score(logit, X, y, cv=cv, scoring=aikit.scorer.avg_average_precision())
+    assert cv_res2.shape == (10,)
+    assert not pd.isnull(cv_res2).any()
+
+    assert np.abs(cv_res1 - cv_res2).max() <= 10 ** (-5)
+
+    with pytest.raises(ValueError):
+        cross_val_score(logit, X, y, cv=cv, scoring="average_precision") # sklearn doesn't handle that
+
     
 def test_log_loss_patched_multioutput():
     np.random.seed(123)
