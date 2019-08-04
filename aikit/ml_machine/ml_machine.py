@@ -310,6 +310,9 @@ class AutoMlConfig(object):
         if shapeX is not None and y is not None:
             if shapeX[0] != shapey[0]:
                 raise ValueError("dfX and y don't have the same shape %d vs %d" % (shapeX[0], shapey[0]))
+                
+            if len(shapey) > 1 and shapey[1] > 1:
+                raise ValueError("Multi-output isn't handled yet")
 
     ####################
     ### Needed steps ###
