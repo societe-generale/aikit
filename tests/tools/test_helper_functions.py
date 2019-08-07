@@ -5,8 +5,12 @@ Created on Fri Sep 14 11:33:30 2018
 @author: Lionel Massoulard
 """
 
+import pytest
+
 import pandas as pd
 import numpy as np
+
+from collections import OrderedDict
 
 from aikit.tools.helper_functions import (
     function_has_named_argument,
@@ -21,6 +25,10 @@ from aikit.tools.helper_functions import (
     shuffle_all,
     md5_hash,
     clean_column,
+    dico_key_filter,
+    dico_value_filter,
+    dico_key_map,
+    dico_value_map
 )
 
 def test_function_has_named_argument():
@@ -265,3 +273,74 @@ def test_clean_column():
 
     for s, expected_result in examples:
         assert clean_column(s) == expected_result
+
+
+@pytest.mark.parametrize("dict_type", (dict, OrderedDict))
+def test_dico_key_filter(dict_type):
+    def f(x):
+        return x >= 1
+
+    dico = {0:"a",1:"b",2:"c"}
+
+    dico = dict_type(dico)
+    
+
+    fdico = dico_key_filter(dico, f)
+    
+    assert type(dico) == type(fdico)
+    assert set(fdico.keys()) == set([k for k,v in dico.items() if f(k)])
+    for k,v in fdico.items():
+        assert dico[k] == v
+    assert id(fdico) != id(dico)
+        
+@pytest.mark.parametrize("dict_type", (dict, OrderedDict))
+def test_dico_value_filter(dict_type):
+    def f(x):
+        return x >= 1
+
+    dico = {"a":0,"b":1,"c":2}
+
+    dico = dict_type(dico)
+    
+
+    fdico = dico_value_filter(dico, f)
+    
+    assert type(dico) == type(fdico)
+    assert set(fdico.keys()) == set([k for k,v in dico.items() if f(v)])
+    for k,v in fdico.items():
+        assert dico[k] == v
+    assert id(fdico) != id(dico)
+    
+@pytest.mark.parametrize("dict_type", (dict, OrderedDict))
+def test_dico_key_map(dict_type):
+    def f(x):
+        return x+1
+    
+    dico = {0:"a",1:"b",2:"c"}
+    dico = dict_type(dico)
+    
+    mdico = dico_key_map(dico, f)
+    assert type(mdico) == type(dico)
+    assert set(mdico.keys()) == set([f(k) for k in dico.keys()])
+    for k,v in dico.items():
+        assert mdico[f(k)] == v
+        
+    assert id(dico) != id(mdico)
+    
+
+@pytest.mark.parametrize("dict_type", (dict, OrderedDict))
+def test_dico_value_map(dict_type):
+    def f(x):
+        return x+1
+    
+    dico = {"a":0,"b":1,"c":2}
+    dico = dict_type(dico)
+    
+    mdico = dico_value_map(dico, f)
+    assert type(mdico) == type(dico)
+    assert set(mdico.keys()) == set(dico.keys())
+    for k,v in dico.items():
+        assert mdico[k] == f(v)
+        
+    assert id(dico) != id(mdico)
+    

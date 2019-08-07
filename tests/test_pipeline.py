@@ -32,7 +32,7 @@ from aikit.tools.helper_functions import diff
 from aikit.transformers.base import PassThrough, ColumnsSelector
 from aikit.transformers.model_wrapper import DebugPassThrough
 
-from aikit.pipeline import GraphPipeline
+from aikit.pipeline import GraphPipeline, make_pipeline
 from aikit.enums import DataTypes
 
 from aikit.transformers.text import CountVectorizerWrapper
@@ -61,7 +61,21 @@ yc = 1 * (y > 0)
 
 
 # In[]
-
+def test_make_pipeline():
+    s = StandardScaler()
+    d = DecisionTreeClassifier()
+    gpipeline = make_pipeline(s,d)
+    assert isinstance(gpipeline, GraphPipeline)
+    
+    assert set(gpipeline.models.keys()) == set(['standardscaler', 'decisiontreeclassifier'])
+    assert gpipeline.edges == [('standardscaler', 'decisiontreeclassifier')]
+    
+    assert gpipeline.models["standardscaler"] is s
+    assert gpipeline.models["decisiontreeclassifier"] is d
+    
+    
+    
+    
 
 def test_gpipeline_regression():
     gpipeline = GraphPipeline({"PT": PassThrough(), "Ridge": Ridge()}, [("PT", "Ridge")])
@@ -936,3 +950,109 @@ def test_graphpipeline_no_concat():
     assert isinstance(Xtransformed, BlockManager)
     assert (Xtransformed["A"] == X).all().all()
     assert (Xtransformed["B"] == X).all().all()
+
+
+def test_graphpipeline_nodes_concat_order():
+    
+    cols = list(dfX.columns)
+    
+    ### 1
+    pipeline = GraphPipeline({"pt1":DebugPassThrough(column_prefix="PT1_",debug=True),
+                              "pt2":DebugPassThrough(column_prefix="PT2_",debug=True),
+                              "pt3":DebugPassThrough(column_prefix="PT3_",debug=True),
+                              },
+                              edges = [("pt1","pt3"),("pt2","pt3")]
+                              )
+
+    Xres = pipeline.fit_transform(dfX)
+    assert list(Xres.columns) == ["PT3__PT1__" + c for c in cols] + ["PT3__PT2__" + c for c in cols] # PT1 on the left, PT2 on the right
+    assert list(Xres.columns) == pipeline.get_feature_names()
+
+    ### 2 : reverse order    
+    pipeline = GraphPipeline({"pt1":DebugPassThrough(column_prefix="PT1_",debug=True),
+                              "pt2":DebugPassThrough(column_prefix="PT2_",debug=True),
+                              "pt3":DebugPassThrough(column_prefix="PT3_",debug=True),
+                              },
+                              edges = [("pt2","pt3"),("pt1","pt3")]
+                              )
+
+    Xres = pipeline.fit_transform(dfX)
+    assert list(Xres.columns) == ["PT3__PT2__" + c for c in cols] + ["PT3__PT1__" + c for c in cols] # PT1 on the left, PT2 on the right
+    assert list(Xres.columns) == pipeline.get_feature_names()
+
+
+    ### 3 : with 4 nodes
+    for edges in ( [("pt1","pt3","pt4"),("pt2","pt3","pt4")] , [("pt1","pt3","pt4"),("pt2","pt3")] ):
+        pipeline = GraphPipeline({"pt1":DebugPassThrough(column_prefix="PT1_",debug=True),
+                                  "pt2":DebugPassThrough(column_prefix="PT2_",debug=True),
+                                  "pt3":DebugPassThrough(column_prefix="PT3_",debug=True),
+                                  "pt4":DebugPassThrough(column_prefix="PT4_",debug=True)} ,
+                                  edges = edges
+                                  )
+        Xres = pipeline.fit_transform(dfX)
+        assert list(Xres.columns) == ["PT4__PT3__PT1__" + c for c in cols] + ["PT4__PT3__PT2__" + c for c in cols] # PT1 on the left, PT2 on the right
+        assert list(Xres.columns) == pipeline.get_feature_names()
+
+    
+    ### 4 : reverse order
+    for edges in ( [("pt2","pt3","pt4"),("pt1","pt3","pt4")] , [("pt2","pt3","pt4"),("pt1","pt3")] ):
+        pipeline = GraphPipeline({"pt1":DebugPassThrough(column_prefix="PT1_",debug=True),
+                                  "pt2":DebugPassThrough(column_prefix="PT2_",debug=True),
+                                  "pt3":DebugPassThrough(column_prefix="PT3_",debug=True),
+                                  "pt4":DebugPassThrough(column_prefix="PT4_",debug=True)} ,
+                                  edges = edges
+                                  )
+        Xres = pipeline.fit_transform(dfX)
+        assert list(Xres.columns) == ["PT4__PT3__PT2__" + c for c in cols] + ["PT4__PT3__PT1__" + c for c in cols] # PT1 on the left, PT2 on the right
+        assert list(Xres.columns) == pipeline.get_feature_names()
+        
+    
+def test_get_subpipeline():
+    def get_pipeline():
+        pipeline = GraphPipeline({"pt1":DebugPassThrough(column_prefix="PT1_",debug=True),
+                                  "pt2":DebugPassThrough(column_prefix="PT2_",debug=True),
+                                  "pt3":DebugPassThrough(column_prefix="PT3_",debug=True),
+                                  "pt4":DebugPassThrough(column_prefix="PT4_",debug=True)} ,
+                                  edges = [("pt1","pt3","pt4"),("pt2","pt3","pt4")]
+                                  )
+        return pipeline
+    
+    pipeline = get_pipeline()
+    
+    pipeline.fit(dfX,y)
+    
+    cols = list(dfX.columns)
+    
+    # Test on an already fitted models
+    pipeline.fit(dfX)
+    sub_pipeline = pipeline.get_subpipeline(end_node="pt3")
+    assert isinstance(sub_pipeline, GraphPipeline)
+    
+    Xres_sub = sub_pipeline.transform(dfX)
+    assert list(Xres_sub.columns) == ["PT3__PT1__" + c for c in cols] + ["PT3__PT2__" + c for c in cols]
+    assert list(Xres_sub.columns) == sub_pipeline.get_feature_names()
+    assert list(Xres_sub.columns) == pipeline.get_feature_names_at_node("pt3")
+    
+    # Test on a not fitted model
+    pipeline = get_pipeline()
+    
+    sub_pipeline = pipeline.get_subpipeline(end_node="pt3")
+    assert isinstance(sub_pipeline, GraphPipeline)
+    with pytest.raises(NotFittedError):
+        sub_pipeline.transform(dfX)
+        
+    Xres_sub = sub_pipeline.fit_transform(dfX)
+    assert list(Xres_sub.columns) == ["PT3__PT1__" + c for c in cols] + ["PT3__PT2__" + c for c in cols]
+    assert list(Xres_sub.columns) == sub_pipeline.get_feature_names()
+
+    
+    # Test if end_node not in pipeline
+    with pytest.raises(ValueError):
+        pipeline.get_subpipeline("not_in_pipeline")
+        
+    
+    # Test if end_node is root node
+    pipeline = get_pipeline()
+    sub_pipeline = pipeline.get_subpipeline("pt1")
+    assert isinstance(sub_pipeline, type(pipeline._models["pt1"]))
+    

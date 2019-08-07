@@ -174,6 +174,36 @@ def graph_from_edges(*edges):
 
     return G
 
+def get_two_by_two_edges(*edges):
+    """ create the list of edges
+    
+    Parameters
+    ----------
+    * edges : list or tuple
+        each consecutive elements will be an edge
+        
+    Returns
+    -------
+    list of 2-uple for the edges
+    """
+    # Examples :
+    # G = test_graph_from_edges((1,2,3),(4,3))
+    # 1 -> 2 -> 3, and 3 -> 4
+
+    two_by_two_edges = []
+
+    for list_of_edge in edges:
+        if len(list_of_edge) <= 1:
+            raise ValueError("edges must be of length at least 2")
+
+        if not isinstance(list_of_edge, (tuple, list)):
+            raise TypeError("argument should be tuple or list, instead i got : '%s' " % type(list_of_edge))
+
+        for e1, e2 in zip(list_of_edge[:-1], list_of_edge[1:]):
+            two_by_two_edges.append((e1,e2))
+
+    return two_by_two_edges
+
 
 def is_it_a_partition(all_nodes, partitions):
     """ test if partitions is a partition of all_nodes.

@@ -53,7 +53,15 @@ def get_metric_default_transformation(metric_name):
     * makes it more 'normal'
     * allow easier focus on important part
     """
-    if metric_name in ("accuracy", "my_avg_roc_auc", "roc_auc", "r2", "avg_roc_auc", "f1_macro", "silhouette"):
+    if metric_name in ("accuracy",
+                       "my_avg_roc_auc",
+                       "roc_auc",
+                       "r2",
+                       "avg_roc_auc",
+                       "f1_macro",
+                       "silhouette",
+                       "average_precision"
+                       ):
         # Metric where 'perfection' si 1 => focus on differences with 1, log is here to expand small differences
         return lambda x: -np.log10(1 - x)
 
@@ -273,8 +281,16 @@ class AutoMlModelGuider(object):
 
             elif self.metric_transformation == "default":
                 ### Transform using default transformation (log like function)
-                f = get_metric_default_transformation(scorer)
-                y_params = f(y_params)
+                try:
+                    f = get_metric_default_transformation(scorer)
+                except ValueError:
+                    logger.info("I don't know how to transform this metric %s, I'll use default normal transformation" % str(scorer))
+                    f = None
+                    
+                if f is None:
+                    y_params = norm.ppf(kde_transfo_quantile(y_params))
+                else:
+                    y_params = f(y_params)
 
                 if self.avg_metrics:
                     # If I'm averaging I'd rather have something centered

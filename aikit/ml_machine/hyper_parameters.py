@@ -290,7 +290,7 @@ class HyperRangeBetaInt(HyperRangeBetaFloat):
     __doc__ += "\nForce integer result " ""
 
     def get_rand(self):
-        return int(super(HyperRangeBetaInt, self).get_rand())
+        return int(super(HyperRangeBetaInt, self).get_rand() + 0.5)
 
 
 class HyperLogRangeFloat(AbstractHyper):

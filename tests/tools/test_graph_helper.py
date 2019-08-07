@@ -22,6 +22,7 @@ from aikit.tools.graph_helper import (
     get_all_successors,
     has_cycle,
     remove_node_keep_connections,
+    get_two_by_two_edges
 )
 from aikit.tools.graph_helper import get_terminal_nodes, get_starting_nodes, get_connected_graphs
 
@@ -99,6 +100,14 @@ def test_graph_from_edges():
     edges = [("A", "B", "D"), ("A", "C", "D"), ("E", "C", "D")]
     assert set(G.nodes) == {"A", "B", "C", "D", "E"}
     assert set(G.edges) == {("A", "B"), ("A", "C"), ("B", "D"), ("C", "D"), ("E", "C")}
+
+
+def test_get_two_by_two_edges():
+    assert get_two_by_two_edges(("a","c"),("b","c")) == [('a', 'c'), ('b', 'c')]
+    assert get_two_by_two_edges(("b","c"),("a","c")) == [('b', 'c'), ('a', 'c')]
+    
+    assert get_two_by_two_edges(("a","c","d"),("b","c")) == [('a', 'c'), ('c','d'),('b', 'c')]
+    assert get_two_by_two_edges(("a","c","d"),("b","c")) == [('a', 'c'), ('c','d'),('b', 'c')]
 
 
 def test_insert_node_above():

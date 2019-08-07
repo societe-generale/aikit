@@ -100,6 +100,7 @@ class ModelRepresentationBase(_AbstractModelRepresentation):
         "analyzer": hp.HyperChoice(["word", "char", "char_wb"]),
         "penalty": ["l1", "l2"],
         "random_state": [123],  # So that every for every model with a random_state attribute, it will be passed and fix
+        "columns_to_encode":["--object--"]
     }
 
 
@@ -163,6 +164,8 @@ class RandomForestClassifier_Model(ModelRepresentationBase):
     default_parameters = {"n_estimators": 100}
 
     use_y = True
+    
+    use_for_block_search = lightgbm is None # use RandomForest only if LightGBM is not installed
 
 
 @register
@@ -180,6 +183,8 @@ class RandomForestRegressor_Model(ModelRepresentationBase):
     default_parameters = {"n_estimators": 100}
 
     use_y = True
+    
+    use_for_block_search = lightgbm is None # use RandomForest only if LightGBM is not installed
 
 
 ### Extra Trees
@@ -311,6 +316,8 @@ if lightgbm is not None:
         type_of_model = TypeOfProblem.CLASSIFICATION
 
         use_y = True
+        
+        use_for_block_search = True
 
 
     @register
@@ -324,7 +331,8 @@ if lightgbm is not None:
         type_of_model = TypeOfProblem.REGRESSION
 
         use_y = True
-
+        
+        use_for_block_search = True
 
 # In[] : Selectors
 
@@ -391,7 +399,7 @@ class CountVectorizer_TextEncoder(ModelRepresentationBase):
                     0.5,
                     hp.HyperCrossProduct(
                         {
-                            "ngram_range": hp.HyperRangeInt(start=1, end=4),
+                            "ngram_range": hp.HyperRangeBetaInt(start=1, end=5, alpha=2, beta=1), # 1 = 1.5% ; 2 = 12% ; 3 = 25% ; 4 = 37% ; 5 = 24%
                             "analyzer": hp.HyperChoice(("char", "char_wb")),
                             "min_df": [1, 0.001, 0.01, 0.05],
                             "max_df": [0.999, 0.99, 0.95],
@@ -403,6 +411,8 @@ class CountVectorizer_TextEncoder(ModelRepresentationBase):
         )
 
         return res
+    
+    use_for_block_search = True
 
 
 if gensim is not None:
@@ -495,6 +505,8 @@ class NumericalEncoder_CatEncoder(ModelRepresentationBase):
     type_of_model = None
 
     use_y = False
+    
+    use_for_block_search = True
 
 
 @register
@@ -550,6 +562,8 @@ class NumImputer_Inputer(ModelRepresentationBase):
 
     type_of_model = None
     use_y = False
+    
+    use_for_block_search = True
 
 
 # In[]
