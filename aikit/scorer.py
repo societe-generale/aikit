@@ -46,7 +46,7 @@ class log_loss_scorer_patched(object):
 
 
 class avg_roc_auc_score(object):
-    """ Average Roc Auc scorer """
+    """ Average Roc Auc scorer, make sklearn roc auc scorer works with multi-class """
 
     def __init__(self, average="macro"):
         self.average = average
@@ -70,6 +70,28 @@ class avg_roc_auc_score(object):
         )
         # return classes_present.sum() / len(classes_present) * score
 
+class avg_average_precision(object):
+    """ Average of Average Precision, make sklearn average precision scorer works with multi-class """
+    def __init__(self, average="macro"):
+        self.average = average
+        self._deprecation_msg = None
+
+    def __call__(self, clf, X, y, sample_weight=None):
+
+        y_pred = clf.predict_proba(X)
+        if not hasattr(clf, "classes_"):
+            raise ValueError("estimator should have a 'classes_' attribute")
+        if not y_pred.shape[1] == len(clf.classes_):
+            raise ValueError("estimator.classes_ isn't the same shape as predict_proba")
+
+        y2 = np.zeros(y_pred.shape)
+        for i, cl in enumerate(clf.classes_):
+            y2[:, i] = 1 * (y == cl)
+
+        classes_present = y2.sum(axis=0) > 0
+        return sklearn.metrics.average_precision_score(
+            y2[:, classes_present], y_pred[:, classes_present], sample_weight=sample_weight, average=self.average
+        )
 
 class confidence_score(object):
     """ Mesure howmuch 'maxproba' helps discriminate between mistaken and correct instance
@@ -253,6 +275,7 @@ davies_bouldin_scorer = make_scorer_clustering(davies_bouldin_score, greater_is_
 
 
 SCORERS["avg_roc_auc"] = avg_roc_auc_score()
+SCORERS["avg_average_precision"] = avg_average_precision()
 SCORERS["log_loss_patched"] = log_loss_scorer_patched()
 SCORERS["confidence_score"] = confidence_score()
 SCORERS["log_r2"] = log_r2_scorer

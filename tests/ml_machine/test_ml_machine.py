@@ -4,6 +4,10 @@ Created on Wed Apr 17 16:20:02 2019
 
 @author: lmassoul032513
 """
+import pytest
+
+import pandas as pd
+import numpy as np
 
 from sklearn.utils import check_random_state
 
@@ -45,6 +49,24 @@ def get_automl_config():
     auto_ml_config.guess_everything()
 
     return dfX, y, auto_ml_config
+
+def test_AutoMlConfig_raise_if_wrong_nb_oberservations():
+    dfX = pd.DataFrame({"a":[0,1,2,3,4,5],"b":[0,10,20,30,40,50]})
+    y   = np.array([0,0,0,1,1,1])
+
+    auto_ml_config = AutoMlConfig(dfX, y[0:3])
+    with pytest.raises(ValueError):
+        auto_ml_config.guess_everything() #raise because y doesn't have the correct number of observations
+
+
+def test_AutoMlConfig_raise_multioutput():
+    dfX = pd.DataFrame({"a": [0, 1, 2, 3, 4, 5], "b": [0, 10, 20, 30, 40, 50]})
+    y = np.array([0, 0, 0, 1, 1, 1])
+    y2d = np.concatenate((y[:, np.newaxis], y[:, np.newaxis]), axis=1)
+
+    auto_ml_config = AutoMlConfig(dfX, y2d)
+    with pytest.raises(ValueError):
+        auto_ml_config.guess_everything()  # raise because y has 2 dimensions
 
 
 def test_AutoMlConfig():
