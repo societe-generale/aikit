@@ -67,6 +67,9 @@ class MlMachineLauncher(object):
         self.dfX = None
         self.y = None
         self.groups = None
+        
+        self._seed = None # to initialize the attribute
+        self._nbworks = None
 
         self.command = None
         
@@ -262,6 +265,9 @@ class MlMachineLauncher(object):
             df_merged_error.to_excel(self.base_folder + "/result_error.xlsx", index=False)
         except OSError:
             print("I couldn't save excel file")
+            
+        return df_merged_result, df_merged_error
+
 
     # In[]
     def reload(self):
@@ -273,6 +279,7 @@ class MlMachineLauncher(object):
         self.auto_ml_config = self.data_persister.read(key="auto_ml_config", write_type=SavingType.pickle)
         self.dfX = self.data_persister.read(key="dfX", write_type=SavingType.pickle)
         self.y = self.data_persister.read(key="y", write_type=SavingType.pickle)
+        self.groups = self.data_persister.read(key="groups", write_type=SavingType.pickle)
 
     def initialize(self):
         """ method to initialize auto_ml_config and job_config """
