@@ -44,7 +44,7 @@ from aikit.cross_validation import (cross_validation,
                                     score_from_params_clustering,
                                     is_clusterer,
                                     _score_with_group,
-                                    _multimetric_score_with_group
+                                    _multimetric_score_with_group,
                                     IndexTrainTestCv,
                                     RandomTrainTestCv
                                     )
@@ -1216,7 +1216,7 @@ def test__score_with_group__multimetric_score_with_group():
     y_test = 1*(np.random.randn(100)>0)
     group_test = np.array([0]*25 + [1] * 25 + [2] * 25 + [3]*25)
     
-        estimator = LogisticRegression(solver="lbfgs", random_state=123)
+    estimator = LogisticRegression(solver="lbfgs", random_state=123)
     estimator.fit(X_test,y_test)
     
     #######################################################
@@ -1292,7 +1292,6 @@ def test_cross_validation_with_max_proba_accuracy():
     cv = GroupKFold(n_splits=4)
 
     max_proba_scorer = _GroupProbaScorer(score_func=max_proba_group_accuracy, sign=1, kwargs={})
-    
 
     X = np.random.randn(100,10)
     y = 1*(np.random.randn(100)>0)
@@ -1325,8 +1324,6 @@ def test_cross_validation_classifier_multi_output(add_third_class,
                                        cast_data_frame,
                                        cast_string):
 
-    
-
     estimator = RandomForestClassifier(n_estimators=10, random_state=123)
     
     X, y = make_classification(n_samples=10)
@@ -1342,7 +1339,6 @@ def test_cross_validation_classifier_multi_output(add_third_class,
 
     if cast_data_frame:
         yd2 = pd.DataFrame(yd2)
-
 
     cv_res = cross_validation(estimator, X, yd2, cv=3,scoring="log_loss_patched")
     assert cv_res.shape[0] == 3

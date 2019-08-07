@@ -4,6 +4,8 @@ Created on Fri Jul 27 10:21:41 2018
 
 @author: Lionel Massoulard
 """
+import logging
+
 import os.path
 import tarfile
 import tempfile
@@ -111,7 +113,12 @@ def find_path(name, cache_dir=None, cache_subdir='datasets'):
     name = name.lower()
 
     if name in DATASET_PUBLIC_URLS:
-        return _load_public_path(DATASET_PUBLIC_URLS[name], cache_dir=cache_dir, cache_subdir=cache_subdir)
+        try:
+            return _load_public_path(DATASET_PUBLIC_URLS[name], cache_dir=cache_dir, cache_subdir=cache_subdir)
+        except:
+            logging.getLogger("aikit.datasets").warning(
+                "Failed to load public dataset from URL: {}, fallback to config.json file".format(
+                    DATASET_PUBLIC_URLS[name]))
 
     if DATASET_CONFIG is None:
         config_file = os.path.join(os.path.split(__file__)[0], "config.json")
@@ -120,7 +127,7 @@ def find_path(name, cache_dir=None, cache_subdir='datasets'):
     config = DATASET_CONFIG.get(name, None)
     if config is None:
         config = DATASET_CONFIG["default"]
-        path = os.path.join(config["path"], name)
+        path = os.path.join(config["path"], name, name + ".csv")
     else:
         path = config["path"]
 
