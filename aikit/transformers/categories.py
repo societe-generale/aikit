@@ -262,7 +262,7 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
             return result
 
         elif self.encoding_type == "dummy":
-            Xres = np.zeros((X.shape[0], self._dummy_size), dtype=np.bool)
+            Xres = np.zeros((X.shape[0], self._dummy_size), dtype='int32')
 
             nn = np.arange(X.shape[0])
             for col, result in zip(self._columns_to_encode, all_result_series):
