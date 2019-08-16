@@ -282,7 +282,11 @@ def test_random_list_generator():
         list(random_list_generator(elements,probas=[0.1], random_state=123)) # error : probas not the right length
         
     with pytest.raises(ValueError):
-        list(random_list_generator(elements,probas=[0] * len(elements), random_state=123)) # error : probas not the right length
+        list(random_list_generator(elements,probas=[0] * len(elements), random_state=123)) # error : probas 0
+        
+def test_random_list_generator_empty():
+    elements_random_order = list(random_list_generator([], [], random_state=123))
+    assert elements_random_order == []
         
 
 def _all_same(all_gen):

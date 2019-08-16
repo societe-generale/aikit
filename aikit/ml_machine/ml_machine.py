@@ -624,7 +624,7 @@ def random_list_generator(elements, probas=None, random_state=None):
         if len(elements) != len(probas):
             raise ValueError("'elements' and 'probas' should have the same length")
             
-        if np.array(probas).min() <= 0:
+        if len(elements) > 0 and np.array(probas).min() <= 0:
             raise ValueError("'probas' should be >0")
             
     all_indexes = list(range(len(elements)))
