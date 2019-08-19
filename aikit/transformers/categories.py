@@ -17,7 +17,7 @@ except ImportError:
 
 
 from aikit.enums import DataTypes, TypeOfVariables
-from aikit.tools.data_structure_helper import get_type, generic_hstack
+from aikit.tools.data_structure_helper import get_type, generic_hstack, get_rid_of_categories
 from aikit.tools.helper_functions import diff
 from aikit.tools.db_informations import guess_type_of_variable
 
@@ -158,6 +158,8 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
         else:
             self._columns_to_encode = list(self.columns_to_encode)
 
+        X = get_rid_of_categories(X)
+
         # Verif:
         if not isinstance(self._columns_to_encode, list):
             raise TypeError("_columns_to_encode should be a list")
@@ -240,6 +242,8 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
 
         if get_type(X) != DataTypes.DataFrame:
             raise TypeError("X should be a DataFrame")
+
+        X = get_rid_of_categories(X)
 
         result = self._transform_to_encode(X)
 

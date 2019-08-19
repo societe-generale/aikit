@@ -90,6 +90,9 @@ def guess_type_of_variable(s):
 
         return TypeOfVariables.CAT
 
+    elif 'category' in st:
+        return TypeOfVariables.CAT
+
     else:
         raise NotImplementedError("I don't know that type of Series : %s, please check" % st)
 
