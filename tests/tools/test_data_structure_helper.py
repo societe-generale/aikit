@@ -20,10 +20,11 @@ from aikit.tools.data_structure_helper import (
     convert_to_array,
     convert_to_dataframe,
     convert_to_sparsearray,
+    get_rid_of_categories
 )
 from aikit.tools.data_structure_helper import make2dimensions, make1dimension
 from aikit.tools.data_structure_helper import generic_hstack
-
+from tests.helpers.testing_help import get_sample_df
 
 def test_get_type():
     df = pd.DataFrame({"a": np.arange(10)})
@@ -153,6 +154,30 @@ def test_generic_hstack():
     with pytest.raises(ValueError):
         generic_hstack((df1.head(3).values, df2.head(4).values))
 
+def test_get_rid_of_categories():
+    df = get_sample_df()
+    df2 = get_rid_of_categories(df)
+
+    assert df2 is df  # nothing happend
+
+    df_with_cat = df.copy()
+    df_with_cat["text_col"] = df_with_cat["text_col"].astype("category")
+
+    assert (df_with_cat.dtypes == "category").any()  # category
+    df2 = get_rid_of_categories(df_with_cat)
+
+    assert not (df2.dtypes == "category").any()  # no more category
+    assert df2["text_col"].dtype == "object"
+    assert (df2["text_col"] == df_with_cat["text_col"]).all()
+
+    df_with_cat = df.copy()
+    df_with_cat["int_col"] = df_with_cat["int_col"].astype("category")
+
+    df2 = get_rid_of_categories(df_with_cat)
+
+    assert not (df2.dtypes == "category").any()  # no more category
+    assert (df2.dtypes == df.dtypes).all()
+
 
 def verif_all():
     test_make1dimension()
@@ -162,3 +187,4 @@ def verif_all():
     test_get_type()
     test__nbcols()
     test__nbrows()
+    test_get_rid_of_categories()
