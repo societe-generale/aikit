@@ -19,7 +19,6 @@ try:
 except ImportError:
     nltk = None
     print("I wont be able to import NLTK")
-import os
 import re
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
@@ -29,25 +28,12 @@ from aikit.tools.helper_functions import unlist
 from aikit.enums import DataTypes
 from aikit.transformers.model_wrapper import ModelWrapper
 
-from aikit.datasets.datasets import find_path
 
 try:
     from gensim.models import Word2Vec
 except ImportError:
     logger.warning("I wont be able to import Word2Vec")
     Word2Vec = None
-
-if nltk is not None:
-    try:
-        _nltk_additional_path = find_path("nltk_additional_data")
-    except ValueError:
-        _nltk_additional_path = None
-else:
-    _nltk_additional_path = None
-
-if _nltk_additional_path is not None and os.path.exists(_nltk_additional_path):
-    nltk.data.path.append(_nltk_additional_path)
-
 
 class AbstractTextProcessor(sklearn.base.TransformerMixin, sklearn.base.BaseEstimator):
     """ This class is to create text preprocessing transformers """
