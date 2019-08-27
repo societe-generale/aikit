@@ -284,6 +284,9 @@ def test_graphpipeline_cycle():
 
 
 # In[]
+        
+        
+        
 def test_graphpipeline_fit_params():
 
     gpipeline = GraphPipeline(
@@ -301,6 +304,43 @@ def test_graphpipeline_fit_params():
     assert gpipeline.models["B"].fit_params == {}
     assert gpipeline.models["C"].fit_params == {}
 
+class TransformerFailNoGroups(TransformerMixin, BaseEstimator):
+    def __init__(self):
+        pass
+
+    def fit(self, X, y, groups=None):
+        if groups is None:
+            raise ValueError("I need a groups")
+            
+        assert X.shape[0] == groups.shape[0]
+        return self
+    
+    def fit_transform(self, X, y, groups=None):
+        if groups is None:
+            raise ValueError("I need a groups")
+            
+        assert X.shape[0] == groups.shape[0]
+        
+        return X
+
+    def transform(self, X):
+        return X
+
+def test_graphpipeline_passing_of_groups():
+    gpipeline = GraphPipeline({
+        "A": TransformerFailNoGroups(),
+        "B": DebugPassThrough(debug=True)
+        },
+        edges=[("A", "B")],
+    )
+    
+    with pytest.raises(ValueError):
+        gpipeline.fit(X, y)
+        
+    groups = np.zeros(len(y))
+    
+    gpipeline.fit(X,y, groups) # check that it didn't failed
+    
 
 def test_graphpipeline_set_params():
 
@@ -1005,8 +1045,8 @@ def test_graphpipeline_nodes_concat_order():
         Xres = pipeline.fit_transform(dfX)
         assert list(Xres.columns) == ["PT4__PT3__PT2__" + c for c in cols] + ["PT4__PT3__PT1__" + c for c in cols] # PT1 on the left, PT2 on the right
         assert list(Xres.columns) == pipeline.get_feature_names()
-        
-    
+
+
 def test_get_subpipeline():
     def get_pipeline():
         pipeline = GraphPipeline({"pt1":DebugPassThrough(column_prefix="PT1_",debug=True),

@@ -58,6 +58,7 @@ def test_function_has_named_argument():
         assert function_has_named_argument(f, "b")
         assert not function_has_named_argument(f, "c")
 
+
 def test_diff():
     list1 = [1, 2, 3]
     list2 = [3, 4, 5]

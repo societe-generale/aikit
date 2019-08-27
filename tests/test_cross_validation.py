@@ -20,7 +20,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.pipeline import Pipeline
-from sklearn.base import is_classifier, is_regressor, RegressorMixin, BaseEstimator
+from sklearn.base import is_classifier, is_regressor, RegressorMixin, TransformerMixin, BaseEstimator
 
 from sklearn.datasets import make_classification, make_regression
 import sklearn.model_selection
@@ -46,7 +46,8 @@ from aikit.cross_validation import (cross_validation,
                                     _score_with_group,
                                     _multimetric_score_with_group,
                                     IndexTrainTestCv,
-                                    RandomTrainTestCv
+                                    RandomTrainTestCv,
+                                    SpecialGroupCV
                                     )
 
 from aikit.scorer import SCORERS, _GroupProbaScorer, max_proba_group_accuracy
@@ -286,7 +287,7 @@ def test_cross_validation0(with_groups):
     assert len(result) == 10
 
     forest = RandomForestRegressor(n_estimators=10,random_state=123)
-    result, yhat = cross_validation(forest, X, y, groups=groups, scoring=["neg_mean_squared_error", "r2"], cv=10, return_predict=True)
+    result, yhat = cross_validation(forest, X, y, groups, scoring=["neg_mean_squared_error", "r2"], cv=10, return_predict=True)
     with pytest.raises(sklearn.exceptions.NotFittedError):
         forest.predict(X)
 
@@ -309,7 +310,7 @@ def test_cross_validation0(with_groups):
     y = np.array(["A"] * 33 + ["B"] * 33 + ["C"] * 34)
     forest = RandomForestClassifier(n_estimators=10,random_state=123)
 
-    result = cross_validation(forest, X, y, groups=groups, scoring=["accuracy", "neg_log_loss"], cv=10)
+    result = cross_validation(forest, X, y, groups, scoring=["accuracy", "neg_log_loss"], cv=10)
     with pytest.raises(sklearn.exceptions.NotFittedError):
         forest.predict(X)
 
@@ -329,7 +330,7 @@ def test_cross_validation0(with_groups):
 
     forest = RandomForestClassifier(random_state=123, n_estimators=10)
     result, yhat = cross_validation(
-        forest, X, y, groups=groups, scoring=["accuracy", "neg_log_loss"], cv=10, return_predict=True, method="predict"
+        forest, X, y, groups, scoring=["accuracy", "neg_log_loss"], cv=10, return_predict=True, method="predict"
     )
     with pytest.raises(sklearn.exceptions.NotFittedError):
         forest.predict(X)
@@ -339,7 +340,7 @@ def test_cross_validation0(with_groups):
 
     forest = RandomForestClassifier(random_state=123, n_estimators=10)
     result, yhat = cross_validation(
-        forest, X, y, groups=groups, scoring=["accuracy", "neg_log_loss"], cv=10, return_predict=True, method="predict_proba"
+        forest, X, y, groups, scoring=["accuracy", "neg_log_loss"], cv=10, return_predict=True, method="predict_proba"
     )
 
     with pytest.raises(sklearn.exceptions.NotFittedError):
@@ -348,6 +349,52 @@ def test_cross_validation0(with_groups):
     assert yhat.shape == (100, 3)
     assert isinstance(yhat, pd.DataFrame)
     assert list(yhat.columns) == ["A", "B", "C"]
+
+
+class TransformerFailNoGroups(TransformerMixin, BaseEstimator):
+    def __init__(self):
+        pass
+
+    def fit(self, X, y, groups=None):
+        if groups is None:
+            raise ValueError("I need a groups")
+            
+        assert X.shape[0] == groups.shape[0]
+        return self
+    
+    def fit_transform(self, X, y, groups):
+        if groups is None:
+            raise ValueError("I need a groups")
+            
+        assert X.shape[0] == groups.shape[0]
+        
+        return X
+
+    def transform(self, X):
+        return X
+
+
+def test_cross_validation_passing_of_groups():
+    np.random.seed(123)
+    X = np.random.randn(100, 10)
+    y = np.random.randn(100)
+    groups = np.random.randint(0,20,size=100)
+    
+    estimator = TransformerFailNoGroups()
+    
+    cv_res, yhat = cross_validation(
+        estimator,
+        X,
+        y,
+        groups,
+        cv=10,
+        no_scoring=True,
+        return_predict=True
+    )
+    # Check that it doesn't fail : meaning the estimator has access to the groups
+    
+    assert cv_res is None
+    assert (yhat == X).all()
 
 
 def test_cross_validation_with_scorer_object_regressor():
@@ -456,7 +503,7 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
     ### Only score ###
     ##################
 
-    cv_res = cross_validation(estimator, X, y, groups=groups, cv=10, scoring=scoring, verbose=0)
+    cv_res = cross_validation(estimator, X, y, groups, cv=10, scoring=scoring, verbose=0)
 
     assert isinstance(cv_res, pd.DataFrame)
     assert cv_res.shape[0] == 10
@@ -470,7 +517,7 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
     #####################
     ### Score + Proba ###
     #####################
-    cv_res, yhat_proba = cross_validation(estimator, X, y, groups=groups, cv=10, scoring=scoring, verbose=0, return_predict=True)
+    cv_res, yhat_proba = cross_validation(estimator, X, y, groups, cv=10, scoring=scoring, verbose=0, return_predict=True)
 
     assert isinstance(cv_res, pd.DataFrame)
     assert cv_res.shape[0] == 10
@@ -494,7 +541,7 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
     ### Score + Predict ###
     #######################
     cv_res, yhat = cross_validation(
-        estimator, X, y, groups=groups, cv=10, scoring=scoring, verbose=0, return_predict=True, method="predict"
+        estimator, X, y, groups, cv=10, scoring=scoring, verbose=0, return_predict=True, method="predict"
     )
 
     assert isinstance(cv_res, pd.DataFrame)
@@ -515,7 +562,7 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
     ### Predict only ###
     ####################
     cv_res, yhat = cross_validation(
-        estimator, X, y, groups=groups, cv=10, scoring=scoring, verbose=0, return_predict=True, method="predict", no_scoring=True
+        estimator, X, y, groups, cv=10, scoring=scoring, verbose=0, return_predict=True, method="predict", no_scoring=True
     )
 
     assert yhat.shape[0] == y.shape[0]
@@ -1207,7 +1254,59 @@ def test_RandomTrainTestCv():
     assert not (test3 == test).all()
     assert not (train3 == train).all() # different result when seed is the the same
     
+
+def test_SpecialGroupCV():
+    np.random.seed(123)
+    X = np.random.randn(1000,10)
+    y = np.random.randn(1000)
+    groups = np.random.randint(0,50,size=1000)
     
+    cv = SpecialGroupCV(KFold(n_splits=10,shuffle=True,random_state=123))
+    
+    assert hasattr(cv, "split")
+    assert hasattr(cv, "get_n_splits")
+    
+    assert cv.get_n_splits(X,y, groups=groups) == 10
+    splits = list(cv.split(X,y, groups=groups))
+    assert len(splits) == 10
+
+    all_index = np.zeros(X.shape[0],dtype=np.int32)
+    indexes = np.arange(X.shape[0],dtype=np.int32)
+    for train, test in splits:
+        groups_train = groups[train]
+        groups_test  = groups[test]
+        
+        index_train = indexes[train]
+        index_test  = indexes[test]
+
+        assert len(np.intersect1d(groups_train, groups_test)) == 0 #no groups in both
+        assert len(np.intersect1d(index_train, index_test)) == 0   #no index in both
+        
+        assert np.array_equal(np.sort(np.concatenate((index_train,index_test))),indexes) # train + test = everything
+        
+        all_index[test] += 1
+        
+    assert (all_index == 1).all() # all things taken once and only once in test
+
+    # check : same split if we use the same seed
+    cv2 = SpecialGroupCV(KFold(n_splits=10,shuffle=True,random_state=123))
+    splits2 = list(cv2.split(X,y=None,groups=groups))
+    for (train1, test1),(train2,test2) in zip(splits, splits2):
+        assert np.array_equal(train1, train2)
+        assert np.array_equal(test1, test2)
+        
+    cv3 = SpecialGroupCV(KFold(n_splits=10,shuffle=True,random_state=456))
+    splits = list(cv3.split(X,groups=groups))
+    with pytest.raises(AssertionError):
+        for (train1, test1),(train2,test2) in zip(splits, splits2):
+            assert np.array_equal(train1, train2)
+            assert np.array_equal(test1, test2)
+        # some things should be different if different seed
+        
+    cv = SpecialGroupCV(KFold(n_splits=10,shuffle=True,random_state=123))
+    with pytest.raises(ValueError):
+        list(cv.split(X)) # doesn't work because groups isn't setted
+
 def test__score_with_group__multimetric_score_with_group():
     roc_auc_scorer = SCORERS["roc_auc"]
     

@@ -145,7 +145,6 @@ def test_CountVectorizerWrapper_output_type():
     assert res.dtype == "int64"
 
 
-
 def test_text_digit_anonymizer():
     transformer = TextDigitAnonymizer()
     df = pd.DataFrame(data=[["AAA", "A123"]])

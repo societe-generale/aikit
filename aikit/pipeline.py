@@ -28,7 +28,7 @@ from aikit.tools.graph_helper import (edges_from_edges_string,
 
 from aikit.transformers.model_wrapper import try_to_find_features_names
 from aikit.tools.data_structure_helper import generic_hstack, guess_output_type
-from aikit.tools.helper_functions import unlist, dico_key_filter
+from aikit.tools.helper_functions import unlist, dico_key_filter, function_has_named_argument
 
 
 from aikit.transformers.block_selector import BlockSelector, BlockManager
@@ -238,7 +238,7 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
 
         self._preparation_done = True
 
-    def _fit_transform(self, X, y=None, method=None, fit_params=None):
+    def _fit_transform(self, X, y=None, groups=None, method=None, fit_params=None):
         """ main method of GraphPipeline, handles the fit and predict of object """
         do_fit = method in ("fit", "fit_transform", "fit_predict")
 
@@ -361,7 +361,10 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
             if node != self._terminal_node:
                 # This is not the end of the graph
                 if do_fit:
-                    data_dico[node] = model.fit_transform(lastX, y, **fit_params_step[node])
+                    if groups is not None and function_has_named_argument(model.fit_transform, "groups"):
+                        data_dico[node] = model.fit_transform(lastX, y, groups=groups, **fit_params_step[node])
+                    else:
+                        data_dico[node] = model.fit_transform(lastX, y, **fit_params_step[node])
 
                     # ICI : on pourrait sauté le fit pour certains models dans le fit params
                     # Quelque-chose comme :
@@ -383,16 +386,24 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
 
             else:
                 # This is the last node of the Graph
-
                 if method == "fit":
-                    model.fit(lastX, y, **fit_params_step[node])
+                    if groups is not None and function_has_named_argument(model.fit, "groups"):
+                        model.fit(lastX, y, groups, **fit_params_step[node])
+                    else:
+                        model.fit(lastX, y, **fit_params_step[node])
                     result = self
 
                 elif method == "fit_predict":
-                    result = model.fit_predict(lastX, y, **fit_params_step[node])
+                    if groups is not None and function_has_named_argument(model.fit_predict, "groups"):
+                        result = model.fit_predict(lastX, y, groups, **fit_params_step[node])
+                    else:
+                        result = model.fit_predict(lastX, y, **fit_params_step[node])
 
                 elif method == "fit_transform":
-                    result = model.fit_transform(lastX, y, **fit_params_step[node])
+                    if groups is not None and function_has_named_argument(model.fit_transform, "groups"):
+                        result = model.fit_transform(lastX, y, groups, **fit_params_step[node])
+                    else:
+                        result = model.fit_transform(lastX, y, **fit_params_step[node])
 
                 elif method == "transform":
                     result = model.transform(lastX)
@@ -441,54 +452,54 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
                     # Carefull, don't use del as it will change the dictionnary key
 
     ### Exposed methods of objects ###
-    def fit(self, X, y=None, **fit_params):
+    def fit(self, X, y=None, groups=None, **fit_params):
         self._complete_init()
-        self._fit_transform(X, y, method="fit", fit_params=fit_params)
+        self._fit_transform(X=X, y=y, groups=groups, method="fit", fit_params=fit_params)
         self._already_fitted = True
         return self
 
     @if_delegate_has_method(delegate="_final_estimator")
-    def fit_transform(self, X, y=None, **fit_params):
+    def fit_transform(self, X, y=None, groups=None, **fit_params):
         self._complete_init()
-        Xres = self._fit_transform(X, y, method="fit_transform", fit_params=fit_params)
+        Xres = self._fit_transform(X=X, y=y, groups=groups, method="fit_transform", fit_params=fit_params)
         self._already_fitted = True
         return Xres
 
     @if_delegate_has_method(delegate="_final_estimator")
     def transform(self, X):
-        Xres = self._fit_transform(X, y=None, method="transform", fit_params=None)
+        Xres = self._fit_transform(X=X, y=None, groups=None, method="transform", fit_params=None)
         return Xres
 
     @if_delegate_has_method(delegate="_final_estimator")
     def predict(self, X):
-        Xres = self._fit_transform(X, y=None, method="predict", fit_params=None)
+        Xres = self._fit_transform(X=X, y=None, groups=None, method="predict", fit_params=None)
         return Xres
 
     @if_delegate_has_method(delegate="_final_estimator")
-    def fit_predict(self, X, y=None, **fit_params):
+    def fit_predict(self, X, y=None, groups=None, **fit_params):
         self._complete_init()
-        Xres = self._fit_transform(X, y, method="fit_predict", fit_params=fit_params)
+        Xres = self._fit_transform(X=X, y=y, groups=groups, method="fit_predict", fit_params=fit_params)
         self._already_fitted = True
         return Xres
 
     @if_delegate_has_method(delegate="_final_estimator")
     def predict_proba(self, X):
-        Xres = self._fit_transform(X, y=None, method="predict_proba", fit_params=None)
+        Xres = self._fit_transform(X=X, y=None, groups=None, method="predict_proba", fit_params=None)
         return Xres
 
     @if_delegate_has_method(delegate="_final_estimator")
     def predict_log_proba(self, X):
-        Xres = self._fit_transform(X, y=None, method="predict_log_proba", fit_params=None)
+        Xres = self._fit_transform(X=X, y=None, groups=None, method="predict_log_proba", fit_params=None)
         return Xres
 
     @if_delegate_has_method(delegate="_final_estimator")
     def decision_function(self, X):
-        Xres = self._fit_transform(X, y=None, method="decision_function", fit_params=None)
+        Xres = self._fit_transform(X=X, y=None, groups=None, method="decision_function", fit_params=None)
         return Xres
 
     @if_delegate_has_method(delegate="_final_estimator")
     def score(self, X, y=None):
-        Xres = self._fit_transform(X, y, method="score", fit_params=None)
+        Xres = self._fit_transform(X=X, y=y, groups=None, method="score", fit_params=None)
         return Xres
 
     # @if_delegate_has_method(delegate='_final_estimator')
@@ -858,7 +869,10 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
                     if self.verbose:
                         print("skip crossvalidation on %s" % node)
                     cloned_model = clone(model)
-                    data_dico[node] = cloned_model.fit_transform(lastX, y, **fit_params_step[node])
+                    if groups is not None and function_has_named_argument(cloned_model.fit_transform, "groups"):
+                        data_dico[node] = cloned_model.fit_transform(lastX, y, groups, **fit_params_step[node])
+                    else:
+                        data_dico[node] = cloned_model.fit_transform(lastX, y, **fit_params_step[node])
 
             elif lastX is not None:
 
@@ -1141,7 +1155,7 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
         if len(nodes_to_keep) == 1:
             assert end_node == nodes_to_keep[0]
             return self._models[end_node]
-        
+
         
         # filter edges
         edges_to_keep = []
@@ -1158,7 +1172,7 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
             models = {node:deepcopy(self._models[node]) for node in nodes_to_keep}
         else:
             models = {node:self._models[node] for node in nodes_to_keep}
-    
+
         # Change 'no_concat_nodes'
         if self.no_concat_nodes is None:
             no_concat_nodes = None

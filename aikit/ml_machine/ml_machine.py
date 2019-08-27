@@ -18,6 +18,7 @@ import traceback
 
 from datetime import datetime
 import itertools
+from functools import wraps
 
 
 import pandas as pd
@@ -56,6 +57,34 @@ from aikit.ml_machine.model_graph import convert_graph_to_code
 from aikit.ml_machine import model_graph as mg
 
 
+def froze_init(cls):
+    """ decorator that prevent attribute that are not setted in the init """
+    def __setattr__(self, key, value):
+        if key[0] != "_":
+            if self.__frozen:
+                if key not in self.__allowed_attributes:
+                    raise TypeError("this can't be setted : %s" % key)
+            else:
+                self.__allowed_attributes.add(key)
+
+        object.__setattr__(self, key, value)
+        
+    def init_decorator(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            self.__frozen=False
+            self.__allowed_attributes=set()
+            func(self, *args, **kwargs)
+            self.__frozen = True
+        return wrapper
+    
+    cls.__setattr__ = __setattr__
+    cls.__init__ = init_decorator(cls.__init__)
+
+    return cls
+
+
+@froze_init
 class AutoMlConfig(object):
     """ class to handle the AutoMlConfiguration, it will contain :
 
@@ -72,19 +101,18 @@ class AutoMlConfig(object):
         self.y = y
         self.groups = groups
 
-        self._type_of_problem = None
-        self._columns_informations = None
-        self._needed_steps = None
+        self.type_of_problem = None
+        self.columns_informations = None
+        self.needed_steps = None
         
-        self._models_to_keep = None
-        self._models_to_keep_block_search = None
+        self.models_to_keep = None
+        self.models_to_keep_block_search = None
 
-        self._specific_hyper = {}
+        self.specific_hyper = {}
 
         # self._var_type_columns_dico = None
         # self._default_var_type = None
-
-        self._columns_block = None
+        self.columns_block = None
 
     ################################
     ### to save object into json ###
@@ -125,6 +153,11 @@ class AutoMlConfig(object):
 
     @columns_informations.setter
     def columns_informations(self, new_columns_informations):
+        
+        if new_columns_informations is None:
+            self._columns_informations = None
+            return
+
         # Warning, updates are not caught
         if not isinstance(new_columns_informations, dict):
             raise TypeError(
@@ -219,6 +252,10 @@ class AutoMlConfig(object):
 
     @columns_block.setter
     def columns_block(self, new_columns_block):
+        
+        if new_columns_block is None:
+            self._columns_block = None
+            return
 
         if not isinstance(new_columns_block, dict):
             raise TypeError("columns_block should be a dictionnary, not a %s" % type(new_columns_block))
@@ -276,6 +313,10 @@ class AutoMlConfig(object):
 
     @type_of_problem.setter
     def type_of_problem(self, new_type_of_problem):
+        if new_type_of_problem is None:
+            self._type_of_problem = None
+            return
+
         if new_type_of_problem not in en.TypeOfProblem.alls:
             raise ValueError("'type_of_problem' should be among %s" % str(en.TypeOfVariables.alls))
 
@@ -337,6 +378,10 @@ class AutoMlConfig(object):
 
     @needed_steps.setter
     def needed_steps(self, new_needed_steps):
+        
+        if new_needed_steps is None:
+            self._needed_steps = new_needed_steps
+            return
 
         if not isinstance(new_needed_steps, (list, tuple)):
             raise TypeError("'needed_steps' should be a list or tuple")
@@ -380,6 +425,11 @@ class AutoMlConfig(object):
 
     @models_to_keep.setter
     def models_to_keep(self, new_models_to_keep):
+        
+        if new_models_to_keep is None:
+            self._models_to_keep = new_models_to_keep
+            return
+
         if not isinstance(new_models_to_keep, (list, tuple)):
             raise TypeError("new_models_to_keep should be a list")
 
@@ -473,6 +523,11 @@ class AutoMlConfig(object):
 
     @models_to_keep_block_search.setter
     def models_to_keep_block_search(self, new_models_to_keep_block_search):
+        
+        if new_models_to_keep_block_search is None:
+            self._models_to_keep_block_search = new_models_to_keep_block_search
+            return
+        
         if not isinstance(new_models_to_keep_block_search, (list, tuple)):
             raise TypeError("new_models_to_keep should be a list")
 
@@ -504,6 +559,10 @@ class AutoMlConfig(object):
 
     @specific_hyper.setter
     def specific_hyper(self, new_specific_hyper):
+        
+        if new_specific_hyper is None or len(new_specific_hyper) == 0:
+            self._specific_hyper = new_specific_hyper
+            return
 
         if self.models_to_keep is None:
             raise ValueError("Please specify models_to_keep first")
@@ -1122,7 +1181,7 @@ class RandomModelGenerator(object):
 # from sklearn.metrics.scorer import SCORERS
 # Remark : on peut peut etre faire une copie local de ce dictionnaire pour rajouter nos propres objects
 
-
+@froze_init
 class JobConfig(object):
     """ small helper class to store a job configuration
 
@@ -1143,16 +1202,19 @@ class JobConfig(object):
 
     def __init__(self):
 
-        self._cv = None
-        self._scoring = None
+        self.cv = None
+        self.scoring = None
 
-        self._score_base_line = None
+        self.score_base_line = None
 
-        self.start_with_default = True # if True, will start with default models
-        self.do_blocks_search = True   # if True, will add in the queue model aiming at searching which block add values
-        self.allow_approx_cv = True    # if True, will do 'approximate cv'
+        self.start_with_default = True  # if True, will start with default models
+        self.do_blocks_search = True    # if True, will add in the queue model aiming at searching which block add values
+        self.allow_approx_cv = False    # if True, will do 'approximate cv'
 
-        self._main_scorer = None
+        self.main_scorer = None
+        self.guiding_scorer = None
+        
+        self.additional_scoring_function = None
 
     ########################
     ### Cross Validation ###
@@ -1176,6 +1238,10 @@ class JobConfig(object):
 
     @cv.setter
     def cv(self, new_cv):
+        if new_cv is None:
+            self._cv = new_cv
+            return
+
         if new_cv is not None and not isinstance(new_cv, int):
             if not hasattr(new_cv, "split") or isinstance(new_cv, str):
                 raise ValueError(
@@ -1215,6 +1281,10 @@ class JobConfig(object):
     @scoring.setter
     def scoring(self, new_scoring):
 
+        if new_scoring is None:
+            self._scoring = new_scoring
+            return
+
         if not isinstance(new_scoring, (list, tuple)):
             new_scoring = [new_scoring]
 
@@ -1242,6 +1312,9 @@ class JobConfig(object):
 
     @score_base_line.setter
     def score_base_line(self, new_score_base_line):
+        if new_score_base_line is None:
+            self._score_base_line = new_score_base_line
+            return
 
         if pd.isnull(new_score_base_line):
             self._base_line = None
@@ -1268,6 +1341,11 @@ class JobConfig(object):
 
     @main_scorer.setter
     def main_scorer(self, new_main_scorer):
+
+        if new_main_scorer is None:
+            self._main_scorer = new_main_scorer
+            return
+
         if new_main_scorer not in self._scoring:
             raise ValueError("main_scorer should be among 'scoring', %s" % new_main_scorer)
 
@@ -1279,6 +1357,31 @@ class JobConfig(object):
     @main_scorer.deleter
     def main_scorer(self):
         self._main_scorer = None
+        
+    ####################################
+    ###  Addtionnal Scoring Function ###
+    ####################################
+    
+    @property
+    def additional_scoring_function(self):
+        return self._additional_scoring_function
+    
+    @additional_scoring_function.setter
+    def additional_scoring_function(self, new_additional_scoring_function):
+        
+        if new_additional_scoring_function is None:
+            self._additional_scoring_function = new_additional_scoring_function
+            return
+
+        if not callable(new_additional_scoring_function):
+            raise TypeError("'additional_scoring_function' should be callable")
+
+        self._additional_scoring_function = new_additional_scoring_function
+    
+    @additional_scoring_function.deleter
+    def additional_scoring_function(self):
+        self._additional_scoring_function = None
+
 
     ############
     ### Repr ###
@@ -1510,16 +1613,26 @@ class JobManagerQueue(object):
                 # ii = np.argmax(benchmark)
 
                 def softmax(benchmark, T=1):
-                    nbenchmark = (benchmark - np.mean(benchmark)) / np.std(benchmark)
-                    exp_nbenchmark = np.exp(nbenchmark / T)
-                    return exp_nbenchmark / exp_nbenchmark.sum()
+                    ss = np.std(benchmark)
+                    if ss == 0:
+                        return 1/len(benchmark) *  np.ones( len(benchmark) ,dtype=np.float32)
+                    else:
+                        nbenchmark = (benchmark - np.mean(benchmark)) / ss
+                        exp_nbenchmark = np.exp(nbenchmark / T)
+                        return exp_nbenchmark / exp_nbenchmark.sum()
 
                 probas = softmax(benchmark, T=0.1)
                 # Rmk : on va prendre a peu pres le plus best avec une proba 1/4 (suivant les tests)
                 # On peut aussi faire une heuristic en suppossant benchmark uniform (pas tres loin de la verite vu qu'on a fitter un rank...)
                 # TODO : on peut faire descendre la temperature en court de route.... a peu pres equivalent à gérer l'explortion...
-
-                ii = np.random.choice(len(probas), size=1, p=probas)[0]
+                probas[pd.isnull(probas)] = 0.0
+                probas[np.isinf(probas)] = 0.0
+                
+                if probas.sum() == 0:
+                    ii = np.random.choice(len(probas), size=1)[0]
+                else:
+                    probas = probas/probas.sum()
+                    ii = np.random.choice(len(probas), size=1, p=probas)[0]
                 # Comme ca je prend pas l'argmax, mais quelque chose d'un peu plus exploratoir
                 # ... peut etre que argmax ca marcherait mieux (surement plus petite variation autour du meilleurs model)
 
@@ -1785,6 +1898,10 @@ class MlJobRunner(AbstractJobRunner):
                 logger.info("test  %s : %2.2f%%" % (self.job_config.main_scorer, test_metric))
 
             self.data_persister.write(data=cv_result, key=job_id, path="result", write_type=SavingType.csv)
+            
+            if self.job_config.additional_scoring_function is not None:
+                additional_result = self.job_config.additional_scoring_function(cv_result, yhat, self.y, self.groups)
+                self.data_persister.write(data=additional_result, key=job_id, path="additional_result", write_type=SavingType.json)
 
             if self.auto_ml_config.type_of_problem == en.TypeOfProblem.CLUSTERING:
                 self.data_persister.write(data=yhat, key=job_id, path="labels", write_type=SavingType.csv)
@@ -2108,6 +2225,29 @@ class AutoMlResultReader(object):
         self._load_all_errors_cache = df_error
 
         return df_error
+    
+    ######################
+    ###  Other result  ###
+    ######################
+    def load_additional_results(self):
+        """ load the things saved in 'additional_result' """
+        all_params1_key = sorted(self.data_persister.alls(path="additional_result", write_type=SavingType.json))
+
+        if len(all_params1_key) == 0:
+            return pd.DataFrame(columns=["job_id"]) # empty DataFrame with 'job_id' columns
+
+        all_params = []
+        for key in all_params1_key:
+            param = self.data_persister.read_from_cache(path="additional_result", key=key, write_type=SavingType.json)
+            if param is not None:
+                param["job_id"] = key
+                all_params.append(param)
+
+        df = pd.DataFrame(all_params)
+        cols = list(df.columns)
+        cols = intersect(["job_id"], cols) + sorted(diff(cols, ["job_id"]))
+
+        return df.loc[:, cols]
 
 
 # In[]

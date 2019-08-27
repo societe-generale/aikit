@@ -243,6 +243,7 @@ class MlMachineLauncher(object):
         self.result_reader = AutoMlResultReader(self.data_persister)
 
         df_results = self.result_reader.load_all_results()
+        df_additional_results = self.result_reader.load_additional_results()
         df_params = self.result_reader.load_all_params()
         df_errors = self.result_reader.load_all_errors()
 
@@ -250,6 +251,8 @@ class MlMachineLauncher(object):
 
         df_merged_result = pd.merge(df_params, df_results, how="inner", on="job_id")
         df_merged_result = pd.merge(df_merged_result, df_params_other, how="inner", on="job_id")
+        if df_additional_results.shape[0] > 0:
+            df_merged_result = pd.merge(df_merged_result, df_additional_results, how="inner", on="job_id")
 
         df_merged_error = pd.merge(df_params, df_errors, how="inner", on="job_id")
 
@@ -258,11 +261,13 @@ class MlMachineLauncher(object):
 
         try:
             df_merged_result.to_excel(self.base_folder + "/result.xlsx", index=False)
+            print("file %s saved" % self.base_folder + "/result.xlsx")
         except OSError:
             print("I couldn't save excel file")
 
         try:
             df_merged_error.to_excel(self.base_folder + "/result_error.xlsx", index=False)
+            print("file %s saved" % self.base_folder + "/result_error.xlsx")
         except OSError:
             print("I couldn't save excel file")
             

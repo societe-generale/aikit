@@ -7,7 +7,6 @@ Created on Thu Jan 11 09:41:27 2018
 
 import re
 
-
 # from scipy import sparse
 import numpy as np
 import pandas as pd
@@ -796,6 +795,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         if is_fit:
             self._expected_type = dsh.get_type(Xsubset)
             self._expected_nbcols = dsh._nbcols(Xsubset)
+            self._expected_columns = dsh._get_columns(Xsubset)
 
         else:
             Xtype = dsh.get_type(Xsubset)
@@ -810,6 +810,15 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
                     "I don't have the correct nb of colmns as input, expected : %d, got : %d"
                     % (self._expected_nbcols, nbcols)
                 )
+
+            columns = dsh._get_columns(Xsubset)
+            expected_columns = getattr(self, "_expected_columns",None) # to allow pickle compatibility
+            
+            if expected_columns is not None and columns is not None and columns != self._expected_columns:
+                raise ValueError(
+                    "I don't have the correct names of columns"
+                )
+                
 
         if self.accepted_input_types is not None and self._expected_type not in self.accepted_input_types:
             Xsubset = dsh.convert_generic(

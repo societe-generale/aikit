@@ -122,13 +122,24 @@ class AutoMlModelGuider(object):
     """ class to help guide auto-ml """
 
     def __init__(
-        self, result_reader, job_config, metric_transformation="default", avg_metric=True, min_nb_of_models=10
+        self, result_reader, job_config, metric_transformation="--auto--", avg_metric=True, min_nb_of_models=10
     ):
 
         self.result_reader = result_reader
         self.job_config = job_config
 
         ### Guiding params  ###
+        if metric_transformation is not None and metric_transformation == "--auto--":
+            if self.job_config.guiding_scorer is not None:
+                # I have a special guiding scorer
+                if isinstance( self.job_config.guiding_scorer, list) and len(self.job_config.guiding_scorer) > 1:
+                    # more than one score => use rank
+                    metric_transformation = "rank"
+                else:
+                    # one scorer => no transformation
+                    metric_transformation = None
+            else:
+                metric_transformation = "default"
 
         if metric_transformation not in ("rank", "normal", "default", None):
             raise ValueError("self.metric_transformation unknown %s" % metric_transformation)
@@ -227,7 +238,11 @@ class AutoMlModelGuider(object):
 
         ### Load the results
         df_results = self.result_reader.load_all_results(aggregate=True)
+        df_additional_results = self.result_reader.load_additional_results()
+        if df_additional_results.shape[0] > 0:
+            df_results = pd.merge(df_results, df_additional_results, how="inner", on="job_id")
 
+        
         self._nb_models_done = len(df_results)
         if self._nb_models_done <= self.min_nb_of_models:
             return self
@@ -250,16 +265,24 @@ class AutoMlModelGuider(object):
         dfX_params = df_merged_result.loc[:, training_cols]
 
         ### Retrive the target metric
-
-        if self.avg_metrics:
-            scorers = self.job_config.scoring
+        if self.job_config.guiding_scorer is None:
+            if self.avg_metrics:
+                scorers = self.job_config.scoring
+            else:
+                scorers = [self.job_config.main_scorer]  # I'll use only the main_scorer
         else:
-            scorers = [self.job_config.main_scorer]  # I'll use only the main_scorer
+            if not isinstance(self.job_config.guiding_scorer, list):
+                scorers = [self.job_config.guiding_scorer]
+            else:
+                scorers = self.job_config.guiding_scorer
 
         N = dfX_params.shape[0]
         all_y_params = []
         for scorer in scorers:
-            y_params = df_merged_result["test_%s" % scorer]  # Retrive the raw metric
+            if ("test_%s" % scorer) in df_merged_result.columns:
+                y_params = df_merged_result["test_%s" % scorer]  # Retrive the raw metric
+            else:
+                y_params = df_merged_result[scorer]  # Retrive the raw metric
             # replace NaN by scorer's observed minimum score ; if y_params contains
             # only NaN -> won't work
             y_params = y_params.fillna(y_params.min()).values
