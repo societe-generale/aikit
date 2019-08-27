@@ -22,6 +22,21 @@ from aikit.transformers.text import (
 )
 from aikit.datasets.datasets import load_dataset
 
+try:
+    import nltk
+except (ModuleNotFoundError, ImportError):
+    nltk = None
+
+@pytest.mark.skipif(nltk is None, reason="nltk isn't installed")
+def test_load_nltk():
+    stopwords = nltk.corpus.stopwords.words("english")
+    assert isinstance(stopwords, list)
+    
+    stopwords = nltk.corpus.stopwords.words("french")
+
+    stemmer = nltk.stem.porter.PorterStemmer()
+    assert stemmer is not None
+
 
 @pytest.mark.parametrize('concat',[True,False])
 def test_TextDefaultProcessing(concat):
