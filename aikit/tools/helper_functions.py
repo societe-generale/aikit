@@ -27,8 +27,6 @@ import hashlib
 from sklearn.utils import check_random_state, safe_indexing
 
 from aikit.tools.json_helper import SpecialJSONEncoder
-
-
 def function_has_named_argument(f, attr):
     """ return True if a given function accept a given attribute """
     return attr in inspect.getfullargspec(f).args

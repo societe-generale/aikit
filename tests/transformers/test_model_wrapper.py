@@ -490,6 +490,7 @@ def test_dummy_wrapper_features():
 
 
 def test_dummy_wrapper_features_with_input_features():
+    np.random.seed(123)
     xx = np.random.randn(10, 5)
     input_features = ["COL_%d" % i for i in range(xx.shape[1])]
     df = pd.DataFrame(xx, columns=input_features)
@@ -515,10 +516,36 @@ def test_dummy_wrapper_features_with_input_features():
     assert dummy.get_feature_names(input_features) == expected_input
 
 
+def test_dummy_wrapper_fails():
+    np.random.seed(123)
+    xx = np.random.randn(10,5)
+    input_features = ["COL_%d" % i for i in range(xx.shape[1])]
+    df = pd.DataFrame(xx, columns=input_features)
+    
+    dummy = DummyWrapped(n=1)
+    dummy.fit(df)
+    
+    df_t = dummy.transform(df)
+    assert df_t.shape[0] == df.shape[0]
+    
+    with pytest.raises(ValueError):
+        dummy.transform(df.values) # fail because wrong type
+        
+    with pytest.raises(ValueError):
+        dummy.transform(df.iloc[:,0:3]) # fail because wront number of columns
+
+    df2 = df.copy()
+    df2["new_col"] = 10
+    
+    with pytest.raises(ValueError):
+        dummy.transform(df2) # fail because wront number of columns
+        
+    input_features_wrong_order = input_features[1:] + [input_features[0]]
+    with pytest.raises(ValueError):
+        dummy.transform(df.loc[:,input_features_wrong_order]) # fail because wront number of columns    
+        
+        
+        
+
+
 # In[]
-
-
-def verif_all():
-    test_try_to_find_features_names()
-    test_ColumnsSelector()
-    test__concat()

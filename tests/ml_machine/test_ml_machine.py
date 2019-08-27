@@ -31,23 +31,18 @@ from aikit.ml_machine.ml_machine_guider import AutoMlModelGuider
 from aikit.ml_machine.data_persister import FolderDataPersister
 
 
-def loader():
-    """ modify this function to load the data
-    
-    Returns
-    -------
-    dfX, y 
-    
-    Or
-    dfX, y, groups
-    
-    """
-    dfX, y, _, _, _ = load_dataset(DatasetEnum.titanic)
-    return dfX, y
+def loader(num_only=False):
+    if num_only:
+        np.random.seed(123)
+        dfX = pd.DataFrame(np.random.randn(100,10), columns=["COL_%d" % d for d in range(10)])
+        y = 1*(np.random.randn(100)>0)
+        return dfX, y
+    else:
+        dfX, y, _, _, _ = load_dataset(DatasetEnum.titanic)
+        return dfX, y
 
-
-def get_automl_config():
-    dfX, y = loader()
+def get_automl_config(num_only):
+    dfX, y = loader(num_only)
     auto_ml_config = AutoMlConfig(dfX, y)
     auto_ml_config.guess_everything()
 
@@ -72,9 +67,10 @@ def test_AutoMlConfig_raise_multioutput():
         auto_ml_config.guess_everything()  # raise because y has 2 dimensions
 
 
-def test_AutoMlConfig():
+@pytest.mark.parametrize('num_only', [True,False])
+def test_AutoMlConfig(num_only):
 
-    dfX, y, auto_ml_config = get_automl_config()
+    dfX, y, auto_ml_config = get_automl_config(num_only)
 
     assert auto_ml_config.type_of_problem == TypeOfProblem.CLASSIFICATION
     assert auto_ml_config.columns_informations is not None
@@ -144,10 +140,10 @@ def test_AutoMlConfig():
     assert ('Model', 'RandomForestClassifier') not in auto_ml_config.models_to_keep
     assert ('Model', 'ExtraTreesClassifier') in auto_ml_config.models_to_keep
     
+@pytest.mark.parametrize('num_only', [True,False])
+def test_JobConfig(num_only):
 
-def test_JobConfig():
-
-    dfX, y, auto_ml_config = get_automl_config()
+    dfX, y, auto_ml_config = get_automl_config(num_only)
 
     job_config = JobConfig()
     job_config.guess_cv(auto_ml_config)
@@ -165,16 +161,33 @@ def test_JobConfig():
     
     assert isinstance(job_config.allow_approx_cv, bool)
     assert isinstance(job_config.start_with_default, bool)
-    assert isinstance(job_config.do_blocks_search, bool)
+    assert isinstance(job_config.do_blocks_search, bool)   
     
     with pytest.raises(ValueError):
         job_config.cv = "this is not a cv"
+        
+def test_JobConfig_additional_scoring_function():
+    job_config = JobConfig()
+
+    assert job_config.additional_scoring_function is None
+
+    def f(x):
+        return x+1
+
+    job_config.additional_scoring_function = f
+    assert job_config.additional_scoring_function is not None
+    assert job_config.additional_scoring_function(1) == 2
     
+    with pytest.raises(TypeError):
+        job_config.additional_scoring_function = 10 # no a function
+        
+    
+    
+@pytest.mark.parametrize('num_only', [True,False])
+@pytest.mark.parametrize("type_of_iterator", ["default", "block_search","block_search_random"])
+def test_RandomModelGenerator_iterator(type_of_iterator, num_only):
 
-@pytest.mark.parametrize("type_of_iterator",["default", "block_search","block_search_random"])
-def test_RandomModelGenerator_iterator(type_of_iterator):
-
-    dfX, y, auto_ml_config = get_automl_config()
+    dfX, y, auto_ml_config = get_automl_config(num_only)
 
     random_model_generator = RandomModelGenerator(auto_ml_config=auto_ml_config, random_state=123)
     
@@ -300,10 +313,10 @@ def _all_same(all_gen):
 
     return True
 
-@pytest.mark.parametrize("specific_hyper, only_random_forest",[(True,True),(True,False),(False,True),(False,False)])
-def test_RandomModelGenerator_random(specific_hyper, only_random_forest):
+@pytest.mark.parametrize('num_only, specific_hyper, only_random_forest', [(True,False,False),(False,True,True),(False,True,False),(False,False,True),(False,False,False)])
+def test_RandomModelGenerator_random(num_only, specific_hyper, only_random_forest):
 
-    dfX, y, auto_ml_config = get_automl_config()
+    dfX, y, auto_ml_config = get_automl_config(num_only)
     
     if specific_hyper:
         auto_ml_config.specific_hyper = {('Model', 'RandomForestClassifier') : {"n_estimators":[10,20]}}
@@ -362,7 +375,8 @@ def test_RandomModelGenerator_random(specific_hyper, only_random_forest):
 
     assert not _all_same(all_params1)
     assert not _all_same(all_graphs1)
-    assert not _all_same(all_blocks1)
+    if not num_only:
+        assert not _all_same(all_blocks1) # only one block
 
     all_graphs1_node_edges = [(g.nodes, g.edges) for g in all_graphs1]
     all_graphs2_node_edges = [(g.nodes, g.edges) for g in all_graphs2]
@@ -441,13 +455,14 @@ def test__create_all_combinations():
     
 
 # In[] :
-def test_create_everything_sequentially(tmpdir):
+@pytest.mark.parametrize('num_only', [True,False])
+def test_create_everything_sequentially(num_only, tmpdir):
 
     # DataPersister
     data_persister = FolderDataPersister(base_folder=tmpdir)
 
     # Data
-    dfX, y = loader()
+    dfX, y = loader(num_only)
 
     # Auto Ml Config
     auto_ml_config = AutoMlConfig(dfX, y)

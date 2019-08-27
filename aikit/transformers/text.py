@@ -201,6 +201,7 @@ class TextNltkProcessing(AbstractTextProcessor):
     ):
         if nltk is None:
             raise ValueError('Please install NLTK to use this transformer.')
+
         self.lower = lower
         self.digit_anonymize = digit_anonymize
         self.digit_character = digit_character
@@ -218,21 +219,25 @@ class TextNltkProcessing(AbstractTextProcessor):
         if self.digit_anonymize:
             string = self.DIGIT_REGEX.sub(self.digit_character, string)
 
-        words = nltk.tokenize.word_tokenize(string)  # tokenize
-        if self.remove_non_words:
-            words = [word for word in words if self.REGEX.match(word) is not None]
-
-        if self.remove_stopwords:
-            if self.STOPOWORDS is None:
-                raise ValueError("I couldn't load NLTK stopswords")
-            words = [word for word in words if word not in self.STOPOWORDS]
-
-        if self.stem:
-            if self.STEMMER is None:
-                raise ValueError("I couldn't load NLTK stemmer")
-            words = [self.STEMMER.stem(word) for word in words]
-
-        return " ".join(words)
+        if self.remove_non_words or self.remove_stopwords or self.stem:
+            words = nltk.tokenize.word_tokenize(string)  # tokenize
+            if self.remove_non_words:
+                words = [word for word in words if self.REGEX.match(word) is not None]
+    
+            if self.remove_stopwords:
+                if self.STOPOWORDS is None:
+                    raise ValueError("I couldn't load NLTK stopswords")
+                words = [word for word in words if word not in self.STOPOWORDS]
+    
+            if self.stem:
+                if self.STEMMER is None:
+                    raise ValueError("I couldn't load NLTK stemmer")
+                words = [self.STEMMER.stem(word) for word in words]
+    
+            return " ".join(words)
+        
+        else:
+            return string
 
 
 class TextDefaultProcessing(AbstractTextProcessor):

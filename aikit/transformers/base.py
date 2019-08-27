@@ -1347,12 +1347,23 @@ class _NumImputer(BaseEstimator, TransformerMixin):
                 Xca = Xc
 
             # Here Xca is an array
-
             ii_not_null = ~pd.isnull(Xca)
+            
+            #ii_not_inf  = np.abs(Xca) != np.inf
+            #ii_not_null = np.logical_and(ii_not_null, ii_not_inf)
+            
             if Xca.dtype.kind not in ("f", "i"):
                 ii_contain_number = _index_with_number(Xca)
-
                 ii_not_null = np.logical_and(ii_not_null, ii_contain_number)
+            
+                ii_not_inf = np.array([True] * ii_not_null.shape[0]) # assume not 'inf'
+                ii_not_inf[ ii_contain_number] = np.logical_not(np.isinf(Xca[ii_contain_number].astype(np.float32))) # only compute 'isinf' where it is a number
+                
+                ii_not_null = np.logical_and(ii_not_null, ii_not_inf)
+            else:
+                ii_not_inf = np.logical_not(np.isinf(Xca))
+                ii_not_null = np.logical_and(ii_not_null, ii_not_inf)
+                
 
             any_not_null = ii_not_null.any()
             all_not_null = ii_not_null.all()
@@ -1447,6 +1458,15 @@ class _NumImputer(BaseEstimator, TransformerMixin):
                     ii_contain_number = _index_with_number(Xca)
 
                     ii_null = np.logical_or(ii_null, np.logical_not(ii_contain_number))
+
+                    ii_inf = np.array([False] * ii_null.shape[0]) # assume not 'inf'
+                    ii_inf[ ii_contain_number ] = np.isinf(Xca[ii_contain_number].astype(np.float32)) # only compute 'isinf' where it is a number
+                    
+                    ii_null = np.logical_or(ii_null, ii_inf)
+                else:
+                    ii_inf = np.isinf(Xca)
+                    ii_null = np.logical_or(ii_null, ii_inf)
+                    
 
                 has_null = ii_null.any()
 
