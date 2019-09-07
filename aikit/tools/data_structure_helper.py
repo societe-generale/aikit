@@ -104,7 +104,10 @@ def convert_to_array(xx, mapped_type=None):
             return xx
 
     elif mapped_type == DataTypes.SparseArray:
-        return np.array(xx.todense())  # np.array to prevent type 'matrix'
+        if xx.dtype == np.object:
+            return np.array(xx.astype(np.float64).todense())
+        else:
+            return np.array(xx.todense())  # np.array to prevent type 'matrix'
 
     elif mapped_type == DataTypes.SparseDataFrame:
         return xx.to_dense().values
@@ -521,7 +524,12 @@ def generic_hstack(all_datas, output_type=None, all_columns_names=None):
             return convert_to_sparsearray(all_datas[0])
 
         else:
-            return sparse.hstack([convert_to_sparsearray(data) for data in all_datas])
+            all_sparse_data = [convert_to_sparsearray(data) for data in all_datas]
+            for i, data in enumerate(all_sparse_data):
+                if data.dtype == np.object:
+                    all_sparse_data[i] = data.astype(np.float64)
+                
+            return sparse.hstack(all_sparse_data)
 
     elif output_type == DataTypes.SparseDataFrame:
 

@@ -162,6 +162,10 @@ def verif_conversion(df, dont_test_sparse_array=False):
                 assert temp_conversion3 is temp_conversion
 
             test_conversion4 = convert_generic(temp_conversion3, output_type=DataTypes.NumpyArray)
+            assert get_type(test_conversion4) == DataTypes.NumpyArray
+            #if output_type == DataTypes.SparseDataFrame and output_type2 == DataTypes.SparseArray:
+            #    assert _array_almost_equal(test_conversion4, df.values, tolerance=10**(-4))
+            #else:
             assert _array_equal(test_conversion4, df.values)
 
 
@@ -200,9 +204,9 @@ def test_to_coo_sparse_matrix_bug():
 
 
 def test_conversion():
-    verif_conversion(X_train.loc[:, variable_by_type["NUM"]])
-    verif_conversion(X_train_shuffled.loc[:, variable_by_type["NUM"]])
-    verif_conversion(X_test.loc[:, variable_by_type["NUM"]])
+    verif_conversion(X_train.loc[:, variable_by_type["NUM"]], dont_test_sparse_array=True)
+    verif_conversion(X_train_shuffled.loc[:, variable_by_type["NUM"]],dont_test_sparse_array=True)
+    verif_conversion(X_test.loc[:, variable_by_type["NUM"]],dont_test_sparse_array=True)
 
     verif_conversion(X_train.loc[:, variable_by_type["CAT"]], dont_test_sparse_array=True)
     verif_conversion(X_train_shuffled.loc[:, variable_by_type["CAT"]], dont_test_sparse_array=True)
@@ -212,6 +216,10 @@ def test_conversion():
     verif_conversion(X_train_shuffled, dont_test_sparse_array=True)
     verif_conversion(X_test, dont_test_sparse_array=True)
 
+def test_conversion_sparse_array():
+    verif_conversion(X_train.loc[:, variable_by_type["NUM"]], dont_test_sparse_array=False)
+    verif_conversion(X_train_shuffled.loc[:, variable_by_type["NUM"]],dont_test_sparse_array=False)
+    verif_conversion(X_test.loc[:, variable_by_type["NUM"]],dont_test_sparse_array=False)
 
 # In[] : test concatenation
 
@@ -307,9 +315,9 @@ def verif_generic_hstack(df, dont_test_sparse_array=False, split_index=4):
 
 
 def test_generic_hstack():
-    verif_generic_hstack(X_train.loc[:, variable_by_type["NUM"]], split_index=4)
-    verif_generic_hstack(X_train_shuffled.loc[:, variable_by_type["NUM"]], split_index=4)
-    verif_generic_hstack(X_test.loc[:, variable_by_type["NUM"]], split_index=4)
+    verif_generic_hstack(X_train.loc[:, variable_by_type["NUM"]], split_index=4, dont_test_sparse_array=True)
+    verif_generic_hstack(X_train_shuffled.loc[:, variable_by_type["NUM"]], split_index=4, dont_test_sparse_array=True)
+    verif_generic_hstack(X_test.loc[:, variable_by_type["NUM"]], split_index=4,dont_test_sparse_array=True)
 
     verif_generic_hstack(X_train.loc[:, variable_by_type["CAT"]], dont_test_sparse_array=True, split_index=2)
     verif_generic_hstack(X_train_shuffled.loc[:, variable_by_type["CAT"]], dont_test_sparse_array=True, split_index=2)
@@ -319,6 +327,10 @@ def test_generic_hstack():
     verif_generic_hstack(X_train_shuffled, dont_test_sparse_array=True)
     verif_generic_hstack(X_test, dont_test_sparse_array=True)
 
+def test_generic_hstack_sparse():
+    verif_generic_hstack(X_train.loc[:, variable_by_type["NUM"]], split_index=4, dont_test_sparse_array=False)
+    verif_generic_hstack(X_train_shuffled.loc[:, variable_by_type["NUM"]], split_index=4, dont_test_sparse_array=False)
+    verif_generic_hstack(X_test.loc[:, variable_by_type["NUM"]], split_index=4,dont_test_sparse_array=False)
 
 # In[] : Categorical Encoder
 
