@@ -171,6 +171,9 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
         return result_serie
 
     def fit(self, X, y):
+        
+        if y is None:
+            raise ValueError("I need a value for 'y'")
 
         self._random_gen = check_random_state(self.random_state)
 
@@ -247,6 +250,9 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
 
     def fit_transform(self, X, y):
 
+        if y is None:
+            raise ValueError("I need a value for 'y'")
+        
         if not isinstance(y, pd.Series):
             sy = pd.Series(y)
         else:
