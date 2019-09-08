@@ -913,6 +913,19 @@ def verif_CategoricalEncoder():
 # import aikit.transformers_target
 # reload(aikit.transformers_target)
 
+@pytest.mark.parametrize("cv, noise_level, smoothing_value", list(itertools.product((None, 10), (None, 0.1), (0, 1))))
+def test_TargetEncoderClassifier_fails_no_y(cv, noise_level, smoothing_value):
+    
+    enc_kwargs = {
+        "columns_to_use": variable_by_type["NUM"] + variable_by_type["CAT"],
+        "cv": cv,
+        "noise_level": noise_level,
+        "smoothing_value": smoothing_value,
+    }
+    model = TargetEncoderClassifier(**enc_kwargs)
+    with pytest.raises(ValueError):
+        model.fit(df1) # raise because no target
+
 
 @pytest.mark.longtest
 @pytest.mark.parametrize("cv, noise_level, smoothing_value", list(itertools.product((None, 10), (None, 0.1), (0, 1))))
@@ -973,7 +986,7 @@ def test_TargetEncoderClassifier3(cv, noise_level, smoothing_value):
         klass=TargetEncoderClassifier,
         enc_kwargs=enc_kwargs3,
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),  # DataTypes.NumpyArray),
-        additional_test_functions=[check_all_numerical, check_no_null, check_between_01, nb_columns_verify(3)],
+        additional_test_functions=[check_all_numerical, check_no_null, check_between_01, nb_columns_verify(5)],
         randomized_transformer=noise_level is not None,
         difference_tolerence=1.0,
         difference_fit_transform=(noise_level is not None) or (cv is not None)
@@ -1051,7 +1064,7 @@ def test_TargetEncoderClassifierEntropy3(cv, noise_level, smoothing_value):
         klass=TargetEncoderEntropyClassifier,
         enc_kwargs=enc_kwargs3,
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),  # DataTypes.NumpyArray),
-        additional_test_functions=[check_all_numerical, check_no_null, check_positive, nb_columns_verify(3)],
+        additional_test_functions=[check_all_numerical, check_no_null, check_positive, nb_columns_verify(5)],
         randomized_transformer=noise_level is not None,
         difference_tolerence=1.0,
         difference_fit_transform=(noise_level is not None) or (cv is not None)
@@ -1162,7 +1175,7 @@ def test_TargetEncoderRegressor3(cv, noise_level, smoothing_value):
         klass=TargetEncoderRegressor,
         enc_kwargs=enc_kwargs3,
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),  # DataTypes.NumpyArray),
-        additional_test_functions=[check_all_numerical, check_no_null, nb_columns_verify(3)],
+        additional_test_functions=[check_all_numerical, check_no_null, nb_columns_verify(5)],
         randomized_transformer=randomized_transformer,  # noise_level is not None ,
         difference_tolerence=difference_tolerence,  # 0.5,
         difference_fit_transform=(noise_level is not None) or (cv is not None)
