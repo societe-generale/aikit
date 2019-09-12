@@ -15,6 +15,8 @@ except ImportError:
     print("I wont be able to import category_encoders")
     category_encoders = None
 
+from collections import defaultdict
+
 
 from aikit.enums import DataTypes, TypeOfVariables
 from aikit.tools.data_structure_helper import get_type, generic_hstack, get_rid_of_categories
@@ -182,6 +184,16 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
                 raise ValueError("column %s isn't in the DataFrame" % c)
 
         self.variable_modality_mapping = {col: self.modalities_filter(X[col]) for col in self._columns_to_encode}
+        
+        self._variable_modality_dict = {}
+        for col in self._columns_to_encode:
+            ddict = defaultdict(lambda :-1, self.variable_modality_mapping[col])
+            if "__null__" in self.variable_modality_mapping[col]:    
+                ddict[np.nan] = self.variable_modality_mapping[col]["__null__"]
+                ddict[None] = self.variable_modality_mapping[col]["__null__"]
+            
+            self._variable_modality_dict[col] = ddict
+        
 
         # Rmk : si on veut pas faire un encodage ou les variables sont par ordre croissant, on peut faire un randomization des numbre ici
 
@@ -254,15 +266,12 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
             return result
 
     def _transform_to_encode(self, X):
-
-        all_result_series = [
-            X[col].apply(lambda m: self._get_value(m, self.variable_modality_mapping[col], default=-1))
-            for col in self._columns_to_encode
-        ]
+        
+        all_result_series = [X[col].map(self._variable_modality_dict[col])
+            for col in self._columns_to_encode]
 
         if self.encoding_type == "num":
-            result = pd.DataFrame(all_result_series, dtype="int32").T
-
+            result = pd.concat(all_result_series, axis=1, ignore_index=True, copy=False).astype(np.int32)
             return result
 
         elif self.encoding_type == "dummy":
