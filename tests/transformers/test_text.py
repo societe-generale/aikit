@@ -33,6 +33,7 @@ def test_load_nltk():
     assert isinstance(stopwords, list)
     
     stopwords = nltk.corpus.stopwords.words("french")
+    assert isinstance(stopwords, list)
 
     stemmer = nltk.stem.porter.PorterStemmer()
     assert stemmer is not None

@@ -27,7 +27,7 @@ from .text import (
     Char2VecVectorizer,
 )
 from .target import TargetEncoderClassifier, TargetEncoderEntropyClassifier, TargetEncoderRegressor
-from .block_selector import BlockSelector, BlockManager, TransformeToBlockManager
+from .block_selector import BlockSelector, BlockManager, TransformToBlockManager
 from .model_wrapper import ModelWrapper, ColumnsSelector
 
 __all__ = [
@@ -54,7 +54,7 @@ __all__ = [
     "TargetEncoderRegressor",
     "BlockSelector",
     "BlockManager",
-    "TransformeToBlockManager",
+    "TransformToBlockManager",
     "ModelWrapper",
     "ColumnsSelector",
     "PCAWrapper",

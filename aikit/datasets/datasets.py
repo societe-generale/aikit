@@ -17,8 +17,6 @@ import numpy as np
 import urllib
 from urllib.parse import urlparse
 
-from aikit.tools.helper_functions import load_json
-
 
 class DatasetEnum:
     """

@@ -165,7 +165,7 @@ def test_JobConfig(num_only):
     
     with pytest.raises(ValueError):
         job_config.cv = "this is not a cv"
-        
+   
 def test_JobConfig_additional_scoring_function():
     job_config = JobConfig()
 

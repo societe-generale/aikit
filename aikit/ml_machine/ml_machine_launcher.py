@@ -28,14 +28,14 @@ def start_runner(runner):
 
 class MlMachineLauncher(object):
     """ object to handle the ml machine processes,
-    
+
     it will hold the configurations,
     and allow the creation of 
     * worker(s)
     * controller
     * creation of results
     * ...
-    
+
     """
 
     class Commands(Enum):

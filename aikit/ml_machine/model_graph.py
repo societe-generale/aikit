@@ -228,17 +228,23 @@ def assert_model_graph_structure(G):
         raise ValueError("The graph shouldn't have any cycle")
 
     for node in G.nodes:
-        if StepCategories.is_composition_step(node[0]):
-            if len(list(G.successors(node))) == 0:
-                raise ValueError("Composition node %s has no successor" % node)
+        if is_composition_model(node):
+            successors = list(G.successors(node))
 
-    for node in G.nodes:
-        if StepCategories.is_composition_step(node[0]):
-            successors = gh.get_all_successors(G, node)
-            predecessors = gh.get_all_predecessors(G, node)
+            if len(successors) == 0:
+                raise ValueError("Composition node %s has no successor" % str(node))
 
-            if not gh.is_it_a_partition(list(G.nodes), [successors, [node], predecessors]):
-                raise ValueError("Incorrect split around composition node %s" % node)
+            for successor in successors:
+                predecessors = list(G.predecessors(successor))
+                if predecessors != [node]:
+                    raise ValueError("The node %s has more than one parent, which is impossible for a child of a composition node (%s)" % (str(successor), str(node)))
+
+            # successors = gh.get_all_successors(G, node)
+            #            predecessors = gh.get_all_predecessors(G, node)
+
+
+            #if not gh.is_it_a_partition(list(G.nodes), [successors, [node], predecessors]):
+            #    raise ValueError("Incorrect split around composition node %s" % str(node))
             # _verif_split_is_everything(G,node,)
 
 
@@ -338,7 +344,7 @@ def graphviz_modelgraph(G):
     else:
         G2 = graphviz.Graph()
 
-    new_n = lambda x: (x[0], x[1][1])
+    new_n = lambda x: (x[1][0], x[1][1])
 
     node_compo = []
     node_other = []
@@ -386,17 +392,228 @@ def _create_name_mapping(all_nodes):
 
     count_by_model_name = dict()
     mapping = {}
+    done = set()
     for step_name, model_name in all_nodes:
+        if (step_name, model_name) in done:
+            raise ValueError("I have a duplicate node %s" % str((step_name, model_name)))
+        done.add((step_name, model_name))
+
         count_by_model_name[model_name[1]] = count_by_model_name.get(model_name[1], 0) + 1
 
     for step_name, model_name in all_nodes:
         if count_by_model_name[model_name[1]] > 1:
-            mapping[(step_name, model_name)] = "%s_%s" % (step_name, model_name[1])
+            mapping[(step_name, model_name)] = "%s_%s" % (model_name[0], model_name[1])
         else:
             mapping[(step_name, model_name)] = model_name[1]
+            
+    count_by_name = dict()
+    for k,v in mapping.items():
+        count_by_name[k] = count_by_model_name.get(k, 0) + 1
+    for k,v in count_by_name.items():
+        if v > 1:
+            raise ValueError("I have duplicate name for node %s" % str(k))
 
     return mapping
 
+
+def _klass_from_node(node):
+    """ retrieve the name of the class from the name of the node """
+    return node[1][1]
+
+
+def _find_first_composition_node(Graph, composition_already_done=None):
+    """ retrieve the 'first' composition node of a Graph,
+    it will ignore composition node already in 'composition_already_done'
+    it no composition node, return None
+    """
+    if composition_already_done is None:
+        composition_already_done = set()
+
+    for node in gh.iter_graph(Graph):
+        if StepCategories.is_composition_step(node[0]) and node not in composition_already_done:
+            return node
+
+    return None
+
+
+def convert_graph_to_code(Graph,
+                          all_models_params,
+                          also_returns_mapping=False,
+                          _check_structure=True
+                          ):
+    """ convertion of a Graph representing a model into its json code 
+    
+    Parameter
+    ---------
+    
+    Graph : nx.DirectGraph
+        the graph of the model, each node as the form ( step, (step, klass) )
+        
+    all_models_params : dict
+        hyperparameters of each model, keys = node of Graph, values = corresponding hyper-parameters
+    
+    also_returns_mapping : boolean, default = False
+        if True will return a dictionnary with 'name_mapping' and 'json_code' as its key.
+        So that the name in the GraphPipeline can be accessed 
+        otherwise will just return the json_code
+        
+    Return
+    ------
+    
+    a json-like object representing the model than can be translated into a model using 'sklearn_model_from_param'
+        
+    
+    """
+    
+    if _check_structure:
+        assert_model_graph_structure(Graph)
+    
+    models_dico = {node: (_klass_from_node(node), all_models_params[node]) for node in Graph.nodes}
+
+    model_name_mapping = _create_name_mapping(Graph.nodes)
+    
+    
+    rec_result = _rec_convert_graph_to_code(
+        Graph=Graph, all_models_params=all_models_params, models_dico=models_dico, model_name_mapping=model_name_mapping
+    )
+
+    if not also_returns_mapping:
+        return rec_result
+    else:
+        return {"name_mapping": model_name_mapping, "json_code": rec_result}
+
+
+def _rec_convert_graph_to_code(Graph,
+                               all_models_params,
+                               models_dico,
+                               model_name_mapping=None,
+                               composition_already_done=None
+                               ):
+    """ recursive function used to convert a Graph into a json code 
+   
+    See convert_graph_to_code
+    """
+    
+    if composition_already_done is None:
+        composition_already_done = set()
+    
+    if len(Graph.nodes) == 1:
+        node = list(Graph.nodes)[0]
+        return models_dico[node]
+    
+    node = _find_first_composition_node(Graph, composition_already_done)
+    
+    if node is not None:
+        successors =  list(Graph.successors(node))
+        assert len(successors) > 0
+
+    else:
+        successors = []
+        
+    if node is None or len(successors) == 0:
+        ### ** It's means I'll return a GraphPipeline ** ###
+        # 2 cases :
+        # * nodes is None  : meaning there is no composition node 
+        
+        
+        
+        
+        if len(successors) > 0:
+            raise ValueError("a composition node should have at most one successor '%s'" % str(node))
+        
+        #assert len(successors) > 0
+        
+        # it shouldn't append ...
+        # 1) either it an original node => composition node => no successor isn't possible
+        # 2) the node was already handled => should have been in the list
+        
+        edges = gh.edges_from_graph(Graph)
+        
+        if model_name_mapping is None:
+            model_name_mapping = _create_name_mapping(list(Graph.nodes))
+        # each node in graph will be mapped to a name within the GraphPipeline
+
+        models = {model_name_mapping[n]: models_dico[n] for n in Graph.nodes}
+
+        edges = [tuple((model_name_mapping[e] for e in edge)) for edge in edges]
+
+        return (SpecialModels.GraphPipeline, {"models": models, "edges": edges})
+
+    composition_already_done.add(node) # to prevent looping on the same node
+    
+    all_sub_branch_nodes = {}
+    all_terminal_nodes = []
+    for successor in successors:
+
+        sub_branch_nodes = list(gh.subbranch_search(starting_node=successor,
+                                           Graph=Graph,
+                                           visited={node}
+                                           ))
+        
+        all_sub_branch_nodes[successor] = sub_branch_nodes
+        
+        assert successor in sub_branch_nodes
+
+        sub_Graph = Graph.subgraph(sub_branch_nodes)
+        
+        all_terminal_nodes += gh.get_terminal_nodes(sub_Graph)
+        
+        models_dico[successor] = _rec_convert_graph_to_code(sub_Graph,
+            all_models_params=all_models_params,
+            models_dico=models_dico,
+            model_name_mapping=model_name_mapping,
+            composition_already_done=composition_already_done
+            )
+        
+    # Check 
+    all_s = [frozenset(Graph.successors(t_node)) for t_node in all_terminal_nodes]
+    if len(set(all_s)) != 1:
+        # By convention, if we look at the nodes AFTER the composition 
+        #(ie : the successors of the terminal nodes of the part of the graph that will be merged by the composition)
+        # Those nodes should have the same list of successors. Those successors will be the successors of the merged node
+        raise ValueError("The successor at the end of the composition node %s are not always the same" % str(node))
+        
+    if len(successors) == 1:
+        
+        # Only one sucessor of composition node
+        
+        models_dico[node] = (
+            _klass_from_node(node),
+            models_dico[successors[0]],
+            all_models_params[node]
+        )
+        
+    elif len(successors) > 1:
+        
+        models_dico[node] = (
+            _klass_from_node(node),
+            [ models_dico[successor] for successor in successors],
+            all_models_params[node]
+        )
+    
+    else:
+        raise NotImplementedError("can't go there")
+
+
+    # Now I need to merge 'node' with all the sub-branches
+    nodes_mapping = {}
+    for successor, sub_branch_nodes in all_sub_branch_nodes.items():
+        for n in sub_branch_nodes:
+            nodes_mapping[n]=node
+
+    Gmerged = gh.merge_nodes(Graph, nodes_mapping=nodes_mapping)
+    # All the node in successor will be 'fused' with 'node' ...
+    # Recurse now, that the composition node is taken care of
+    
+    return _rec_convert_graph_to_code(Gmerged,
+            all_models_params=all_models_params,
+            models_dico=models_dico,
+            model_name_mapping=model_name_mapping,
+            composition_already_done=composition_already_done  
+            )
+
+# In[] : Old functions
+    
 
 def convert_graph_to_code_OLD(G, all_models_params):
     """ convertion of Graphical model into a json representation
@@ -484,23 +701,8 @@ def _rec_convert_graph_to_code_OLD(G, all_params):
     return _rec_convert_graph_to_code_OLD(G_above, all_params)
 
 
-def _klass_from_node(node):
-    """ retrieve the name of the class from the name of the node """
-    return node[1][1]
 
-
-def _find_first_composition_node(Graph):
-    """ retrieve the 'first' composition node of a Graph,
-    it no composition node, return None
-    """
-    for node in gh.iter_graph(Graph):
-        if StepCategories.is_composition_step(node[0]):
-            return node
-
-    return None
-
-
-def convert_graph_to_code(Graph, all_models_params, also_returns_mapping=False):
+def convert_graph_to_code_OLD2(Graph, all_models_params, also_returns_mapping=False):
     """ convertion of a Graph representing a model into its json code 
     
     Parameter
@@ -528,7 +730,7 @@ def convert_graph_to_code(Graph, all_models_params, also_returns_mapping=False):
 
     model_name_mapping = _create_name_mapping(Graph.nodes)
 
-    rec_result = _rec_convert_graph_to_code(
+    rec_result = _rec_convert_graph_to_code_OLD(
         Graph=Graph, all_models_params=all_models_params, models_dico=models_dico, model_name_mapping=model_name_mapping
     )
 
@@ -538,9 +740,12 @@ def convert_graph_to_code(Graph, all_models_params, also_returns_mapping=False):
         return {"name_mapping": model_name_mapping, "json_code": rec_result}
 
 
-def _rec_convert_graph_to_code(Graph, all_models_params, models_dico, model_name_mapping=None):
+def _rec_convert_graph_to_code_OLD2(Graph,
+                               all_models_params,
+                               models_dico,
+                               model_name_mapping=None):
     """ recursive function used to convert a Graph into a json code 
-    
+   
     See convert_graph_to_code
     """
 
@@ -584,7 +789,7 @@ def _rec_convert_graph_to_code(Graph, all_models_params, models_dico, model_name
         return (
             _klass_from_node(node),
             [
-                _rec_convert_graph_to_code(Gb, all_models_params, models_dico, model_name_mapping)
+                _rec_convert_graph_to_code_OLD2(Gb, all_models_params, models_dico, model_name_mapping)
                 for Gb in connected_Gbellow
             ],
             all_models_params[node],
@@ -594,7 +799,7 @@ def _rec_convert_graph_to_code(Graph, all_models_params, models_dico, model_name
 
         return (
             _klass_from_node(node),
-            _rec_convert_graph_to_code(Graph_bellow, all_models_params, models_dico, model_name_mapping),
+            _rec_convert_graph_to_code_OLD2(Graph_bellow, all_models_params, models_dico, model_name_mapping),
             all_models_params[node],
         )
 
@@ -603,7 +808,7 @@ def _rec_convert_graph_to_code(Graph, all_models_params, models_dico, model_name
         G_bellow_and_node = Graph.subgraph([node] + successors)
         G_above = Graph.subgraph(predecessors + [node])
 
-        models_dico[node] = _rec_convert_graph_to_code(
+        models_dico[node] = _rec_convert_graph_to_code_OLD2(
             G_bellow_and_node, all_models_params, models_dico, model_name_mapping
         )
 
