@@ -14,18 +14,38 @@ from aikit.tools.graph_helper import (
     edges_from_graph,
     is_it_a_partition,
     insert_node_above,
-)
-from aikit.tools.graph_helper import (
     add_node_after,
     iter_graph,
     get_all_predecessors,
     get_all_successors,
     has_cycle,
     remove_node_keep_connections,
+    get_terminal_nodes,
+    get_starting_nodes,
+    get_connected_graphs,
+    subbranch_search,
+    merge_nodes,
     get_two_by_two_edges
 )
-from aikit.tools.graph_helper import get_terminal_nodes, get_starting_nodes, get_connected_graphs
 
+
+def test_edges_from_graph():
+    G = nx.DiGraph()
+    G.add_node("A")
+    G.add_node("B")
+    
+    assert edges_from_graph(G) == [("A",),("B",)]
+    
+    G = nx.DiGraph()
+    G.add_node("B")
+    G.add_node("A")
+    assert edges_from_graph(G) == [("A",),("B",)]
+    
+    G = graph_from_edges(("A","B"),("C","D"))
+    assert set(G.nodes) == {'A','B','C','D'}
+    assert set(G.edges) == {('A','B'),('C','D')}
+    
+    assert edges_from_graph(G) == [('A','B'),('C','D')]
 
 def test_graph_from_edges_string():
 
@@ -98,6 +118,7 @@ def test_graph_from_edges():
     assert set(G.edges) == {("A", "B"), ("A", "C"), ("B", "D"), ("C", "D"), ("E", "C")}
 
     edges = [("A", "B", "D"), ("A", "C", "D"), ("E", "C", "D")]
+    G = graph_from_edges(*edges)
     assert set(G.nodes) == {"A", "B", "C", "D", "E"}
     assert set(G.edges) == {("A", "B"), ("A", "C"), ("B", "D"), ("C", "D"), ("E", "C")}
 
@@ -109,6 +130,10 @@ def test_get_two_by_two_edges():
     assert get_two_by_two_edges(("a","c","d"),("b","c")) == [('a', 'c'), ('c','d'),('b', 'c')]
     assert get_two_by_two_edges(("a","c","d"),("b","c")) == [('a', 'c'), ('c','d'),('b', 'c')]
 
+    edges = [("A",),("B","C","D")]
+    G = graph_from_edges(*edges)
+    assert set(G.nodes) == {"A","B","C","D"}
+    assert set(G.edges) == {("B","C"),("C","D")}
 
 def test_insert_node_above():
     G = graph_from_edges_string("1 - 2 - 3")
@@ -185,23 +210,31 @@ def test_all_graphs_functions():
 
 
 def test_iter_graph():
-    G = nx.DiGraph()
-    G = add_node_after(G, 1)
-    G = add_node_after(G, 2, 1)
-    G = add_node_after(G, 3, 2)
-    G = add_node_after(G, 4)
-    G = add_node_after(G, 5, 4)
-    G = add_node_after(G, 6, 5, 3)
+    G1 = nx.DiGraph()
+    G1 = add_node_after(G1, 1)
+    G1 = add_node_after(G1, 2, 1)
+    G1 = add_node_after(G1, 3, 2)
+    G1 = add_node_after(G1, 4)
+    G1 = add_node_after(G1, 5, 4)
+    G1 = add_node_after(G1, 6, 5, 3)
 
-    done = set()
-    for n in iter_graph(G):
-        for p in G.predecessors(n):
-            assert p in done
+    G2 = graph_from_edges((1,2),(3,4))
+    
+    for G in (G1,G2):
+        done = set()
+        for n in iter_graph(G):
+            for p in G.predecessors(n):
+                assert p in done
+    
+            assert n not in done
+            done.add(n)
+    
+        assert done == set(G.nodes)
 
-        assert n not in done
-        done.add(n)
-
-    assert done == set(G.nodes)
+    G3 = nx.DiGraph()
+    G3.add_node(1)
+    G3.add_node(2)  # 2 un-connexted nodes
+    assert list(iter_graph(G3)) in ([1, 2],[2,1])
 
 
 def test_graphviz():
@@ -247,14 +280,58 @@ def test_get_connected_graph():
     assert (gequal(g1, G1) and gequal(g2, G2)) or (gequal(g1, G2) and gequal(g2, G1))
 
 
-def verif_all():
-    test_iter_graph()
-    test_graph_from_edges_string()
-    test_graph_from_edges()
-    test_all_graphs_functions()
-    test_remove_node_keep_connections()
-    test_has_cycle()
-    test_is_it_a_partition()
-    test_insert_node_above()
-    test_graphviz()
-    test_get_connected_graph()
+def test_subbranch_search():
+    
+    Graph = graph_from_edges(("A","B","C"),("B","D"))
+
+    nodes = list(subbranch_search("A",Graph))
+    assert nodes == ['A','B','C','D'] or nodes == ['A','B','D','C']
+
+    nodes = list(subbranch_search("B",Graph))
+    assert nodes == []
+    
+    nodes = list(subbranch_search("B",Graph, visited={"A"}))
+    assert nodes == ['B','C','D'] or nodes == ['B','D','C']
+    
+    nodes = list(subbranch_search("C",Graph, visited={"B"}))
+    assert nodes == ["C"]
+  
+    nodes = list(subbranch_search("D",Graph, visited={"B"}))
+    assert nodes == ["D"]
+    
+    # Graph2
+    Graph = graph_from_edges(("A","B","C","E"),("B","D","E"))
+    nodes = list(subbranch_search("A",Graph))
+    assert nodes == ['A','B','C','D','E'] or nodes == ['A','B','D','C','E']
+    
+    Graph = graph_from_edges(("A","B","C","E"),("B","D","E"))
+    nodes = list(subbranch_search("B",Graph, visited = {"A"}))
+    assert nodes == ['B','C','D','E'] or nodes == ['B','D','C','E']
+    
+    Graph = graph_from_edges(("A","B","C","E"),("B","D","E"))
+    nodes = list(subbranch_search("C",Graph, visited = {"B"}))
+    assert nodes == ['C']
+    
+    Graph = graph_from_edges(("A","B","C"),("A","C"))
+    nodes = list(subbranch_search("A",Graph))
+    assert nodes == ["A","B","C"]
+    
+    nodes = list(subbranch_search("B",Graph, visited={"A"}))
+    assert nodes == ['B', 'C']
+    
+    nodes = list(subbranch_search("C",Graph, visited={"B"}))
+    assert nodes == []
+
+def test_merge_nodes():
+    Graph = graph_from_edges(("A","B","C"),("B","D"))
+    
+    mGraph = merge_nodes(Graph,{"B":"A"})
+    assert set(mGraph.nodes) == {"A","C","D"}
+    assert set(mGraph.edges) == {("A","C"),("A","D")}
+    # check Graph wasn't modified
+    assert set(Graph.nodes) == {"A","B","C","D"}
+    
+    mGraph = merge_nodes(Graph,{"C":"B","D":"B"})
+    assert set(mGraph.nodes) == {"A","B"}
+    assert set(mGraph.edges) == {('A', 'B')}
+    

@@ -10,7 +10,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from aikit.tools.db_informations import has_missing_values, guess_type_of_variable, TypeOfVariables
+from aikit.tools.db_informations import has_missing_values, guess_type_of_variable, TypeOfVariables, get_n_outputs
 from tests.helpers.testing_help import get_sample_df
 
 def test_has_missing_values():
@@ -25,10 +25,25 @@ def test_has_missing_values():
     r2 = has_missing_values(s2)
     assert r2
     assert isinstance(r2, bool)
+    
+def test_get_n_outputs():
+    y = np.zeros((10,))
+    assert get_n_outputs(y) == 1
 
-def verif_all():
-    test_has_missing_values()
+    y = np.zeros((10,1))
+    assert get_n_outputs(y) == 1
 
+    y = np.zeros((10,2))
+    assert get_n_outputs(y) == 2
+
+    y = pd.Series(np.zeros((10,)))
+    assert get_n_outputs(y) == 1
+
+    y = pd.DataFrame(np.zeros((10,1)))
+    assert get_n_outputs(y) == 1
+    
+    y = pd.DataFrame(np.zeros((10,2)))
+    assert get_n_outputs(y) == 2
 
 def test_guess_type_of_variable():
     df = get_sample_df(100)
@@ -44,4 +59,3 @@ def test_guess_type_of_variable():
     df_with_cat["cat_col_1"] = df_with_cat["cat_col_1"].astype("category")
     assert np.all([guess_type_of_variable(df[col]) == guess_type_of_variable(df_with_cat[col]) for col in df.columns])
     assert (df.values == df_with_cat.values).all()
-

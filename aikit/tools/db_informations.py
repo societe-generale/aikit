@@ -89,6 +89,9 @@ def guess_type_of_variable(s):
             return TypeOfVariables.TEXT
 
         return TypeOfVariables.CAT
+    
+    elif "category" in st:
+        return TypeOfVariables.CAT
 
     elif 'category' in st:
         return TypeOfVariables.CAT
@@ -187,3 +190,12 @@ def _update_columns_information(columns_info, column_to_update, **updates):
 def get_all_var_type(db_informations):
     all_var_type = tuple(sorted(set((v["TypeOfVariable"] for v in db_informations.values() if v["ToKeep"]))))  ###
     return all_var_type
+
+def get_n_outputs(y):
+    """ returns the number of ouputs of a given target """
+    if getattr(y, "ndim", 1) > 1:
+        return y.shape[1]
+    else:
+        return 1
+
+    

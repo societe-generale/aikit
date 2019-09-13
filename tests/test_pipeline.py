@@ -37,7 +37,7 @@ from aikit.enums import DataTypes
 
 from aikit.transformers.text import CountVectorizerWrapper
 
-from aikit.transformers.block_selector import BlockSelector, BlockManager, TransformeToBlockManager
+from aikit.transformers.block_selector import BlockSelector, BlockManager, TransformToBlockManager
 
 from aikit.cross_validation import is_clusterer
 
@@ -981,7 +981,7 @@ def test_graphpipeline_no_concat():
     assert (Xtransformed["B"] == X).all().all()
 
     gpipeline = GraphPipeline(
-        {"A": DebugPassThrough(debug=True), "B": DebugPassThrough(debug=True), "C": TransformeToBlockManager()},
+        {"A": DebugPassThrough(debug=True), "B": DebugPassThrough(debug=True), "C": TransformToBlockManager()},
         edges=[("A", "C"), ("B", "C")],
         no_concat_nodes={"C"},
     )

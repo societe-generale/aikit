@@ -342,7 +342,7 @@ class BlockManager(object):
         return BlockManager(all_data_subset)
 
 
-class TransformeToBlockManager(BaseEstimator, TransformerMixin):
+class TransformToBlockManager(BaseEstimator, TransformerMixin):
     def __init__(self):
         pass
 

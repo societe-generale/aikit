@@ -21,6 +21,8 @@ except ImportError:
     graphviz = None
     print("Graphviz won't work")
 
+from aikit.tools.helper_functions import lunique, unlist
+
 # In[]
 def add_node_after(G, new_node, *from_nodes, verbose=False):
     """ helper function to add a new node within a graph and place it after some nodes
@@ -71,7 +73,7 @@ def edges_from_edges_string(edges_string):
     
     Parameters
     ----------
-    * dot_string: string
+    edges_string: string
         representation of the graph
     
     Returns
@@ -102,7 +104,7 @@ def graph_from_edges_string(edges_string):
     
     Parameters
     ----------
-    * dot_string: string
+    edges_string : string
         representation of the graph
         
     Returns
@@ -116,16 +118,16 @@ def graph_from_edges_string(edges_string):
 
 def edges_from_graph(G):
     """ return the edges from a graph """
-    all_edges = set(G.edges)
+    all_edges = list(sorted(set(G.edges))) # to make sure the order of the edges doesn't change
     goon = True
 
     while goon:
         something_has_change = False
         for e1, e2 in itertools.product(all_edges, all_edges):
             if e1 != e2 and e1[-1] == e2[0]:
-                all_edges.remove(e1)
-                all_edges.remove(e2)
-                all_edges.add(tuple(e1[0:-1]) + tuple(e2))
+                all_edges = [e for e in all_edges if e != e1]
+                all_edges = [e for e in all_edges if e != e2]
+                all_edges.append(tuple(e1[0:-1]) + tuple(e2))
 
                 something_has_change = True
             if something_has_change:
@@ -135,6 +137,12 @@ def edges_from_graph(G):
             goon = False
 
     all_edges = list(all_edges)
+    # Re-add node not in edges
+    all_nodes_in_edge = unlist(all_edges)
+    all_nodes = sorted(G.nodes)
+    all_nodes = [n for n in all_nodes if n not in all_nodes_in_edge]
+    all_edges += [(n,) for n in all_nodes]
+    
     G2 = graph_from_edges(*all_edges)
 
     assert set(G.nodes) == set(G2.nodes)
@@ -145,12 +153,12 @@ def edges_from_graph(G):
 
 def graph_from_edges(*edges):
     """ create a graph from list of edges 
-    
+
     Parameters
     ----------
-    * edges : list or tuple
+    *edges : list or tuple
         each consecutive elements will be an edge
-        
+
     Returns
     -------
     Direct Graph 
@@ -163,14 +171,15 @@ def graph_from_edges(*edges):
     G = nx.DiGraph()
 
     for list_of_edge in edges:
-        if len(list_of_edge) <= 1:
-            raise ValueError("edges must be of length at least 2")
 
         if not isinstance(list_of_edge, (tuple, list)):
             raise TypeError("argument should be tuple or list, instead i got : '%s' " % type(list_of_edge))
 
-        for e1, e2 in zip(list_of_edge[:-1], list_of_edge[1:]):
-            G = add_node_after(G, e2, e1)
+        if len(list_of_edge) <= 1:
+            G = add_node_after(G, list_of_edge[0]) # no edge, only a solo node
+        else:
+            for e1, e2 in zip(list_of_edge[:-1], list_of_edge[1:]):
+                G = add_node_after(G, e2, e1)
 
     return G
 
@@ -495,4 +504,105 @@ def graphviz_graph(G):
     return G2
 
 
-# In[] :
+def merge_nodes(Graph, nodes_mapping):
+    """ helper function to merge node on a given Graph, the merge is done via a mapping of nodes
+    
+    Parameters
+    ----------
+    Graph : nx.DiGraph or nx.Graph
+        the original graph
+        
+    nodes_mapping : dict
+        mapping from 'node' to new node
+        if a node is not in the mapping : no mapping is applied
+        
+    Returns
+    -------
+    newG : Graph of same type a G
+        with nodes and edges passed by mapping
+        
+    If two nodes have the same mapping : they will be merged
+    """
+    if isinstance(Graph, nx.DiGraph):
+        newG = nx.DiGraph()
+    else:
+        newG = nx.Graph()
+        
+    for node in Graph.nodes:
+        mapped_node = nodes_mapping.get(node, node) # default = no mapping
+        if mapped_node not in newG.nodes:
+            newG.add_node(mapped_node) # Rmk : I drop other informarion in the graph
+    
+    for e1,e2 in Graph.edges:
+        mapped_e1 = nodes_mapping.get(e1, e1)
+        mapped_e2 = nodes_mapping.get(e2, e2)
+        
+        if mapped_e1 != mapped_e2 and (mapped_e1,mapped_e2) not in newG.edges:
+            newG.add_edge(mapped_e1, mapped_e2)
+
+    return newG
+
+
+def subbranch_search(starting_node, Graph, yield_list=None, visited=None):
+    """ breadth first search, starting from a node.
+    Yielding only if : predecessor already visited.
+    
+    Parameters
+    ----------
+    
+    starting_node : node
+        the node to start
+        
+    Graph : nx.DiGraph
+        The Graph
+        
+    yield_list : list of nodes or None
+        if not None : will yield even if condition not verified
+        
+    visited : list of nodes or None
+        already visited nodes
+        
+    Yields
+    ------
+    
+    list of successives nodes in G
+
+    
+    """
+    if starting_node not in Graph:
+        raise ValueError("the node %s should be in graph" % str(starting_node))
+        
+    if yield_list is None:
+        yield_list = set()
+    if visited is None:
+        visited = set()
+    else:
+        visited = set(visited)
+        
+    test_list = [starting_node]
+    
+    while True:
+        new_test_list = []
+        
+        for node in test_list:
+            if node in visited:
+                continue
+            
+            predecessors = list(Graph.predecessors(node))
+            
+            # I yield if all the predecessor were visited already (OR if 'bypass' yield list)
+            if node in yield_list or all((p in visited for p in predecessors)):
+                yield node
+                visited.add(node)
+                new_test_list += list(Graph.successors(node))
+            else:
+                new_test_list.append(node) # I'll try again at next iteration
+                
+        new_test_list = lunique(new_test_list)
+        if len(new_test_list) == 0 or set(new_test_list) == set(test_list):
+            # 1) no more node to test
+            # 2) ... or same list as before
+            return
+        else:
+            test_list = new_test_list
+
