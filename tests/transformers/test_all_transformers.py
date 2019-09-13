@@ -1272,7 +1272,7 @@ def test_Word2VecVectorizer(text_preprocess, same_embedding_all_columns, size, w
     df1 = Xtrain.loc[0:600, :]
     df2 = Xtrain.loc[600:, :]
 
-    enc_kwargs = {"columns_to_use": ["Name", "Ticket"]}
+    enc_kwargs = {"columns_to_use": ["name", "ticket"]}
     enc_kwargs["text_preprocess"] = text_preprocess
     enc_kwargs["same_embedding_all_columns"] = same_embedding_all_columns
     enc_kwargs["size"] = size
@@ -1311,7 +1311,7 @@ def test_Char2VecVectorizer(text_preprocess, same_embedding_all_columns, size, w
     df1 = Xtrain.loc[0:600, :]
     df2 = Xtrain.loc[600:, :]
 
-    enc_kwargs = {"columns_to_use": ["Name", "Ticket"]}
+    enc_kwargs = {"columns_to_use": ["name", "ticket"]}
     enc_kwargs["text_preprocess"] = text_preprocess
     enc_kwargs["same_embedding_all_columns"] = same_embedding_all_columns
     enc_kwargs["size"] = size
@@ -2049,7 +2049,7 @@ def test_CdfScaler_with_params(distribution, output_distribution):
         df2=df2_nona.loc[:, variable_by_type["NUM"]],
         y1=y_train_shuffled,
         klass=CdfScaler,
-        enc_kwargs={"distribution": distribution, "output_distribution": output_distribution},
+        enc_kwargs={"distribution": distribution, "output_distribution": output_distribution, "random_state":123},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray),
         additional_test_functions=[
             check_all_numerical,
