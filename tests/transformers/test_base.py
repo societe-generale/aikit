@@ -633,6 +633,20 @@ def test_CdfScaler():
 
     assert scaler._model.distributions == ["normal", "gamma", "beta", "none"]
 
+def test_CdfScaler_fit_vs_fit_transform():
+    np.random.seed(123)
+    X = np.random.randn(2000,10)
+    
+    encoder = CdfScaler(distribution="kernel", output_distribution="uniform", random_state=123)
+    X1 = encoder.fit_transform(X)
+
+    encoder_b = CdfScaler(distribution="kernel", output_distribution="uniform", random_state=123)
+    encoder_b.fit(X)
+    X2 = encoder_b.transform(X)
+    
+    assert np.abs(X1 - X2).max() <= 10**(-5)
+
+
 
 def test_PassThrough():
 
