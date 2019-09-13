@@ -86,7 +86,7 @@ class MlMachineLauncher(object):
         )
         parser.add_argument("--nbworkers", "-n", help="number of workers to start", type=int, default=1)
         parser.add_argument("--seed", help="force seed of worker(s) or controllers", type=int, default=None)
-        parser.add_argument("--job_ids", help="the job_id of the model to fit")
+        parser.add_argument("--job_ids", help="the job_id(s) of the model to fit")
         
         return parser
 
@@ -278,8 +278,8 @@ class MlMachineLauncher(object):
         return df_merged_result, df_merged_error
     
     def fit_command(self, job_ids):
-        """ this command is to launch the final fit of a given model
-        It can be executed using the 'fit' command keyword in the command argument, followed by '--job_id ***'
+        """ this command is to launch the final fit one (or more) model(s)
+        It can be executed using the 'fit' command keyword followed by '--job_ids ***'
         
         It will:
             * reload the data
