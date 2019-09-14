@@ -63,6 +63,7 @@ class AbstractJobRunner(object):
         self.done_queue_sleeping_time = done_queue_sleeping_time
 
         self.seed = seed
+        self.random_state = seed
 
     @property
     def random_state(self):
