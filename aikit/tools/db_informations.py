@@ -83,11 +83,18 @@ def guess_type_of_variable(s):
     elif "object" in st:
         nb_u = s.nunique()  # number of different values
         nb = len(s)  # number of items
-        avg_l = s.str.len().mean()
+        
+        if hasattr(s,"str"): #For boolean 
+            avg_l = s.str.len().mean()
+        else:
+            avg_l = 0
 
         if avg_l >= 50 or nb_u >= 0.5 * nb:
             return TypeOfVariables.TEXT
 
+        return TypeOfVariables.CAT
+    
+    elif "bool" in st:
         return TypeOfVariables.CAT
 
     else:

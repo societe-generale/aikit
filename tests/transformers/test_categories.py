@@ -243,6 +243,26 @@ def test_NumericalEncoder_num_fit_parameters():
     assert len(encoder.model.variable_modality_mapping['cat_col_1']) == 4
     assert len(encoder.model.variable_modality_mapping['cat_col_2']) == 4
     assert len(encoder.model.variable_modality_mapping['cat_col_3']) == 4
+    
+    assert res["cat_col_1"].nunique() == 4
+    assert res["cat_col_2"].nunique() == 4
+    assert res["cat_col_3"].nunique() == 4
+
+
+def test_NumericalEncoder_with_boolean():
+    dfX = pd.DataFrame({"c":[True,False]*200})
+    
+    enc = NumericalEncoder()
+    
+    dfX_encoded = enc.fit_transform(dfX)
+    
+    assert "c__True" in dfX_encoded.columns
+    assert "c__False" in dfX_encoded.columns
+    assert ((dfX_encoded["c__True"] == 1) == (dfX["c"])).all()
+    assert ((dfX_encoded["c__False"] == 1) == (~dfX["c"])).all()
+    assert dfX_encoded["c__True"].dtype == np.int32
+    assert dfX_encoded["c__False"].dtype == np.int32
+
 
 @pytest.mark.xfail()
 def test_bug_CategoryEncoder():

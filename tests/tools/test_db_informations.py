@@ -8,7 +8,7 @@ Created on Fri Sep 14 11:21:04 2018
 import pandas as pd
 import numpy as np
 
-from aikit.tools.db_informations import has_missing_values
+from aikit.tools.db_informations import has_missing_values, guess_type_of_variable, TypeOfVariables
 
 
 def test_has_missing_values():
@@ -27,3 +27,12 @@ def test_has_missing_values():
 
 def verif_all():
     test_has_missing_values()
+
+
+def test_guess_type_of_variable_boolean():
+    s = pd.Series([True,False,True,None]*10)
+    assert guess_type_of_variable(s) == TypeOfVariables.CAT
+    
+    s = pd.Series([True,False,True]*10)
+    assert guess_type_of_variable(s) == TypeOfVariables.CAT
+    
