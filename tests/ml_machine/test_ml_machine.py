@@ -296,10 +296,16 @@ def _all_same(all_gen):
 
     return True
 
-
-def test_RandomModelGenerator_random():
+@pytest.mark.parametrize("specific_hyper, only_random_forest",[(True,True),(True,False),(False,True),(False,False)])
+def test_RandomModelGenerator_random(specific_hyper, only_random_forest):
 
     dfX, y, auto_ml_config = get_automl_config()
+    
+    if specific_hyper:
+        auto_ml_config.specific_hyper = {('Model', 'RandomForestClassifier') : {"n_estimators":[10,20]}}
+        
+    if only_random_forest:
+        auto_ml_config.filter_models(Model='RandomForestClassifier')
 
     random_model_generator = RandomModelGenerator(auto_ml_config=auto_ml_config, random_state=123)
 
@@ -331,6 +337,17 @@ def test_RandomModelGenerator_random():
 
         model = sklearn_model_from_param(result["json_code"])
         assert hasattr(model, "fit")
+        
+        rf_key = ('Model', ('Model', 'RandomForestClassifier'))
+        if only_random_forest:
+            assert rf_key in all_models_params
+            
+        if specific_hyper:
+            if rf_key in all_models_params:
+                assert all_models_params[rf_key]["n_estimators"] in (10,20)
+    
+    if not only_random_forest:
+        assert any([ rf_key not in m[1] for m in all_gen]) # Check that RandomForest wasn't drawn every time
 
     ### re-draw them thing with other seed ###
     random_model_generator = RandomModelGenerator(auto_ml_config=auto_ml_config, random_state=123)
