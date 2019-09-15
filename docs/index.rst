@@ -46,6 +46,7 @@ Here a quick summary of what is provided:
    model_stacking
    model_json
    ml_machine_launcher
+   ml_machine_launcher_advanced
    ml_machine_details
    ml_machine
    model_register
