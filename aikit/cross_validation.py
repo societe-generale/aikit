@@ -772,7 +772,16 @@ def score_from_params_clustering(
 # In[]
 
 class IndexTrainTestCv(BaseCrossValidator):
-    """ cv like object but with only 1 fold """
+    """ cv like object but with only 1 fold.
+    Use that object if you want to specify exactly which observations are used from training and testing.
+    
+    This object behaves likes any cross-validation object so you can use it in cross-validation functions.
+    
+    Parameters
+    ----------
+    test_index : array like
+        the index of the testing set
+    """
     def __init__(self, test_index):
         self.test_index = test_index
         
@@ -784,7 +793,20 @@ class IndexTrainTestCv(BaseCrossValidator):
 
 
 class RandomTrainTestCv(BaseCrossValidator):
-    """ cv like object but with only 1 fold """
+    """ cv like object but with only 1 fold
+    Use that object if you want to do a random train/test split.
+    
+    This object behaves likes any cross-validation object so you can use it in cross-validation functions.
+    
+    Parameters
+    ----------
+    test_size : float, default = 0.1
+        the percentage of observations to keep in the test set
+    
+    random_state : int, default = 123
+        the random state to use to make the random split
+    
+    """
     def __init__(self, test_size=0.1, random_state=123):
         self.test_size=test_size
         self.random_state=random_state
