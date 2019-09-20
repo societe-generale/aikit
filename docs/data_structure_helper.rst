@@ -20,7 +20,7 @@ Within aikit.enums there is a DataType enumeration with the following values :
 
  * 'DataFrame'
  * 'SparseDataFrame'
- * 'Serie'
+ * 'Series'
  * 'NumpyArray'
  * 'SparseArray'
 
