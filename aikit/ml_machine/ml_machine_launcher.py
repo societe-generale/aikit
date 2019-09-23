@@ -17,6 +17,8 @@ from aikit.ml_machine.ml_machine import AutoMlConfig, JobConfig, MlJobManager, M
 from aikit.ml_machine.ml_machine_guider import AutoMlModelGuider
 from aikit.ml_machine.data_persister import FolderDataPersister, SavingType
 
+from aikit.tools.helper_functions import function_has_named_argument
+from aikit.model_definition import sklearn_model_from_param
 
 def start_runner(runner):
     """ helper function to start a running object """
@@ -45,6 +47,8 @@ class MlMachineLauncher(object):
         controller = "controller"
         stop = "stop"
         result = "result"
+        fit = "fit"
+
 
     def __init__(self, base_folder, name=None, loader=None, set_configs=None):
 
@@ -78,10 +82,11 @@ class MlMachineLauncher(object):
     def _get_args_parse():
         parser = argparse.ArgumentParser(description="Ml Machine launcher")
         parser.add_argument(
-            "command", help="choice among 'run', 'init', 'controller', 'worker', 'stop', 'result'", type=str
+            "command", help="choice among 'run', 'init', 'controller', 'worker', 'stop', 'result', 'fit'", type=str
         )
         parser.add_argument("--nbworkers", "-n", help="number of workers to start", type=int, default=1)
         parser.add_argument("--seed", help="force seed of worker(s) or controllers", type=int, default=None)
+        parser.add_argument("--job_ids", help="the job_id(s) of the model to fit")
         
         return parser
 
@@ -97,12 +102,14 @@ class MlMachineLauncher(object):
 
         args = parser.parse_args()
 
-        if args.command is None:
-            raise ValueError("Unknown command please choose among 'start','stop','controller', 'worker' or 'result'")
+        allowed_commands = [c.value for c in self.Commands]
+        if args.command is None or args.command.lower() not in allowed_commands:
+            raise ValueError("Unknown command please choose among %s" % ', '.join(allowed_commands))
 
         self.command = self.Commands(args.command.lower())
         self._nbworkers = args.nbworkers
         self._seed = args.seed
+        self._job_ids = args.job_ids
         # self._noinit = args.noinit
 
         return self
@@ -129,6 +136,8 @@ class MlMachineLauncher(object):
         elif self.command == self.Commands.result:
             self.result_command()
 
+        elif self.command == self.Commands.fit:
+            self.fit_command(job_ids=[s.strip() for s in self._job_ids.split(",")])
         else:
             raise ValueError("Unknown command %s" % self.command.value)
 
@@ -267,7 +276,43 @@ class MlMachineLauncher(object):
             print("I couldn't save excel file")
             
         return df_merged_result, df_merged_error
+    
+    def fit_command(self, job_ids):
+        """ this command is to launch the final fit one (or more) model(s)
+        It can be executed using the 'fit' command keyword followed by '--job_ids ***'
+        
+        It will:
+            * reload the data
+            * fit a model on all the data
+            * save the pickled object
 
+        """
+        all_models = []
+        for job_id in job_ids:
+            print("fitting of job_id '%s'" % job_id)
+            self.reload()
+            
+            job_param = self.data_persister.read(job_id, path = "job_param", write_type = SavingType.json)
+            model = sklearn_model_from_param(job_param["model_json"])
+            print("start fitting...")
+            
+            if function_has_named_argument(model.fit, "groups") and self.groups is not None:
+                model.fit(self.dfX, self.y, groups=self.groups)
+            else:
+                model.fit(self.dfX, self.y)
+                
+            print("...model fitted!")
+            
+            self.data_persister.write(model, job_id, path="saved_models", write_type=SavingType.pickle)
+            self.data_persister.write(job_param["model_json"], job_id, path="saved_models", write_type=SavingType.json)
+            
+            print("model persisted")
+            
+            all_models.append(model)
+
+        return all_models
+        
+            
 
     # In[]
     def reload(self):

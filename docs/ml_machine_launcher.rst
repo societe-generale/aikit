@@ -72,6 +72,7 @@ Having created a script like that you can now use the script to drive the auto-m
  * to aggregate the result
  * to separately start a controller
  * to separately start worker(s)
+ * fit a specific model
  * ...
  
 what you need to specify ?
@@ -185,6 +186,19 @@ If you want to stop every process, you can use the 'stop' command::
     
 It will create the stop file that will trigger the exit of all process listening to that folder
 
+fit command
+***********
+
+If you want to fit one or more specific model(s), you can use the 'fit' command. You'll need to specify the job_id(s) to fit::
+
+    python automl_launcher.py fit --job_ids 77648ab95306e564c4c230e8469e9470
+
+Or::
+
+    python automl_launcher.py fit --job_ids 77648ab95306e564c4c230e8469e9470,469ee473a55a4d1376d3c3186c95f048
+    
+To fit more that one model.
+The models will be saved within 'saved_models' along with their json.
 
 Summary
 *******
