@@ -54,7 +54,7 @@ Here is what is going on:
 1. first import the launcher
 2. define a loader function : it is better to define a loading function that can be called **if needed** instead of just loading the data (because you don't always need the data)
 3. create a launcher, with a base folder and the loading function
-4. (Optional) : you can change a few things in the configurations. Here we set the base line to 75% and tell the auto-ml that it can do approximate cross-validation.
+4. (Optional) : you can change a few things in the configurations. Here we set the base line to 75% and tell the auto-ml that it can do approximate cross-validation. (See the 'advanced functionnalities' section)
 To do that pass a function that change the configuration.
 5. Process the command argument to actually start a command
 
