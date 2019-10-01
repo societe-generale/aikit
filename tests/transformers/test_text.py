@@ -22,6 +22,22 @@ from aikit.transformers.text import (
 )
 from aikit.datasets.datasets import load_dataset
 
+try:
+    import nltk
+except (ModuleNotFoundError, ImportError):
+    nltk = None
+
+@pytest.mark.skipif(nltk is None, reason="nltk isn't installed")
+def test_load_nltk():
+    stopwords = nltk.corpus.stopwords.words("english")
+    assert isinstance(stopwords, list)
+    
+    stopwords = nltk.corpus.stopwords.words("french")
+    assert isinstance(stopwords, list)
+
+    stemmer = nltk.stem.porter.PorterStemmer()
+    assert stemmer is not None
+
 
 @pytest.mark.parametrize('concat',[True,False])
 def test_TextDefaultProcessing(concat):
@@ -143,7 +159,6 @@ def test_CountVectorizerWrapper_output_type():
     vect = CountVectorizerWrapper(dtype="int64")
     res = vect.fit_transform(pd.DataFrame({"a":["AA","AAA","bb"],"b":["xxx","zzz","xxx"]}))
     assert res.dtype == "int64"
-
 
 
 def test_text_digit_anonymizer():

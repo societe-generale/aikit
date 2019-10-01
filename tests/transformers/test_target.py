@@ -190,6 +190,22 @@ def test_TargetEncoderClassifier():
             assert encoder.model._columns_to_encode == ["cat_col"]
             assert encoder.model._columns_to_keep == ["float_col", "int_col", "text_col"]
 
+def test_target_encoder_with_cat_dtypes():
+    np.random.seed(123)
+    X = get_sample_df(100)
+    X["cat_col_1"] = X["text_col"].apply(lambda s: s[0:3])
+    y = 1 * (np.random.randn(100) > 0)
+
+    encoder = TargetEncoderClassifier()
+    X_no_cat_dtype_encoded = encoder.fit_transform(X, y)
+
+    X_cat_dtype = X.copy()
+    X_cat_dtype['cat_col_1'] = X_cat_dtype['cat_col_1'].astype('category')
+    X_with_cat_dtype_encoded = encoder.fit_transform(X_cat_dtype, y)
+
+    assert (X_with_cat_dtype_encoded == X_no_cat_dtype_encoded).all().all()
+    assert (X_with_cat_dtype_encoded.dtypes == X_no_cat_dtype_encoded.dtypes).all()
+
 
 def test_TargetEncoderEntropyClassifier():
     df = get_sample_df(100)

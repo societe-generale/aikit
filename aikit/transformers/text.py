@@ -19,7 +19,6 @@ try:
 except ImportError:
     nltk = None
     print("I wont be able to import NLTK")
-import os
 import re
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
@@ -29,25 +28,12 @@ from aikit.tools.helper_functions import unlist
 from aikit.enums import DataTypes
 from aikit.transformers.model_wrapper import ModelWrapper
 
-from aikit.datasets.datasets import find_path
 
 try:
     from gensim.models import Word2Vec
 except ImportError:
     logger.warning("I wont be able to import Word2Vec")
     Word2Vec = None
-
-if nltk is not None:
-    try:
-        _nltk_additional_path = find_path("nltk_additional_data")
-    except ValueError:
-        _nltk_additional_path = None
-else:
-    _nltk_additional_path = None
-
-if _nltk_additional_path is not None and os.path.exists(_nltk_additional_path):
-    nltk.data.path.append(_nltk_additional_path)
-
 
 class AbstractTextProcessor(sklearn.base.TransformerMixin, sklearn.base.BaseEstimator):
     """ This class is to create text preprocessing transformers """
@@ -201,6 +187,7 @@ class TextNltkProcessing(AbstractTextProcessor):
     ):
         if nltk is None:
             raise ValueError('Please install NLTK to use this transformer.')
+
         self.lower = lower
         self.digit_anonymize = digit_anonymize
         self.digit_character = digit_character
@@ -218,21 +205,25 @@ class TextNltkProcessing(AbstractTextProcessor):
         if self.digit_anonymize:
             string = self.DIGIT_REGEX.sub(self.digit_character, string)
 
-        words = nltk.tokenize.word_tokenize(string)  # tokenize
-        if self.remove_non_words:
-            words = [word for word in words if self.REGEX.match(word) is not None]
-
-        if self.remove_stopwords:
-            if self.STOPOWORDS is None:
-                raise ValueError("I couldn't load NLTK stopswords")
-            words = [word for word in words if word not in self.STOPOWORDS]
-
-        if self.stem:
-            if self.STEMMER is None:
-                raise ValueError("I couldn't load NLTK stemmer")
-            words = [self.STEMMER.stem(word) for word in words]
-
-        return " ".join(words)
+        if self.remove_non_words or self.remove_stopwords or self.stem:
+            words = nltk.tokenize.word_tokenize(string)  # tokenize
+            if self.remove_non_words:
+                words = [word for word in words if self.REGEX.match(word) is not None]
+    
+            if self.remove_stopwords:
+                if self.STOPOWORDS is None:
+                    raise ValueError("I couldn't load NLTK stopswords")
+                words = [word for word in words if word not in self.STOPOWORDS]
+    
+            if self.stem:
+                if self.STEMMER is None:
+                    raise ValueError("I couldn't load NLTK stemmer")
+                words = [self.STEMMER.stem(word) for word in words]
+    
+            return " ".join(words)
+        
+        else:
+            return string
 
 
 class TextDefaultProcessing(AbstractTextProcessor):

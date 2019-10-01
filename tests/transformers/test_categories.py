@@ -10,6 +10,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
+from aikit.transformers import NumericalEncoder
 from aikit.transformers.categories import NumericalEncoder
 from tests.helpers.testing_help import get_sample_df
 
@@ -32,6 +33,63 @@ def test_NumericalEncoder_dummy_output_dtype():
     res = encoder.transform(df)
     
     assert (res.dtypes[res.columns.str.startswith("cat_col_")] == "int32").all() # check default encoding type = int32
+
+def test_NumericalEncoder_with_cat_dtypes():
+    X = get_sample_df(100)
+    X["cat_col_1"] = X["text_col"].apply(lambda s: s[0:3])
+    y = 1 * (np.random.randn(100) > 0)
+    np.random.seed(123)
+
+    encoder = NumericalEncoder()
+    X_no_cat_dtype_encoded = encoder.fit_transform(X)
+
+    X_cat_dtype = X.copy()
+    X_cat_dtype['cat_col_1'] = X_cat_dtype['cat_col_1'].astype('category')
+    X_with_cat_dtype_encoded = encoder.fit_transform(X_cat_dtype)
+
+    assert (X_with_cat_dtype_encoded == X_no_cat_dtype_encoded).all().all()
+    assert (X_with_cat_dtype_encoded.dtypes == X_no_cat_dtype_encoded.dtypes).all()
+
+def test_NumericalEncoder_int_as_cat():
+    df = get_sample_df(100)[['float_col', 'int_col']]
+    df['int_cat'] = np.random.choice((0, 1, 2), 100)
+    df['int_cat'] = df['int_cat'].astype('category')
+
+    encoder = NumericalEncoder()
+    df_transformed = encoder.fit_transform(df)
+
+    assert 'int_cat' not in df_transformed.columns
+    assert df['int_cat'].nunique() + 2 == df_transformed.shape[1]
+    assert df.loc[df['int_cat'] == 1, 'int_cat'].shape[0] == (df['int_cat']==1).sum()
+
+
+def test_NumericalEncoder_nothing_to_do():
+    df = get_sample_df(100)[['float_col', 'int_col']]
+
+    encoder = NumericalEncoder()
+    df_transformed = encoder.fit_transform(df)
+
+    assert (df.values == df_transformed.values).all().all()
+    assert (df.dtypes == df_transformed.dtypes).all()
+
+
+def test_NumericalEncoder_encode_int():
+    df = get_sample_df(100)[['float_col']]
+    df['int_col'] = np.random.choice((0, 1, 2), 100)
+
+    encoder = NumericalEncoder(columns_to_encode=['int_col'])
+    df_transformed = encoder.fit_transform(df)
+
+    df_copy = df.copy()
+    df_copy['int_col'] = df_copy['int_col'].astype('category')
+
+    encoder_2 = NumericalEncoder()
+    df_copy_transformed = encoder_2.fit_transform(df_copy)
+
+    assert (df_transformed.values == df_copy_transformed.values).all().all()
+    assert (df_transformed.dtypes == df_copy_transformed.dtypes).all()
+    assert df_transformed.shape[1] == 1 + df['int_col'].nunique()
+
 
 def test_NumericalEncoder_columns_to_encode_object():
     np.random.seed(123)
@@ -287,7 +345,3 @@ def test_bug_CategoryEncoder():
 
         assert df_enc.shape[1] == df2_enc.shape[1]
 
-
-def verif_all():
-    test_NumericalEncoder_dummy()
-    test_NumericalEncoder_num()

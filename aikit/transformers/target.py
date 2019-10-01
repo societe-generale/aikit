@@ -14,7 +14,7 @@ from sklearn.utils import check_random_state
 
 from aikit.tools.db_informations import guess_type_of_variable
 from aikit.enums import TypeOfVariables, DataTypes
-from aikit.tools.data_structure_helper import get_type, generic_hstack
+from aikit.tools.data_structure_helper import get_type, generic_hstack, get_rid_of_categories
 from aikit.tools.helper_functions import diff
 
 from aikit.cross_validation import create_cv
@@ -197,6 +197,8 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
         else:
             self._columns_to_encode = list(self.columns_to_encode)
 
+        X = get_rid_of_categories(X)
+
         # Verif:
         if not isinstance(self._columns_to_encode, list):
             raise TypeError("_columns_to_encode should be a list")
@@ -260,6 +262,8 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
 
         self.fit(X, sy)
 
+        X = get_rid_of_categories(X)
+
         if self.cv is None:  # No Cross Validation ...
             target_aggregat, target_aggregat_global = self._fit_aggregat(X, y, noise_level=self.noise_level)
             all_results = self._transform_aggregat(X, target_aggregat, target_aggregat_global)
@@ -290,6 +294,7 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
 
         if get_type(X) != DataTypes.DataFrame:
             raise TypeError("X should be a DataFrame")
+        X = get_rid_of_categories(X)
 
         result = self._transform_aggregat(X, self._target_aggregat, self._target_aggregat_global)
         assert result.shape[1] == len(self.get_feature_names())

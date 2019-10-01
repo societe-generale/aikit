@@ -4,6 +4,8 @@ Created on Fri Sep 14 11:41:26 2018
 
 @author: Lionel Massoulard
 """
+import pytest
+
 from collections import OrderedDict
 import networkx as nx
 
@@ -14,6 +16,7 @@ from aikit.ml_machine.model_graph import (
     _must_include_selector,
     create_graphical_representation,
     convert_graph_to_code,
+    assert_model_graph_structure
 )
 from aikit.ml_machine.model_graph import _create_name_mapping, _find_first_composition_node
 
@@ -142,6 +145,7 @@ def test__create_name_mapping():
 
     mapping = _create_name_mapping(nodes)
     assert isinstance(mapping, dict)
+    assert len(mapping.values()) == len(set(mapping.values()))
 
     for node in nodes:
         assert node in mapping
@@ -159,6 +163,7 @@ def test__create_name_mapping():
     mapping = _create_name_mapping(nodes)
 
     assert isinstance(mapping, dict)
+    assert len(mapping.values()) == len(set(mapping.values()))
 
     for node in nodes:
         assert node in mapping
@@ -167,6 +172,29 @@ def test__create_name_mapping():
         else:
             assert mapping[node] == node[1][1]
 
+
+    nodes = [('CategoryEncoder', ('CategoryEncoder', 'NumericalEncoder')),
+     ('Stacking', ('Stacking1', 'OutSampler')),
+     ('Stacking', ('Stacking2', 'OutSampler')),
+     ('Model', ('Model', 'RandomForestClassifier')),
+     ('Model', ('Model', 'LogisticRegression')),
+     ('Blender', ('Blender', 'LogisticRegression'))]
+
+    mapping = _create_name_mapping(nodes)
+    assert isinstance(mapping, dict)
+    assert len(mapping.values()) == len(set(mapping.values()))
+
+
+    nodes = [('CategoryEncoder', ('CategoryEncoder', 'NumericalEncoder')),
+     ('Stacking', ('Stacking', 'OutSampler')),
+     ('Stacking', ('Stacking', 'OutSampler')),
+     ('Model', ('Model', 'RandomForestClassifier')),
+     ('Model', ('Model', 'LogisticRegression')),
+     ('Blender', ('Blender', 'LogisticRegression'))]
+
+    with pytest.raises(ValueError):
+        mapping = _create_name_mapping(nodes)
+        # can't work : duplicate nodes
 
 def test_convert_graph_to_code():
 
@@ -446,19 +474,25 @@ def test_convert_graph_to_code():
         ("Model", ("Model", "LogisticRegression")): {"C": 10},
     }
 
-    model_json_code = convert_graph_to_code(Graph, all_models_params)
+
+    with pytest.raises(ValueError):
+        model_json_code = convert_graph_to_code(Graph, all_models_params)
+        # Unsuported for now : more than one terminal node
+         
+    model_json_code = convert_graph_to_code(Graph, all_models_params, _check_structure=False)
+        
 
     expected_json_code1 = (
         "StackingClassifierRegressor",
         [("RandomForestClassifier", {"n_estimators": 100}), ("LogisticRegression", {"C": 10})],
         {"cv": 10},
     )
-    expected_json_code2 = (
-        "StackingClassifierRegressor",
-        [("LogisticRegression", {"C": 10}), ("RandomForestClassifier", {"n_estimators": 100})],
-        {"cv": 10},
-    )
-    assert (expected_json_code1 == model_json_code) or (expected_json_code2 == model_json_code)
+#    expected_json_code2 = (
+#        "StackingClassifierRegressor",
+#        [("LogisticRegression", {"C": 10}), ("RandomForestClassifier", {"n_estimators": 100})],
+#        {"cv": 10},
+#    )
+    assert expected_json_code1 == model_json_code# or (expected_json_code2 == model_json_code)
 
     #######################################
     ## ** 2 nested compositions steps ** ##
@@ -483,6 +517,12 @@ def test_convert_graph_to_code():
         "TargetTransformer",
         ("TargetTransformer", "BoxCoxTargetTransformer"),
     )
+    
+    assert _find_first_composition_node(Graph,
+                                        composition_already_done={("TargetTransformer",
+        ("TargetTransformer", "BoxCoxTargetTransformer"))}) == (
+            "UnderOverSampler", ("UnderOverSampler", "TargetUnderSampler"))
+    
 
     model_json_code = convert_graph_to_code(Graph, all_models_params)
 
@@ -493,3 +533,345 @@ def test_convert_graph_to_code():
     )
 
     assert model_json_code == expected_json_code
+
+
+
+
+    ###################################################
+    ## ** 1 composition with several nodes bellow ** ##
+    ###################################################
+    Graph = nx.DiGraph()
+    # TODO : essayer de faire un stacking avec plusieurs trucs en dessous
+    
+    ## 1) with one node above
+    
+    Graph.add_edge(
+            ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")),
+            ("Stacking", ("Stacking", "StackingClassifierRegressor"))
+            )
+    Graph.add_edge(
+        ("Stacking", ("Stacking", "StackingClassifierRegressor")),
+        ("Model", ("Model", "RandomForestClassifier"))
+    )
+    Graph.add_edge(
+        ("Stacking", ("Stacking", "StackingClassifierRegressor")),
+        ("Model", ("Model", "LogisticRegression"))
+    )
+    
+    all_models_params = {
+        ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")): {},
+        ("Stacking", ("Stacking", "StackingClassifierRegressor")): {"cv": 10},
+        ("Model", ("Model", "RandomForestClassifier")): {"n_estimators": 100},
+        ("Model", ("Model", "LogisticRegression")): {"C": 10},
+    }
+    
+    
+    model_json_code = convert_graph_to_code(Graph, all_models_params, _check_structure=False)
+    expected_json_code = (
+            'GraphPipeline',
+            {'edges': [('NumericalEncoder', 'StackingClassifierRegressor')],
+             'models': {'NumericalEncoder': ('NumericalEncoder', {}),
+                        'StackingClassifierRegressor': ('StackingClassifierRegressor',
+                [('RandomForestClassifier', {'n_estimators': 100}),
+                 ('LogisticRegression', {'C': 10})],
+    {'cv': 10})}})
+    
+    # Rmk : the Stacker is missing the blender, that I can't enter into the graph..
+    assert expected_json_code == model_json_code
+    
+    
+    
+    ### With a node above, and a blender bellow
+    Graph = nx.DiGraph()
+    Graph.add_edge(
+            ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")),
+            ("Stacking", ("Stacking", "OutSampler"))
+            )
+    Graph.add_edge(
+        ("Stacking", ("Stacking", "OutSampler")),
+        ("Model", ("Model", "RandomForestClassifier"))
+    )
+    Graph.add_edge(
+        ("Stacking", ("Stacking", "OutSampler")),
+        ("Model", ("Model", "LogisticRegression"))
+    )
+    
+    Graph.add_edge(
+       ("Model", ("Model", "LogisticRegression")),
+       ("Blender", ("Blender", "LogisticRegression")),
+    )
+    
+    Graph.add_edge(
+       ("Model", ("Model", "RandomForestClassifier")),
+       ("Blender", ("Blender", "LogisticRegression")),
+    )
+    
+    all_models_params = {
+        ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")): {},
+        ("Stacking", ("Stacking", "OutSampler")): {"cv": 10},
+        ("Model", ("Model", "RandomForestClassifier")): {"n_estimators": 100},
+        ("Model", ("Model", "LogisticRegression")): {"C": 10},
+        ("Blender", ("Blender", "LogisticRegression")) : {"C":100}
+    }
+    
+    
+    model_json_code = convert_graph_to_code(Graph, all_models_params)
+    
+    
+    expected_json = ('GraphPipeline',
+ {'edges': [('NumericalEncoder','OutSampler', 'Blender_LogisticRegression')],
+  'models':{
+          'Blender_LogisticRegression': ('LogisticRegression', {'C': 100}),
+          'NumericalEncoder': ('NumericalEncoder', {}),
+          'OutSampler': ('OutSampler',
+                                    [('RandomForestClassifier', {'n_estimators': 100}),
+                                     ('LogisticRegression', {'C': 10})],
+    {'cv': 10})}})
+    
+    assert expected_json == model_json_code
+    
+
+    ### With encoder feature going back into the Blender
+    Graph = nx.DiGraph()
+    Graph.add_edge(
+            ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")),
+            ("Stacking", ("Stacking", "OutSampler"))
+            )
+    Graph.add_edge(
+        ("Stacking", ("Stacking", "OutSampler")),
+        ("Model", ("Model", "RandomForestClassifier"))
+    )
+    Graph.add_edge(
+        ("Stacking", ("Stacking", "OutSampler")),
+        ("Model", ("Model", "LogisticRegression"))
+    )
+    
+    Graph.add_edge(
+       ("Model", ("Model", "LogisticRegression")),
+       ("Blender", ("Blender", "LogisticRegression")),
+    )
+    
+    Graph.add_edge(
+       ("Model", ("Model", "RandomForestClassifier")),
+       ("Blender", ("Blender", "LogisticRegression")),
+    )
+    
+    Graph.add_edge(
+       ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")),
+       ("Blender", ("Blender", "LogisticRegression")),
+    )
+    
+    all_models_params = {
+        ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")): {},
+        ("Stacking", ("Stacking", "OutSampler")): {"cv": 10},
+        ("Model", ("Model", "RandomForestClassifier")): {"n_estimators": 100},
+        ("Model", ("Model", "LogisticRegression")): {"C": 10},
+        ("Blender", ("Blender", "LogisticRegression")) : {"C":100}
+    }
+    
+    
+    model_json_code = convert_graph_to_code(Graph, all_models_params)
+    
+    
+    
+    expected_json = (
+   'GraphPipeline',
+       {'edges': [('NumericalEncoder', 'Blender_LogisticRegression'),
+                  ('NumericalEncoder', 'OutSampler', 'Blender_LogisticRegression')],
+        'models': {
+                'Blender_LogisticRegression': ('LogisticRegression', {'C': 100}),
+                'NumericalEncoder': ('NumericalEncoder', {}),
+                'OutSampler': ('OutSampler',
+                               [('RandomForestClassifier', {'n_estimators': 100}),
+                                ('LogisticRegression', {'C': 10})],
+                                {'cv': 10})}})
+    
+    assert expected_json == model_json_code
+    
+    
+    # Same thing but with 2 OutSampler (one per model)
+    Graph = nx.DiGraph()
+    Graph.add_edge(
+            ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")),
+            ("Stacking", ("Stacking1", "OutSampler"))
+            )
+    Graph.add_edge(
+        ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")),
+        ("Stacking", ("Stacking2", "OutSampler"))
+        )
+    Graph.add_edge(
+        ("Stacking", ("Stacking1", "OutSampler")),
+        ("Model", ("Model", "RandomForestClassifier"))
+    )
+    Graph.add_edge(
+        ("Stacking", ("Stacking2", "OutSampler")),
+        ("Model", ("Model", "LogisticRegression"))
+    )
+    
+    Graph.add_edge(
+       ("Model", ("Model", "LogisticRegression")),
+       ("Blender", ("Blender", "LogisticRegression")),
+    )
+    
+    Graph.add_edge(
+       ("Model", ("Model", "RandomForestClassifier")),
+       ("Blender", ("Blender", "LogisticRegression")),
+    )
+    
+    Graph.add_edge(
+       ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")),
+       ("Blender", ("Blender", "LogisticRegression")),
+    )
+    
+    all_models_params = {
+        ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")): {},
+        ("Stacking", ("Stacking1", "OutSampler")): {"cv": 10},
+        ("Stacking", ("Stacking2", "OutSampler")): {"cv": 10},
+        ("Model", ("Model", "RandomForestClassifier")): {"n_estimators": 100},
+        ("Model", ("Model", "LogisticRegression")): {"C": 10},
+        ("Blender", ("Blender", "LogisticRegression")) : {"C":100}
+    }
+    
+
+    model_json_code = convert_graph_to_code(Graph, all_models_params)
+    
+    expected_json = (
+    'GraphPipeline',
+        {'edges': [('NumericalEncoder', 'Blender_LogisticRegression'),
+                   ('NumericalEncoder', 'Stacking1_OutSampler', 'Blender_LogisticRegression'),
+                   ('NumericalEncoder','Stacking2_OutSampler','Blender_LogisticRegression')
+                   ],
+  'models': {'Blender_LogisticRegression': ('LogisticRegression', {'C': 100}),
+   'NumericalEncoder': ('NumericalEncoder', {}),
+   'Stacking1_OutSampler': ('OutSampler',
+                            ('RandomForestClassifier', {'n_estimators': 100}),
+                            {'cv': 10}),
+   'Stacking2_OutSampler': ('OutSampler',
+                            ('LogisticRegression', {'C': 10}),
+                            {'cv': 10})}})
+   
+
+    assert expected_json == model_json_code
+    
+    
+    
+    ### Multi output ###
+    Graph = nx.DiGraph()
+    Graph.add_node(("Model", ("Model", "LogisticRegression")))
+    Graph.add_node(("Model", ("Model", "RandomForestClassifier")))
+    
+    all_models_params = {("Model", ("Model", "LogisticRegression")): {"C": 10},
+                         ("Model", ("Model", "RandomForestClassifier")): {"n_estimators": 100}
+                         }
+                         
+    assert _find_first_composition_node(Graph) is None
+    
+    model_json_code = convert_graph_to_code(Graph, all_models_params, _check_structure=False)
+    expected_json = (
+    'GraphPipeline',
+    {'edges': [('LogisticRegression',), ('RandomForestClassifier',)],
+     'models': {'LogisticRegression': ('LogisticRegression', {'C': 10}),
+                'RandomForestClassifier': ('RandomForestClassifier',{'n_estimators': 100})}})
+    
+    assert expected_json == model_json_code
+    
+    
+    ### Impossible graph ###
+    Graph = nx.DiGraph()
+    Graph.add_edge(
+            ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")),
+            ("Stacking", ("Stacking", "OutSampler"))
+            )
+
+    Graph.add_edge(
+        ("Stacking", ("Stacking", "OutSampler")),
+        ("Model", ("Model", "RandomForestClassifier"))
+    )
+
+    Graph.add_edge(
+        ("Stacking", ("Stacking", "OutSampler")),
+        ("Model", ("Model", "LogisticRegression"))
+    )
+    
+    Graph.add_edge(
+        ("Stacking", ("Stacking", "OutSampler")),
+        ("Model", ("Model", "ExtraTreesClassifier"))
+    )
+    # This edge make it impossible : it comes from the composition node ...  
+    # but doesn't have the same child as the other
+    
+    Graph.add_edge(
+       ("Model", ("Model", "LogisticRegression")),
+       ("Blender", ("Blender", "LogisticRegression")),
+    )
+    
+    Graph.add_edge(
+       ("Model", ("Model", "RandomForestClassifier")),
+       ("Blender", ("Blender", "LogisticRegression")),
+    )
+    
+#    graphviz_modelgraph(Graph)
+
+    
+    all_models_params = {
+        ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")): {},
+        ("Stacking", ("Stacking", "OutSampler")): {"cv": 10},
+        ("Model", ("Model", "RandomForestClassifier")): {"n_estimators": 100},
+        ("Model", ("Model", "ExtraTreesClassifier")): {"n_estimators": 200},
+        ("Model", ("Model", "LogisticRegression")): {"C": 10},
+        ("Blender", ("Blender", "LogisticRegression")) : {"C":100}
+    }
+    
+    with pytest.raises(ValueError):
+        model_json_code = convert_graph_to_code(Graph, all_models_params, _check_structure=False)
+    
+    
+    
+
+def test_assert_model_graph_structure():
+    ## Impossible Graph : 
+    Graph = nx.DiGraph()
+    Graph.add_edge(
+            ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")),
+            ("Stacking", ("Stacking", "OutSampler"))
+            )
+    
+    Graph.add_edge(
+        ("Stacking", ("Stacking", "OutSampler")),
+        ("Model", ("Model", "RandomForestClassifier"))
+    )
+    
+    Graph.add_edge(
+        ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")),
+        ("Model", ("Model", "RandomForestClassifier"))
+    )
+    # This edge makes it impossible : RF can't have two parents, if one is a compostion
+
+    
+    with pytest.raises(ValueError):
+        assert_model_graph_structure(Graph)
+
+    ## Composition without a child
+    Graph = nx.DiGraph()
+    Graph.add_edge(
+            ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")),
+            ("Stacking", ("Stacking", "OutSampler"))
+            )   
+        
+    
+    with pytest.raises(ValueError):
+        assert_model_graph_structure(Graph)
+        
+    # Cycle
+    Graph = nx.DiGraph()
+    Graph.add_edge(
+        ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder")),
+        ("Model", ("Model", "RandomForestClassifier"))
+    )
+    Graph.add_edge(
+        ("Model", ("Model", "RandomForestClassifier")),
+        ("CategoryEncoder", ("CategoryEncoder", "NumericalEncoder"))
+    )
+    with pytest.raises(ValueError):
+        assert_model_graph_structure(Graph)
+     

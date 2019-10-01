@@ -54,6 +54,17 @@ def get_type(data):
     else:
         return None
 
+def get_rid_of_categories(df):
+    did_copy = False
+    for col in df.columns:
+        if str(df[col].dtype) == "category":
+            if not did_copy:
+                df = df.copy()
+                did_copy = True
+
+            df[col] = df[col].get_values()
+
+    return df
 
 def convert_to_dataframe(xx, mapped_type=None):
     """ convert something to a DataFrame """

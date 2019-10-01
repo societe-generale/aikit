@@ -5,6 +5,7 @@ Created on Fri Jul 27 10:21:41 2018
 @author: Lionel Massoulard
 """
 import logging
+import sys
 
 import os.path
 import tarfile
@@ -16,8 +17,6 @@ import pandas as pd
 import numpy as np
 import urllib
 from urllib.parse import urlparse
-
-from aikit.tools.helper_functions import load_json
 
 
 class DatasetEnum:
@@ -38,30 +37,22 @@ class DatasetEnum:
     alls = (titanic, electricity, housing, quora, abalone, imdb, pokemon, school)
 
 
-def get_dataset_config():
-    """ return the folder of the datasets """
-    config_file = os.path.join(os.path.split(__file__)[0], "config.json")
-    if not os.path.exists(config_file):
-        return None
-    return load_json(config_file)
-
-
-DATASET_CONFIG = get_dataset_config()
-
-
 DATASET_PUBLIC_URLS = {
     'titanic': 'https://github.com/gfournier/aikit-datasets/releases/download/titanic-1.0.0/titanic.tar.gz'
 }
 
 
-def _load_public_path(url, cache_dir=None, cache_subdir='datasets'):
+def _load_public_path(url, name=None, cache_dir=None, cache_subdir='datasets'):
     """
     Load a public dataset from the specified URL. The data is loaded locally in the cache directory.
 
     Parameters:
     -----------
-        url: string
+        url: string or None
             Dataset URL
+            
+        name : string or None
+            the name of the dataset
         cache_dir: string, optional (default=None)
             Local cache directory, defaults to $AIKIT_HOME then ~/.aikit then $TMP/.aikit if None
         cache_subdir: string, optional (deault='datasets')
@@ -77,17 +68,33 @@ def _load_public_path(url, cache_dir=None, cache_subdir='datasets'):
             cache_dir = os.environ.get('AIKIT_HOME')
         else:
             cache_dir = os.path.join(os.path.expanduser('~'), '.aikit')
-    datadir_base = os.path.expanduser(cache_dir)
+            if not os.path.exists(cache_dir):
+                if os.access(os.path.expanduser('~'), os.W_OK):
+                    os.makedirs(cache_dir)
+    datadir_base = cache_dir
     if not os.access(datadir_base, os.W_OK):
         datadir_base = os.path.join(tempfile.gettempdir(), '.aikit')
     datadir = os.path.join(datadir_base, cache_subdir)
     if not os.path.exists(datadir):
         os.makedirs(datadir)
 
-    fname = os.path.basename(urlparse(url).path)
-    fpath = os.path.join(datadir, fname)
+    if url is not None:
+        fname = os.path.basename(urlparse(url).path)
+        fpath = os.path.join(datadir, fname.split(".")[0] , fname)
+        fpath_dir = os.path.dirname(os.path.abspath(fpath))
+        target_file = os.path.join(fpath_dir, os.path.splitext(os.path.splitext(fname)[0])[0] + '.csv')
+    else:
+        fpath = os.path.join(datadir, name)
+        fpath_dir = os.path.dirname(os.path.abspath(fpath))
+        target_file = fpath
 
-    if not os.path.exists(fpath):
+    if not os.path.exists(fpath_dir):
+        os.makedirs(fpath_dir)
+
+    if os.path.exists(target_file):
+        return target_file
+
+    if not os.path.exists(fpath) and url is not None:
         error_msg = 'URL fetch failure on {} : {} -- {}'
         try:
             try:
@@ -101,40 +108,29 @@ def _load_public_path(url, cache_dir=None, cache_subdir='datasets'):
             if os.path.exists(fpath):
                 os.remove(fpath)
             raise
-
-    with tarfile.open(fpath, mode='r:gz') as tar:
-        tar.extractall(os.path.join(datadir))
-
-    return os.path.join(datadir, os.path.splitext(os.path.splitext(fname)[0])[0] + '.csv')
+    
+    if not os.path.isdir(fpath):
+        with tarfile.open(fpath, mode='r:gz') as tar:
+            tar.extractall(fpath_dir)
+        return target_file
+    else:
+        return target_file
 
 
 def find_path(name, cache_dir=None, cache_subdir='datasets'):
     """ find the path of a database """
     name = name.lower()
 
-    if name in DATASET_PUBLIC_URLS:
-        try:
-            return _load_public_path(DATASET_PUBLIC_URLS[name], cache_dir=cache_dir, cache_subdir=cache_subdir)
-        except:
-            logging.getLogger("aikit.datasets").warning(
-                "Failed to load public dataset from URL: {}, fallback to config.json file".format(
-                    DATASET_PUBLIC_URLS[name]))
+    try:
+        return _load_public_path(url=DATASET_PUBLIC_URLS.get(name,None), name=name, cache_dir=cache_dir, cache_subdir=cache_subdir)
+    except:
+        logging.getLogger("aikit.datasets").exception(
+            "Failed to load public dataset from URL: {}, fallback to config.json file".format(
+                DATASET_PUBLIC_URLS[name]),
+            exc_info=sys.exc_info())
+        print(sys.exc_info())
 
-    if DATASET_CONFIG is None:
-        config_file = os.path.join(os.path.split(__file__)[0], "config.json")
-        raise ValueError("Please create a config.json file : %s" % str(config_file))
-
-    config = DATASET_CONFIG.get(name, None)
-    if config is None:
-        config = DATASET_CONFIG["default"]
-        path = os.path.join(config["path"], name, name + ".csv")
-    else:
-        path = config["path"]
-
-    if not os.path.exists(path):
-        raise ValueError("I couldn't find the database %s" % name)
-
-    return path
+    raise ValueError(f"An error has occured during public database load: {name}")
 
 
 def load_titanic(test_size=0.2, random_state=1, cache_dir=None, cache_subdir='datasets'):
