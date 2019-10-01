@@ -5,6 +5,7 @@ Created on Fri Jul 27 10:21:41 2018
 @author: Lionel Massoulard
 """
 import logging
+import sys
 
 import os.path
 import tarfile
@@ -67,7 +68,10 @@ def _load_public_path(url, name=None, cache_dir=None, cache_subdir='datasets'):
             cache_dir = os.environ.get('AIKIT_HOME')
         else:
             cache_dir = os.path.join(os.path.expanduser('~'), '.aikit')
-    datadir_base = os.path.expanduser(cache_dir)
+            if not os.path.exists(cache_dir):
+                if os.access(os.path.expanduser('~'), os.W_OK):
+                    os.makedirs(cache_dir)
+    datadir_base = cache_dir
     if not os.access(datadir_base, os.W_OK):
         datadir_base = os.path.join(tempfile.gettempdir(), '.aikit')
     datadir = os.path.join(datadir_base, cache_subdir)
@@ -76,9 +80,19 @@ def _load_public_path(url, name=None, cache_dir=None, cache_subdir='datasets'):
 
     if url is not None:
         fname = os.path.basename(urlparse(url).path)
-        fpath = os.path.join(datadir,fname.split(".")[0] , fname)
+        fpath = os.path.join(datadir, fname.split(".")[0] , fname)
+        fpath_dir = os.path.dirname(os.path.abspath(fpath))
+        target_file = os.path.join(fpath_dir, os.path.splitext(os.path.splitext(fname)[0])[0] + '.csv')
     else:
         fpath = os.path.join(datadir, name)
+        fpath_dir = os.path.dirname(os.path.abspath(fpath))
+        target_file = fpath
+
+    if not os.path.exists(fpath_dir):
+        os.makedirs(fpath_dir)
+
+    if os.path.exists(target_file):
+        return target_file
 
     if not os.path.exists(fpath) and url is not None:
         error_msg = 'URL fetch failure on {} : {} -- {}'
@@ -97,11 +111,10 @@ def _load_public_path(url, name=None, cache_dir=None, cache_subdir='datasets'):
     
     if not os.path.isdir(fpath):
         with tarfile.open(fpath, mode='r:gz') as tar:
-            tar.extractall(os.path.join(datadir))
-
-        return os.path.join(datadir, os.path.splitext(os.path.splitext(fname)[0])[0] + '.csv')
+            tar.extractall(fpath_dir)
+        return target_file
     else:
-        return fpath
+        return target_file
 
 
 def find_path(name, cache_dir=None, cache_subdir='datasets'):
@@ -111,12 +124,13 @@ def find_path(name, cache_dir=None, cache_subdir='datasets'):
     try:
         return _load_public_path(url=DATASET_PUBLIC_URLS.get(name,None), name=name, cache_dir=cache_dir, cache_subdir=cache_subdir)
     except:
-        logging.getLogger("aikit.datasets").warning(
+        logging.getLogger("aikit.datasets").exception(
             "Failed to load public dataset from URL: {}, fallback to config.json file".format(
-                DATASET_PUBLIC_URLS[name]))
+                DATASET_PUBLIC_URLS[name]),
+            exc_info=sys.exc_info())
+        print(sys.exc_info())
 
-    raise ValueError("I couldn't find the database %s" % name)
-
+    raise ValueError(f"An error has occured during public database load: {name}")
 
 
 def load_titanic(test_size=0.2, random_state=1, cache_dir=None, cache_subdir='datasets'):
