@@ -183,6 +183,18 @@ def test_JobConfig_additional_scoring_function():
         
     
     
+    def f(x):
+        return x+1
+
+    job_config.additional_scoring_function = f
+    assert job_config.additional_scoring_function is not None
+    assert job_config.additional_scoring_function(1) == 2
+    
+    with pytest.raises(TypeError):
+        job_config.additional_scoring_function = 10 # no a function
+        
+    
+    
 @pytest.mark.parametrize('num_only', [True,False])
 @pytest.mark.parametrize("type_of_iterator", ["default", "block_search","block_search_random"])
 def test_RandomModelGenerator_iterator(type_of_iterator, num_only):

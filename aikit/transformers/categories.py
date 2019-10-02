@@ -187,7 +187,8 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
         
         self._variable_modality_dict = {}
         for col in self._columns_to_encode:
-            ddict = defaultdict(lambda :-1, self.variable_modality_mapping[col])
+            #ddict = defaultdict(lambda :-1, self.variable_modality_mapping[col])
+            ddict = dict(self.variable_modality_mapping[col])
             if "__null__" in self.variable_modality_mapping[col]:    
                 ddict[np.nan] = self.variable_modality_mapping[col]["__null__"]
                 ddict[None] = self.variable_modality_mapping[col]["__null__"]
@@ -266,8 +267,7 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
             return result
 
     def _transform_to_encode(self, X):
-        
-        all_result_series = [X[col].map(self._variable_modality_dict[col])
+        all_result_series = [X[col].map( defaultdict(lambda :-1,self._variable_modality_dict[col] ))
             for col in self._columns_to_encode]
 
         if self.encoding_type == "num":
