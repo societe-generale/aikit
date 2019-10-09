@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 
 import string
+
 try:
     import nltk
 except ImportError:
@@ -35,11 +36,12 @@ except ImportError:
     logger.warning("I wont be able to import Word2Vec")
     Word2Vec = None
 
+
 class AbstractTextProcessor(sklearn.base.TransformerMixin, sklearn.base.BaseEstimator):
     """ This class is to create text preprocessing transformers """
 
     def __init__(self, concat=False):
-        self.concat=concat
+        self.concat = concat
 
     def fit(self, X, y=None):
         """ fit the model """
@@ -51,7 +53,7 @@ class AbstractTextProcessor(sklearn.base.TransformerMixin, sklearn.base.BaseEsti
         raise NotImplementedError("should be implemented in inherited classes")
 
     def transform(self, X):
-        
+
         if isinstance(X, list):
             return [self.process_one_string(x) for x in X]
 
@@ -62,13 +64,13 @@ class AbstractTextProcessor(sklearn.base.TransformerMixin, sklearn.base.BaseEsti
             Xc = X.copy()
             for c in Xc.columns:
                 Xc[c] = X[c].apply(self.process_one_string)
-                
+
             if self.concat:
-                Xc_concat = Xc.apply(func=lambda x:" ".join(x),axis=1)
+                Xc_concat = Xc.apply(func=lambda x: " ".join(x), axis=1)
                 Xc_concat = pd.DataFrame(Xc_concat, columns=["_".join(list(Xc.columns))])
             else:
                 Xc_concat = Xc
-                
+
             return Xc_concat
 
         else:
@@ -77,11 +79,11 @@ class AbstractTextProcessor(sklearn.base.TransformerMixin, sklearn.base.BaseEsti
 
             if len(X.shape) > 1:
                 Xc = X.copy()
-                for j in range(X.shape[1]):    
+                for j in range(X.shape[1]):
                     Xc[:, j] = [self.process_one_string(x) for x in X[:, j]]
-                
+
                 if self.concat:
-                    Xc_concat = np.apply_along_axis(func1d=lambda x:" ".join(x),axis=1,arr=Xc)[:,np.newaxis]
+                    Xc_concat = np.apply_along_axis(func1d=lambda x: " ".join(x), axis=1, arr=Xc)[:, np.newaxis]
                 else:
                     Xc_concat = Xc
 
@@ -183,10 +185,10 @@ class TextNltkProcessing(AbstractTextProcessor):
         remove_non_words=True,
         remove_stopwords=True,
         stem=True,
-        concat=False
+        concat=False,
     ):
         if nltk is None:
-            raise ValueError('Please install NLTK to use this transformer.')
+            raise ValueError("Please install NLTK to use this transformer.")
 
         self.lower = lower
         self.digit_anonymize = digit_anonymize
@@ -209,19 +211,19 @@ class TextNltkProcessing(AbstractTextProcessor):
             words = nltk.tokenize.word_tokenize(string)  # tokenize
             if self.remove_non_words:
                 words = [word for word in words if self.REGEX.match(word) is not None]
-    
+
             if self.remove_stopwords:
                 if self.STOPOWORDS is None:
                     raise ValueError("I couldn't load NLTK stopswords")
                 words = [word for word in words if word not in self.STOPOWORDS]
-    
+
             if self.stem:
                 if self.STEMMER is None:
                     raise ValueError("I couldn't load NLTK stemmer")
                 words = [self.STEMMER.stem(word) for word in words]
-    
+
             return " ".join(words)
-        
+
         else:
             return string
 
@@ -371,10 +373,10 @@ class CountVectorizerWrapper(ModelWrapper):
             ngram_range = self.ngram_range
 
         ngram_range = tuple(ngram_range)
-        
-        other_params = {k:v for k,v in self.other_count_vectorizer_arguments.items()} # shalow copy
+
+        other_params = {k: v for k, v in self.other_count_vectorizer_arguments.items()}  # shalow copy
         if "dtype" not in other_params:
-            other_params["dtype"] = "int32" # force output to be int32 to limit memory
+            other_params["dtype"] = "int32"  # force output to be int32 to limit memory
 
         if self.tfidf:
             return TfidfVectorizer(
@@ -384,7 +386,6 @@ class CountVectorizerWrapper(ModelWrapper):
                 ngram_range=ngram_range,
                 max_features=self.max_features,
                 vocabulary=self.vocabulary,
-                
                 **other_params
             )
 

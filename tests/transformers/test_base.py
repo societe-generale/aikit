@@ -382,45 +382,45 @@ def test_NumImputer_mixtype():
 
 def test_NumImputer_output_type():
     df = get_sample_df(100, seed=123)
-    
+
     # with type float64
     df["float_col"].astype("float64")
     imp = NumImputer()
     Xenc = imp.fit_transform(df)
-    
+
     assert Xenc.dtypes["float_col"] == df.dtypes["float_col"]
-    
+
     # with type float32
     df2 = df.copy()
     df2["float_col"] = df2["float_col"].astype("float32")
     imp = NumImputer()
     Xenc = imp.fit_transform(df2)
-    
+
     assert Xenc.dtypes["float_col"] == df2.dtypes["float_col"]
-    
-    
+
     # with type float64
     df["float_col"].astype("float64")
-    df.loc[0,"float_col"] = np.nan
-    
+    df.loc[0, "float_col"] = np.nan
+
     imp = NumImputer()
     Xenc = imp.fit_transform(df)
-    
+
     assert Xenc.dtypes["float_col"] == df.dtypes["float_col"]
-    
+
     # with type float32
     df2 = df.copy()
     df2["float_col"] = df2["float_col"].astype("float32")
-    df2.loc[0,"float_col"] = np.nan
+    df2.loc[0, "float_col"] = np.nan
     imp = NumImputer()
     Xenc = imp.fit_transform(df2)
-    
+
     assert Xenc.dtypes["float_col"] == df2.dtypes["float_col"]
+
 
 def test_NumImputer_with_inf():
     df = get_sample_df(100, seed=123)
     df.loc[[2, 10, 50], "float_col"] = np.inf
-    
+
     imp = _NumImputer()
 
     Xenc = imp.fit_transform(df)
@@ -428,7 +428,8 @@ def test_NumImputer_with_inf():
     assert _index_with_number(Xenc["float_col"]).all()
     assert not (Xenc.dtypes == "O").any()
 
-    assert Xenc.isnull().sum().sum() == 0 # verif
+    assert Xenc.isnull().sum().sum() == 0  # verif
+
 
 def test_BoxCoxTargetTransformer_target_transform():
 
@@ -633,19 +634,19 @@ def test_CdfScaler():
 
     assert scaler._model.distributions == ["normal", "gamma", "beta", "none"]
 
+
 def test_CdfScaler_fit_vs_fit_transform():
     np.random.seed(123)
-    X = np.random.randn(2000,10)
-    
+    X = np.random.randn(2000, 10)
+
     encoder = CdfScaler(distribution="kernel", output_distribution="uniform", random_state=123)
     X1 = encoder.fit_transform(X)
 
     encoder_b = CdfScaler(distribution="kernel", output_distribution="uniform", random_state=123)
     encoder_b.fit(X)
     X2 = encoder_b.transform(X)
-    
-    assert np.abs(X1 - X2).max() <= 10**(-5)
 
+    assert np.abs(X1 - X2).max() <= 10 ** (-5)
 
 
 def test_PassThrough():
@@ -752,4 +753,3 @@ def test_PCAWrapper():
     assert list(res2.columns) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] + ["PCA__%d" % i for i in range(5)]
     assert pca.get_feature_names() == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] + ["PCA__%d" % i for i in range(5)]
     assert pca.get_feature_names(input_features) == input_features + ["PCA__%d" % i for i in range(5)]
-

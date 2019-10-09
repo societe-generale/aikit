@@ -28,8 +28,9 @@ from aikit.tools.helper_functions import (
     dico_key_filter,
     dico_value_filter,
     dico_key_map,
-    dico_value_map
+    dico_value_map,
 )
+
 
 def test_function_has_named_argument():
     def f1(a, b):
@@ -48,9 +49,9 @@ def test_function_has_named_argument():
         @staticmethod
         def f2(a, b):
             pass
-        
+
     class Functor(object):
-        def __call__(self,a,b):
+        def __call__(self, a, b):
             pass
 
     for f in (f1, f2, f3, Foo.f, Foo().f, Foo.f2, Foo().f2, Functor()):
@@ -252,24 +253,24 @@ def test_md5_hash():
 
 def test_clean_column():
     examples = [
-        ("UPPER_CASED","upper_cased"),
+        ("UPPER_CASED", "upper_cased"),
         ("already_clean", "already_clean"),
         ("too_many_dash___", "too_many_dash_"),
         ("$ and €", "usd_and_eur"),
-        ("£ and ¥","gbp_and_jpy"),
+        ("£ and ¥", "gbp_and_jpy"),
         ("(something)", "something"),
         ("[something]", "something"),
         ("[?/something]", "something"),
         ("#_of_thing", "number_of_thing"),
         ("% notional", "pct_notional"),
-        ("with.dots","with_dots"),
-        ("with space","with_space"),
-        ("with ? question mark","with_question_mark"),
-        ("slash/","slash"),
-        ("antislash\\","antislash"),
-        ("quote'","quote_"),
-        ("dash-dash","dash_dash"),
-        ("more\nthan\none\nline","more_than_one_line")
+        ("with.dots", "with_dots"),
+        ("with space", "with_space"),
+        ("with ? question mark", "with_question_mark"),
+        ("slash/", "slash"),
+        ("antislash\\", "antislash"),
+        ("quote'", "quote_"),
+        ("dash-dash", "dash_dash"),
+        ("more\nthan\none\nline", "more_than_one_line"),
     ]
 
     for s, expected_result in examples:
@@ -281,67 +282,66 @@ def test_dico_key_filter(dict_type):
     def f(x):
         return x >= 1
 
-    dico = {0:"a",1:"b",2:"c"}
+    dico = {0: "a", 1: "b", 2: "c"}
 
     dico = dict_type(dico)
-    
 
     fdico = dico_key_filter(dico, f)
-    
+
     assert type(dico) == type(fdico)
-    assert set(fdico.keys()) == set([k for k,v in dico.items() if f(k)])
-    for k,v in fdico.items():
+    assert set(fdico.keys()) == set([k for k, v in dico.items() if f(k)])
+    for k, v in fdico.items():
         assert dico[k] == v
     assert id(fdico) != id(dico)
-        
+
+
 @pytest.mark.parametrize("dict_type", (dict, OrderedDict))
 def test_dico_value_filter(dict_type):
     def f(x):
         return x >= 1
 
-    dico = {"a":0,"b":1,"c":2}
+    dico = {"a": 0, "b": 1, "c": 2}
 
     dico = dict_type(dico)
-    
 
     fdico = dico_value_filter(dico, f)
-    
+
     assert type(dico) == type(fdico)
-    assert set(fdico.keys()) == set([k for k,v in dico.items() if f(v)])
-    for k,v in fdico.items():
+    assert set(fdico.keys()) == set([k for k, v in dico.items() if f(v)])
+    for k, v in fdico.items():
         assert dico[k] == v
     assert id(fdico) != id(dico)
-    
+
+
 @pytest.mark.parametrize("dict_type", (dict, OrderedDict))
 def test_dico_key_map(dict_type):
     def f(x):
-        return x+1
-    
-    dico = {0:"a",1:"b",2:"c"}
+        return x + 1
+
+    dico = {0: "a", 1: "b", 2: "c"}
     dico = dict_type(dico)
-    
+
     mdico = dico_key_map(dico, f)
     assert type(mdico) == type(dico)
     assert set(mdico.keys()) == set([f(k) for k in dico.keys()])
-    for k,v in dico.items():
+    for k, v in dico.items():
         assert mdico[f(k)] == v
-        
+
     assert id(dico) != id(mdico)
-    
+
 
 @pytest.mark.parametrize("dict_type", (dict, OrderedDict))
 def test_dico_value_map(dict_type):
     def f(x):
-        return x+1
-    
-    dico = {"a":0,"b":1,"c":2}
+        return x + 1
+
+    dico = {"a": 0, "b": 1, "c": 2}
     dico = dict_type(dico)
-    
+
     mdico = dico_value_map(dico, f)
     assert type(mdico) == type(dico)
     assert set(mdico.keys()) == set(dico.keys())
-    for k,v in dico.items():
+    for k, v in dico.items():
         assert mdico[k] == f(v)
-        
+
     assert id(dico) != id(mdico)
-    

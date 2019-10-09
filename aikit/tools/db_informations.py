@@ -83,8 +83,8 @@ def guess_type_of_variable(s):
     elif "object" in st:
         nb_u = s.nunique()  # number of different values
         nb = len(s)  # number of items
-        
-        if hasattr(s,"str"): #For boolean 
+
+        if hasattr(s, "str"):  # For boolean
             avg_l = s.str.len().mean()
         else:
             avg_l = 0
@@ -93,14 +93,14 @@ def guess_type_of_variable(s):
             return TypeOfVariables.TEXT
 
         return TypeOfVariables.CAT
-    
+
     elif "bool" in st:
         return TypeOfVariables.CAT
-    
+
     elif "category" in st:
         return TypeOfVariables.CAT
 
-    elif 'category' in st:
+    elif "category" in st:
         return TypeOfVariables.CAT
 
     else:
@@ -198,11 +198,10 @@ def get_all_var_type(db_informations):
     all_var_type = tuple(sorted(set((v["TypeOfVariable"] for v in db_informations.values() if v["ToKeep"]))))  ###
     return all_var_type
 
+
 def get_n_outputs(y):
     """ returns the number of ouputs of a given target """
     if getattr(y, "ndim", 1) > 1:
         return y.shape[1]
     else:
         return 1
-
-    

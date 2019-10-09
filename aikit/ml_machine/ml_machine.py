@@ -59,6 +59,7 @@ from aikit.ml_machine import model_graph as mg
 
 def froze_init(cls):
     """ decorator that prevent attribute that are not setted in the init """
+
     def __setattr__(self, key, value):
         if key[0] != "_":
             if self.__frozen:
@@ -68,16 +69,17 @@ def froze_init(cls):
                 self.__allowed_attributes.add(key)
 
         object.__setattr__(self, key, value)
-        
+
     def init_decorator(func):
         @wraps(func)
         def wrapper(self, *args, **kwargs):
-            self.__frozen=False
-            self.__allowed_attributes=set()
+            self.__frozen = False
+            self.__allowed_attributes = set()
             func(self, *args, **kwargs)
             self.__frozen = True
+
         return wrapper
-    
+
     cls.__setattr__ = __setattr__
     cls.__init__ = init_decorator(cls.__init__)
 
@@ -104,7 +106,7 @@ class AutoMlConfig(object):
         self.type_of_problem = None
         self.columns_informations = None
         self.needed_steps = None
-        
+
         self.models_to_keep = None
         self.models_to_keep_block_search = None
 
@@ -153,7 +155,7 @@ class AutoMlConfig(object):
 
     @columns_informations.setter
     def columns_informations(self, new_columns_informations):
-        
+
         if new_columns_informations is None:
             self._columns_informations = None
             return
@@ -252,7 +254,7 @@ class AutoMlConfig(object):
 
     @columns_block.setter
     def columns_block(self, new_columns_block):
-        
+
         if new_columns_block is None:
             self._columns_block = None
             return
@@ -353,7 +355,7 @@ class AutoMlConfig(object):
         if shapeX is not None and y is not None:
             if shapeX[0] != shapey[0]:
                 raise ValueError("dfX and y don't have the same shape %d vs %d" % (shapeX[0], shapey[0]))
-                
+
             if len(shapey) > 1 and shapey[1] > 1:
                 raise ValueError("Multi-output isn't handled yet")
 
@@ -378,7 +380,7 @@ class AutoMlConfig(object):
 
     @needed_steps.setter
     def needed_steps(self, new_needed_steps):
-        
+
         if new_needed_steps is None:
             self._needed_steps = new_needed_steps
             return
@@ -425,7 +427,7 @@ class AutoMlConfig(object):
 
     @models_to_keep.setter
     def models_to_keep(self, new_models_to_keep):
-        
+
         if new_models_to_keep is None:
             self._models_to_keep = new_models_to_keep
             return
@@ -450,7 +452,7 @@ class AutoMlConfig(object):
     @models_to_keep.deleter
     def models_to_keep(self):
         self._models_to_keep = None
-        
+
     def filter_models(self, **kwargs):
         """ use that method to filter the list of transformers/models that you want to test
 
@@ -500,7 +502,6 @@ class AutoMlConfig(object):
 
         return self
 
-
     #######################################
     ### models to keep for block search ###
     #######################################
@@ -508,14 +509,14 @@ class AutoMlConfig(object):
 
         if self.type_of_problem is None:
             raise ValueError("you need to set 'type_of_problem' first")
-            
+
         if self.models_to_keep is None:
             raise ValueError("models_to_keep need to be setted first")
-            
+
         models_to_keep_block_search = filter_model_to_keep(self.type_of_problem, block_search_only=True)
         self.models_to_keep_block_search = [m for m in models_to_keep_block_search if m in self.models_to_keep]
 
-        return self.models_to_keep_block_search 
+        return self.models_to_keep_block_search
 
     @property
     def models_to_keep_block_search(self):
@@ -523,11 +524,11 @@ class AutoMlConfig(object):
 
     @models_to_keep_block_search.setter
     def models_to_keep_block_search(self, new_models_to_keep_block_search):
-        
+
         if new_models_to_keep_block_search is None:
             self._models_to_keep_block_search = new_models_to_keep_block_search
             return
-        
+
         if not isinstance(new_models_to_keep_block_search, (list, tuple)):
             raise TypeError("new_models_to_keep should be a list")
 
@@ -542,12 +543,11 @@ class AutoMlConfig(object):
 
             if n not in MODEL_REGISTER.all_registered:
                 raise ValueError("each item should have been registred")
-                
+
             if n not in self.models_to_keep:
                 raise ValueError("each item should be in 'models_to_keep'")
 
         self._models_to_keep_block_search = new_models_to_keep_block_search
-
 
     ################################
     ### Specific HyperParameters ###
@@ -559,7 +559,7 @@ class AutoMlConfig(object):
 
     @specific_hyper.setter
     def specific_hyper(self, new_specific_hyper):
-        
+
         if new_specific_hyper is None or len(new_specific_hyper) == 0:
             self._specific_hyper = new_specific_hyper
             return
@@ -610,7 +610,7 @@ class AutoMlConfig(object):
 
 
 # In[]
-def _create_all_combinations(all_blocks_to_use, max_number_of_blocks_to_test, max_number_of_blocks_to_remove ):
+def _create_all_combinations(all_blocks_to_use, max_number_of_blocks_to_test, max_number_of_blocks_to_remove):
     """ create all the combinations of 'all_blocks_to_use' that have either
     * at most 'max_number_of_blocks_to_test' elements    OR
     * at most 'max_number_of_blocks_to_remove' elements removed
@@ -623,35 +623,35 @@ def _create_all_combinations(all_blocks_to_use, max_number_of_blocks_to_test, ma
     max_number_of_blocks_to_remove : int, default=1
         will include ALL the models with at most 'max_number_of_blocks_to_remove' blocks REMOVED (al combinations)
     """
-    
+
     if max_number_of_blocks_to_test < 1:
         raise ValueError("'max_number_of_blocks_to_test' should be >= 1")
-    
+
     if max_number_of_blocks_to_remove < 1:
         raise ValueError("'max_number_of_blocks_to_remove' should be >= 1")
-        
+
     if len(set(all_blocks_to_use)) != len(all_blocks_to_use):
         raise ValueError("'all_blocks_to_use' shouldn't contain duplicate")
 
     if max_number_of_blocks_to_test >= len(all_blocks_to_use) - 1:
         max_number_of_blocks_to_test = len(all_blocks_to_use) - 1
-        
+
     if max_number_of_blocks_to_remove >= len(all_blocks_to_use) - 1:
         max_number_of_blocks_to_remove = len(all_blocks_to_use) - 1
 
     # Create full list of blocks_to_use to be tried
-    set_blocks_to_use = set()                     
+    set_blocks_to_use = set()
     for r in range(1, max_number_of_blocks_to_test + 1):
         for blocks_to_use in itertools.combinations(all_blocks_to_use, r=r):
             if blocks_to_use not in set_blocks_to_use:
                 set_blocks_to_use.add(blocks_to_use)
-                
+
     for r in range(1, max_number_of_blocks_to_remove + 1):
         for blocks_to_remove in itertools.combinations(all_blocks_to_use, r=r):
             blocks_to_use = tuple([b for b in all_blocks_to_use if b not in blocks_to_remove])
             if blocks_to_use not in set_blocks_to_use:
                 set_blocks_to_use.add(blocks_to_use)
-                
+
     return list(set_blocks_to_use)
 
 
@@ -673,7 +673,7 @@ def random_list_generator(elements, probas=None, random_state=None):
     -----
     element in random order
     """
-    
+
     elements = list(elements)
 
     random_state = check_random_state(random_state)
@@ -682,14 +682,14 @@ def random_list_generator(elements, probas=None, random_state=None):
         probas = list(probas)
         if len(elements) != len(probas):
             raise ValueError("'elements' and 'probas' should have the same length")
-            
+
         if len(elements) > 0 and np.array(probas).min() <= 0:
             raise ValueError("'probas' should be >0")
-            
+
     all_indexes = list(range(len(elements)))
-    
+
     remaining_indexes = all_indexes
-    
+
     while len(remaining_indexes) > 0:
         if probas is None:
             ind = random_state.choice(remaining_indexes)
@@ -699,11 +699,10 @@ def random_list_generator(elements, probas=None, random_state=None):
             ind = random_state.choice(remaining_indexes, p=p)
 
         remaining_indexes = [r for r in remaining_indexes if r != ind]
-        
+
         yield elements[ind]
 
 
-        
 class RandomModelGenerator(object):
     """ class to generate random model """
 
@@ -798,13 +797,8 @@ class RandomModelGenerator(object):
             )
 
             yield simplified_Graph, all_models_params, blocks_to_use
-            
-            
-    def iterate_block_search(self,
-                             max_number_of_blocks_to_test=1,
-                             max_number_of_blocks_to_remove=1,
-                             random_order=True
-                             ):
+
+    def iterate_block_search(self, max_number_of_blocks_to_test=1, max_number_of_blocks_to_remove=1, random_order=True):
         """ iterator that generate the list of models to test when we are searching for blocks
         The iteration order can be random, in that case the order is drawn by a law depending on the size of the blocks to use
         
@@ -824,29 +818,29 @@ class RandomModelGenerator(object):
         simplified_Graph, all_models_params, blocks_to_use
         """
         if random_order:
-            block_search_models = list(self._iterate_block_search_models(max_number_of_blocks_to_test=max_number_of_blocks_to_test,
-                                                                            max_number_of_blocks_to_remove=max_number_of_blocks_to_remove)
+            block_search_models = list(
+                self._iterate_block_search_models(
+                    max_number_of_blocks_to_test=max_number_of_blocks_to_test,
+                    max_number_of_blocks_to_remove=max_number_of_blocks_to_remove,
+                )
             )
-        
+
             N = len(self.auto_ml_config.columns_block.keys())
 
             probas = []
-            for _ , _, blocks_to_use in block_search_models:
+            for _, _, blocks_to_use in block_search_models:
                 p = 1 / min(len(blocks_to_use), N - len(blocks_to_use))
                 probas.append(p)
-                
-            yield from random_list_generator(block_search_models,
-                                             probas=probas,
-                                             random_state=self.random_state)
-                
+
+            yield from random_list_generator(block_search_models, probas=probas, random_state=self.random_state)
+
         else:
-            yield from self._iterate_block_search_models(max_number_of_blocks_to_test=max_number_of_blocks_to_test,
-                                                         max_number_of_blocks_to_remove=max_number_of_blocks_to_remove)
+            yield from self._iterate_block_search_models(
+                max_number_of_blocks_to_test=max_number_of_blocks_to_test,
+                max_number_of_blocks_to_remove=max_number_of_blocks_to_remove,
+            )
 
-
-    def _iterate_block_search_models(self,
-                                    max_number_of_blocks_to_test=1,
-                                    max_number_of_blocks_to_remove=1):
+    def _iterate_block_search_models(self, max_number_of_blocks_to_test=1, max_number_of_blocks_to_remove=1):
         """ iterator that generate the list of models to test when we are searching for blocks
         
         Parameters
@@ -861,60 +855,60 @@ class RandomModelGenerator(object):
         ------
         simplified_Graph, all_models_params, blocks_to_use
         """
-        
-        
+
         all_blocks_to_use = tuple(self.auto_ml_config.columns_block.keys())  # keep all blocks
         if len(all_blocks_to_use) <= 1:
-            return # No models
+            return  # No models
 
-        list_blocks_to_use = _create_all_combinations(all_blocks_to_use,
-                                                      max_number_of_blocks_to_test=max_number_of_blocks_to_test,
-                                                      max_number_of_blocks_to_remove=max_number_of_blocks_to_remove
-                                                      )
-
+        list_blocks_to_use = _create_all_combinations(
+            all_blocks_to_use,
+            max_number_of_blocks_to_test=max_number_of_blocks_to_test,
+            max_number_of_blocks_to_remove=max_number_of_blocks_to_remove,
+        )
 
         for blocks_to_use in list_blocks_to_use:
-            
-            needed_steps_filtered, columns_informations_filtered, all_columns_keep = self._filter_based_on_blocks(blocks_to_use)
+
+            needed_steps_filtered, columns_informations_filtered, all_columns_keep = self._filter_based_on_blocks(
+                blocks_to_use
+            )
 
             all_choices_by_steps = []
             for step in needed_steps_filtered:
-    
+
                 if step["optional"]:
                     all_choices = [(None, None)]
                 else:
                     all_choices = [n for n in self.auto_ml_config.models_to_keep_block_search if n[0] == step["step"]]
-    
+
                     # Peut etre qu'on veut enlever des choix ici pour certain steps
-    
+
                 all_choices_by_steps.append([(step["step"], c) for c in all_choices])
-                
+
             all_models_steps = [OrderedDict(m) for m in itertools.product(*all_choices_by_steps)]
-            
+
             for models_by_steps in all_models_steps:
-    
+
                 hyper_parameters_by_step = {}
                 for step_name, model_name in models_by_steps.items():
                     if model_name[0] is not None:
-                        default_parameters = MODEL_REGISTER.informations.get(model_name, {}).get("default_parameters", {})
+                        default_parameters = MODEL_REGISTER.informations.get(model_name, {}).get(
+                            "default_parameters", {}
+                        )
                         # If default_parameters present in register use it, otherwise use {} (and so will go back to default parameter of the model)
-                        hyper_parameters_by_step[(step_name, model_name)] = default_parameters        
-                
-                
+                        hyper_parameters_by_step[(step_name, model_name)] = default_parameters
+
                 simplified_Graph, all_models_params, blocks_to_use = self.draw_random_graph(
                     blocks_to_use=blocks_to_use,
                     models_by_steps=models_by_steps,
                     hyper_parameters_by_step=hyper_parameters_by_step,
                 )
 
-
                 yield simplified_Graph, all_models_params, blocks_to_use
-
 
     ###########################
     ### Everything Together ###
     ###########################
-    
+
     def _filter_based_on_blocks(self, blocks_to_use):
         """ helper function to refilter what is needed when knowing which blocks are used """
         ######################
@@ -930,7 +924,7 @@ class RandomModelGenerator(object):
 
         all_columns_keep = sorted(columns_informations_filtered.keys()) == sorted(
             self.auto_ml_config.columns_informations
-        ) 
+        )
 
         #        else:
         #            columns_informations_filtered = self.auto_ml_config.columns_informations
@@ -946,7 +940,7 @@ class RandomModelGenerator(object):
             s2["step"] for s2 in self.auto_ml_config.needed_steps
         ]  # If user remove some step... I need to retake the intersection
         needed_steps_filtered = [s for s in needed_steps_filtered_temp if s["step"] in steps_in_config]
-        
+
         return needed_steps_filtered, columns_informations_filtered, all_columns_keep
 
     def draw_random_graph(self, blocks_to_use=None, models_by_steps=None, hyper_parameters_by_step=None):
@@ -961,7 +955,9 @@ class RandomModelGenerator(object):
             else:
                 blocks_to_use = tuple(sorted(self.auto_ml_config.columns_block.keys()))
 
-        needed_steps_filtered, columns_informations_filtered, all_columns_keep = self._filter_based_on_blocks(blocks_to_use)
+        needed_steps_filtered, columns_informations_filtered, all_columns_keep = self._filter_based_on_blocks(
+            blocks_to_use
+        )
 
         ###################
         ### Draw models ###
@@ -1181,6 +1177,7 @@ class RandomModelGenerator(object):
 # from sklearn.metrics.scorer import SCORERS
 # Remark : on peut peut etre faire une copie local de ce dictionnaire pour rajouter nos propres objects
 
+
 @froze_init
 class JobConfig(object):
     """ small helper class to store a job configuration
@@ -1208,12 +1205,12 @@ class JobConfig(object):
         self.score_base_line = None
 
         self.start_with_default = True  # if True, will start with default models
-        self.do_blocks_search = True    # if True, will add in the queue model aiming at searching which block add values
-        self.allow_approx_cv = False    # if True, will do 'approximate cv'
+        self.do_blocks_search = True  # if True, will add in the queue model aiming at searching which block add values
+        self.allow_approx_cv = False  # if True, will do 'approximate cv'
 
         self.main_scorer = None
         self.guiding_scorer = None
-        
+
         self.additional_scoring_function = None
 
     ########################
@@ -1357,18 +1354,18 @@ class JobConfig(object):
     @main_scorer.deleter
     def main_scorer(self):
         self._main_scorer = None
-        
+
     ####################################
     ###  Addtionnal Scoring Function ###
     ####################################
-    
+
     @property
     def additional_scoring_function(self):
         return self._additional_scoring_function
-    
+
     @additional_scoring_function.setter
     def additional_scoring_function(self, new_additional_scoring_function):
-        
+
         if new_additional_scoring_function is None:
             self._additional_scoring_function = new_additional_scoring_function
             return
@@ -1377,11 +1374,10 @@ class JobConfig(object):
             raise TypeError("'additional_scoring_function' should be callable")
 
         self._additional_scoring_function = new_additional_scoring_function
-    
+
     @additional_scoring_function.deleter
     def additional_scoring_function(self):
         self._additional_scoring_function = None
-
 
     ############
     ### Repr ###
@@ -1443,13 +1439,13 @@ class JobManagerQueue(object):
         else:
             self._default_iterator = None  # Will never be used
             self._default_iterator_empty = True
-            
+
         if self.job_config.do_blocks_search:
             self._block_search_iterator = self.random_model_generator.iterate_block_search(random_order=True)
-            self._block_search_iterator_empty=False
+            self._block_search_iterator_empty = False
         else:
-            self._block_search_iterator=None
-            self._block_search_iterator_empty=True
+            self._block_search_iterator = None
+            self._block_search_iterator_empty = True
 
     def remove(self):
         """ main method that will generate a new job to be given to ml machine """
@@ -1490,7 +1486,7 @@ class JobManagerQueue(object):
             else:
                 job_type = None
                 iter_next = None
-    
+
         #################################################################
         ###  Try to remove something from the block search iterator   ###
         #################################################################
@@ -1510,7 +1506,6 @@ class JobManagerQueue(object):
                     job_type = None
                 else:
                     job_type = "block_search"
-
 
         if job_type is None:
             # It means this is not a default model ...
@@ -1615,7 +1610,7 @@ class JobManagerQueue(object):
                 def softmax(benchmark, T=1):
                     ss = np.std(benchmark)
                     if ss == 0:
-                        return 1/len(benchmark) *  np.ones( len(benchmark) ,dtype=np.float32)
+                        return 1 / len(benchmark) * np.ones(len(benchmark), dtype=np.float32)
                     else:
                         nbenchmark = (benchmark - np.mean(benchmark)) / ss
                         exp_nbenchmark = np.exp(nbenchmark / T)
@@ -1627,11 +1622,11 @@ class JobManagerQueue(object):
                 # TODO : on peut faire descendre la temperature en court de route.... a peu pres equivalent à gérer l'explortion...
                 probas[pd.isnull(probas)] = 0.0
                 probas[np.isinf(probas)] = 0.0
-                
+
                 if probas.sum() == 0:
                     ii = np.random.choice(len(probas), size=1)[0]
                 else:
-                    probas = probas/probas.sum()
+                    probas = probas / probas.sum()
                     ii = np.random.choice(len(probas), size=1, p=probas)[0]
                 # Comme ca je prend pas l'argmax, mais quelque chose d'un peu plus exploratoir
                 # ... peut etre que argmax ca marcherait mieux (surement plus petite variation autour du meilleurs model)
@@ -1646,7 +1641,7 @@ class JobManagerQueue(object):
             json_param = all_params1[ii]
             name_mapping = all_names_mapping[ii]
 
-        elif job_type in ("default","block_search"):
+        elif job_type in ("default", "block_search"):
 
             if job_type == "default":
                 logger.info("I'll create a default model...")
@@ -1898,10 +1893,12 @@ class MlJobRunner(AbstractJobRunner):
                 logger.info("test  %s : %2.2f%%" % (self.job_config.main_scorer, test_metric))
 
             self.data_persister.write(data=cv_result, key=job_id, path="result", write_type=SavingType.csv)
-            
+
             if self.job_config.additional_scoring_function is not None:
                 additional_result = self.job_config.additional_scoring_function(cv_result, yhat, self.y, self.groups)
-                self.data_persister.write(data=additional_result, key=job_id, path="additional_result", write_type=SavingType.json)
+                self.data_persister.write(
+                    data=additional_result, key=job_id, path="additional_result", write_type=SavingType.json
+                )
 
             if self.auto_ml_config.type_of_problem == en.TypeOfProblem.CLUSTERING:
                 self.data_persister.write(data=yhat, key=job_id, path="labels", write_type=SavingType.csv)
@@ -2225,7 +2222,7 @@ class AutoMlResultReader(object):
         self._load_all_errors_cache = df_error
 
         return df_error
-    
+
     ######################
     ###  Other result  ###
     ######################
@@ -2234,7 +2231,7 @@ class AutoMlResultReader(object):
         all_params1_key = sorted(self.data_persister.alls(path="additional_result", write_type=SavingType.json))
 
         if len(all_params1_key) == 0:
-            return pd.DataFrame(columns=["job_id"]) # empty DataFrame with 'job_id' columns
+            return pd.DataFrame(columns=["job_id"])  # empty DataFrame with 'job_id' columns
 
         all_params = []
         for key in all_params1_key:

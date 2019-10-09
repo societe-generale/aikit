@@ -130,7 +130,7 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
 
             ### Filter 3 => If I still have too many modalities, keep only the first one ###
             if self.max_modalities_number is not None and modalities_to_keep.shape[0] > self.max_modalities_number:
-                modalities_to_keep = modalities_to_keep.iloc[0:self.max_modalities_number]
+                modalities_to_keep = modalities_to_keep.iloc[0 : self.max_modalities_number]
 
         else:
             modalities_to_keep = value_count
@@ -184,17 +184,16 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
                 raise ValueError("column %s isn't in the DataFrame" % c)
 
         self.variable_modality_mapping = {col: self.modalities_filter(X[col]) for col in self._columns_to_encode}
-        
+
         self._variable_modality_dict = {}
         for col in self._columns_to_encode:
-            #ddict = defaultdict(lambda :-1, self.variable_modality_mapping[col])
+            # ddict = defaultdict(lambda :-1, self.variable_modality_mapping[col])
             ddict = dict(self.variable_modality_mapping[col])
-            if "__null__" in self.variable_modality_mapping[col]:    
+            if "__null__" in self.variable_modality_mapping[col]:
                 ddict[np.nan] = self.variable_modality_mapping[col]["__null__"]
                 ddict[None] = self.variable_modality_mapping[col]["__null__"]
-            
+
             self._variable_modality_dict[col] = ddict
-        
 
         # Rmk : si on veut pas faire un encodage ou les variables sont par ordre croissant, on peut faire un randomization des numbre ici
 
@@ -267,15 +266,16 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
             return result
 
     def _transform_to_encode(self, X):
-        all_result_series = [X[col].map( defaultdict(lambda :-1,self._variable_modality_dict[col] ))
-            for col in self._columns_to_encode]
+        all_result_series = [
+            X[col].map(defaultdict(lambda: -1, self._variable_modality_dict[col])) for col in self._columns_to_encode
+        ]
 
         if self.encoding_type == "num":
             result = pd.concat(all_result_series, axis=1, ignore_index=True, copy=False).astype(np.int32)
             return result
 
         elif self.encoding_type == "dummy":
-            Xres = np.zeros((X.shape[0], self._dummy_size), dtype='int32')
+            Xres = np.zeros((X.shape[0], self._dummy_size), dtype="int32")
 
             nn = np.arange(X.shape[0])
             for col, result in zip(self._columns_to_encode, all_result_series):

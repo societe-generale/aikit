@@ -27,9 +27,12 @@ import hashlib
 from sklearn.utils import check_random_state, safe_indexing
 
 from aikit.tools.json_helper import SpecialJSONEncoder
+
+
 def function_has_named_argument(f, attr):
     """ return True if a given function accept a given attribute """
     return attr in inspect.getfullargspec(f).args
+
 
 def diff(list1, list2):
     """ difference list1 minus list2 """
@@ -163,10 +166,10 @@ def dico_key_filter(dico, f):
     """
     if isinstance(dico, OrderedDict):
         return OrderedDict([(k, v) for k, v in dico.items() if f(k)])
-    
+
     elif isinstance(dico, dict):
         return {k: v for k, v in dico.items() if f(k)}
-    
+
     else:
         res = dico.__class__()
         for k, v in res.items():
@@ -198,7 +201,7 @@ def dico_key_map(dico, f):
 
     elif isinstance(dico, dict):
         return {f(k): v for k, v in dico.items()}
-    
+
     else:
         res = dico.__class__()
         for k, v in res.items():

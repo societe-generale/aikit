@@ -24,20 +24,18 @@ def test_loc_align():
     assert list(s2.values) == [0, 10, 11]
 
 
-
-
 def test_TargetEncoderRegressor_columns_to_encode_object():
     np.random.seed(123)
-    Xnum = np.random.randn(1000,10)
+    Xnum = np.random.randn(1000, 10)
 
-    dfX = pd.DataFrame(Xnum,columns=["col_%d" % i for i in range(10)])
+    dfX = pd.DataFrame(Xnum, columns=["col_%d" % i for i in range(10)])
     dfX["object_column"] = ["string_%2.4f" % x for x in dfX["col_0"]]
 
     y = np.random.randn(1000)
 
     # with --object--
     encoder = TargetEncoderRegressor(columns_to_encode="--object--")
-    dfX_enc = encoder.fit_transform(dfX,y)
+    dfX_enc = encoder.fit_transform(dfX, y)
 
     assert not (dfX_enc.dtypes == "object").any()
 
@@ -190,6 +188,7 @@ def test_TargetEncoderClassifier():
             assert encoder.model._columns_to_encode == ["cat_col"]
             assert encoder.model._columns_to_keep == ["float_col", "int_col", "text_col"]
 
+
 def test_target_encoder_with_cat_dtypes():
     np.random.seed(123)
     X = get_sample_df(100)
@@ -200,7 +199,7 @@ def test_target_encoder_with_cat_dtypes():
     X_no_cat_dtype_encoded = encoder.fit_transform(X, y)
 
     X_cat_dtype = X.copy()
-    X_cat_dtype['cat_col_1'] = X_cat_dtype['cat_col_1'].astype('category')
+    X_cat_dtype["cat_col_1"] = X_cat_dtype["cat_col_1"].astype("category")
     X_with_cat_dtype_encoded = encoder.fit_transform(X_cat_dtype, y)
 
     assert (X_with_cat_dtype_encoded == X_no_cat_dtype_encoded).all().all()

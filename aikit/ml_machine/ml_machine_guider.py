@@ -53,15 +53,16 @@ def get_metric_default_transformation(metric_name):
     * makes it more 'normal'
     * allow easier focus on important part
     """
-    if metric_name in ("accuracy",
-                       "my_avg_roc_auc",
-                       "roc_auc",
-                       "r2",
-                       "avg_roc_auc",
-                       "f1_macro",
-                       "silhouette",
-                       "average_precision"
-                       ):
+    if metric_name in (
+        "accuracy",
+        "my_avg_roc_auc",
+        "roc_auc",
+        "r2",
+        "avg_roc_auc",
+        "f1_macro",
+        "silhouette",
+        "average_precision",
+    ):
         # Metric where 'perfection' si 1 => focus on differences with 1, log is here to expand small differences
         return lambda x: -np.log10(1 - x)
 
@@ -132,7 +133,7 @@ class AutoMlModelGuider(object):
         if metric_transformation is not None and metric_transformation == "--auto--":
             if self.job_config.guiding_scorer is not None:
                 # I have a special guiding scorer
-                if isinstance( self.job_config.guiding_scorer, list) and len(self.job_config.guiding_scorer) > 1:
+                if isinstance(self.job_config.guiding_scorer, list) and len(self.job_config.guiding_scorer) > 1:
                     # more than one score => use rank
                     metric_transformation = "rank"
                 else:
@@ -242,7 +243,6 @@ class AutoMlModelGuider(object):
         if df_additional_results.shape[0] > 0:
             df_results = pd.merge(df_results, df_additional_results, how="inner", on="job_id")
 
-        
         self._nb_models_done = len(df_results)
         if self._nb_models_done <= self.min_nb_of_models:
             return self
@@ -307,9 +307,12 @@ class AutoMlModelGuider(object):
                 try:
                     f = get_metric_default_transformation(scorer)
                 except ValueError:
-                    logger.info("I don't know how to transform this metric %s, I'll use default normal transformation" % str(scorer))
+                    logger.info(
+                        "I don't know how to transform this metric %s, I'll use default normal transformation"
+                        % str(scorer)
+                    )
                     f = None
-                    
+
                 if f is None:
                     y_params = norm.ppf(kde_transfo_quantile(y_params))
                 else:

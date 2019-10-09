@@ -118,7 +118,7 @@ def graph_from_edges_string(edges_string):
 
 def edges_from_graph(G):
     """ return the edges from a graph """
-    all_edges = list(sorted(set(G.edges))) # to make sure the order of the edges doesn't change
+    all_edges = list(sorted(set(G.edges)))  # to make sure the order of the edges doesn't change
     goon = True
 
     while goon:
@@ -142,7 +142,7 @@ def edges_from_graph(G):
     all_nodes = sorted(G.nodes)
     all_nodes = [n for n in all_nodes if n not in all_nodes_in_edge]
     all_edges += [(n,) for n in all_nodes]
-    
+
     G2 = graph_from_edges(*all_edges)
 
     assert set(G.nodes) == set(G2.nodes)
@@ -176,12 +176,13 @@ def graph_from_edges(*edges):
             raise TypeError("argument should be tuple or list, instead i got : '%s' " % type(list_of_edge))
 
         if len(list_of_edge) <= 1:
-            G = add_node_after(G, list_of_edge[0]) # no edge, only a solo node
+            G = add_node_after(G, list_of_edge[0])  # no edge, only a solo node
         else:
             for e1, e2 in zip(list_of_edge[:-1], list_of_edge[1:]):
                 G = add_node_after(G, e2, e1)
 
     return G
+
 
 def get_two_by_two_edges(*edges):
     """ create the list of edges
@@ -209,7 +210,7 @@ def get_two_by_two_edges(*edges):
             raise TypeError("argument should be tuple or list, instead i got : '%s' " % type(list_of_edge))
 
         for e1, e2 in zip(list_of_edge[:-1], list_of_edge[1:]):
-            two_by_two_edges.append((e1,e2))
+            two_by_two_edges.append((e1, e2))
 
     return two_by_two_edges
 
@@ -527,17 +528,17 @@ def merge_nodes(Graph, nodes_mapping):
         newG = nx.DiGraph()
     else:
         newG = nx.Graph()
-        
+
     for node in Graph.nodes:
-        mapped_node = nodes_mapping.get(node, node) # default = no mapping
+        mapped_node = nodes_mapping.get(node, node)  # default = no mapping
         if mapped_node not in newG.nodes:
-            newG.add_node(mapped_node) # Rmk : I drop other informarion in the graph
-    
-    for e1,e2 in Graph.edges:
+            newG.add_node(mapped_node)  # Rmk : I drop other informarion in the graph
+
+    for e1, e2 in Graph.edges:
         mapped_e1 = nodes_mapping.get(e1, e1)
         mapped_e2 = nodes_mapping.get(e2, e2)
-        
-        if mapped_e1 != mapped_e2 and (mapped_e1,mapped_e2) not in newG.edges:
+
+        if mapped_e1 != mapped_e2 and (mapped_e1, mapped_e2) not in newG.edges:
             newG.add_edge(mapped_e1, mapped_e2)
 
     return newG
@@ -571,33 +572,33 @@ def subbranch_search(starting_node, Graph, yield_list=None, visited=None):
     """
     if starting_node not in Graph:
         raise ValueError("the node %s should be in graph" % str(starting_node))
-        
+
     if yield_list is None:
         yield_list = set()
     if visited is None:
         visited = set()
     else:
         visited = set(visited)
-        
+
     test_list = [starting_node]
-    
+
     while True:
         new_test_list = []
-        
+
         for node in test_list:
             if node in visited:
                 continue
-            
+
             predecessors = list(Graph.predecessors(node))
-            
+
             # I yield if all the predecessor were visited already (OR if 'bypass' yield list)
             if node in yield_list or all((p in visited for p in predecessors)):
                 yield node
                 visited.add(node)
                 new_test_list += list(Graph.successors(node))
             else:
-                new_test_list.append(node) # I'll try again at next iteration
-                
+                new_test_list.append(node)  # I'll try again at next iteration
+
         new_test_list = lunique(new_test_list)
         if len(new_test_list) == 0 or set(new_test_list) == set(test_list):
             # 1) no more node to test
@@ -605,4 +606,3 @@ def subbranch_search(starting_node, Graph, yield_list=None, visited=None):
             return
         else:
             test_list = new_test_list
-

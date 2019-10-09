@@ -345,6 +345,7 @@ def _concat(*args, sep="__"):
 
 # In[]
 
+
 def try_to_find_features_names(model, input_features=None):
     # TODO : il faudrait que ca prenne en entree un champs 'input_features_names' a passer a get_features_names
     # TODO : il faut tester si le model accept 'input_features_names'
@@ -812,13 +813,10 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
                 )
 
             columns = dsh._get_columns(Xsubset)
-            expected_columns = getattr(self, "_expected_columns",None) # to allow pickle compatibility
-            
+            expected_columns = getattr(self, "_expected_columns", None)  # to allow pickle compatibility
+
             if expected_columns is not None and columns is not None and columns != self._expected_columns:
-                raise ValueError(
-                    "I don't have the correct names of columns"
-                )
-                
+                raise ValueError("I don't have the correct names of columns")
 
         if self.accepted_input_types is not None and self._expected_type not in self.accepted_input_types:
             Xsubset = dsh.convert_generic(
