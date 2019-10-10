@@ -320,7 +320,15 @@ class AutoMlConfig(object):
             return
 
         if new_type_of_problem not in en.TypeOfProblem.alls:
-            raise ValueError("'type_of_problem' should be among %s" % str(en.TypeOfVariables.alls))
+            raise ValueError("'type_of_problem' should be among %s" % str(en.TypeOfProblem.alls))
+            
+        old_type_of_problem = self._type_of_problem
+
+        if old_type_of_problem != new_type_of_problem:
+            # If it has move, I need to re-change the other configurations.
+            self.needed_steps = get_needed_steps(self.columns_informations, new_type_of_problem)
+            self.models_to_keep = filter_model_to_keep(new_type_of_problem, block_search_only=False)
+            self.guess_models_to_keep_block_search(new_type_of_problem)
 
         self._type_of_problem = new_type_of_problem
 
@@ -505,15 +513,18 @@ class AutoMlConfig(object):
     #######################################
     ### models to keep for block search ###
     #######################################
-    def guess_models_to_keep_block_search(self):
+    def guess_models_to_keep_block_search(self, type_of_problem=None):
+        
+        if type_of_problem is None:
+            type_of_problem = self._type_of_problem
 
-        if self.type_of_problem is None:
+        if type_of_problem is None:
             raise ValueError("you need to set 'type_of_problem' first")
 
         if self.models_to_keep is None:
             raise ValueError("models_to_keep need to be setted first")
 
-        models_to_keep_block_search = filter_model_to_keep(self.type_of_problem, block_search_only=True)
+        models_to_keep_block_search = filter_model_to_keep(type_of_problem, block_search_only=True)
         self.models_to_keep_block_search = [m for m in models_to_keep_block_search if m in self.models_to_keep]
 
         return self.models_to_keep_block_search
