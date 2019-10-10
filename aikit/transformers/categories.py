@@ -185,16 +185,6 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
 
         self.variable_modality_mapping = {col: self.modalities_filter(X[col]) for col in self._columns_to_encode}
 
-        self._variable_modality_dict = {}
-        for col in self._columns_to_encode:
-            # ddict = defaultdict(lambda :-1, self.variable_modality_mapping[col])
-            ddict = dict(self.variable_modality_mapping[col])
-            if "__null__" in self.variable_modality_mapping[col]:
-                ddict[np.nan] = self.variable_modality_mapping[col]["__null__"]
-                ddict[None] = self.variable_modality_mapping[col]["__null__"]
-
-            self._variable_modality_dict[col] = ddict
-
         # Rmk : si on veut pas faire un encodage ou les variables sont par ordre croissant, on peut faire un randomization des numbre ici
 
         if self.encoding_type == "num":
@@ -266,9 +256,15 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
             return result
 
     def _transform_to_encode(self, X):
-        all_result_series = [
-            X[col].map(defaultdict(lambda: -1, self._variable_modality_dict[col])) for col in self._columns_to_encode
-        ]
+
+        all_result_series = []
+        for col, mapping in self.variable_modality_mapping.items():
+            default_value = -1 if "__default__" not in mapping else mapping["__default__"]
+            mapping = defaultdict(lambda: default_value, mapping)
+            if "__null__" in mapping:
+                mapping[np.nan] = mapping["__null__"]
+                mapping[None] = mapping["__null__"]
+            all_result_series.append(X[col].map(mapping))
 
         if self.encoding_type == "num":
             result = pd.concat(all_result_series, axis=1, ignore_index=True, copy=False).astype(np.int32)

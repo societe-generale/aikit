@@ -268,8 +268,7 @@ def test_NumericalEncoder_num_fit_parameters():
 
     np.random.seed(123)
     df = get_sample_df(100, seed=123)
-    ind = np.arange(len(df))
-    df.index = ind
+    df.index = np.arange(len(df))
 
     df["cat_col_1"] = df["text_col"].apply(lambda s: s[0:3])
     df["cat_col_2"] = df["text_col"].apply(lambda s: s[4:7])
@@ -335,6 +334,30 @@ def test_NumericalEncoder_num_fit_parameters():
     assert res["cat_col_1"].nunique() == 4
     assert res["cat_col_2"].nunique() == 4
     assert res["cat_col_3"].nunique() == 4
+
+
+def test_NumericalEncoder_default_and_null_values():
+    np.random.seed(123)
+    df = get_sample_df(100, seed=123)
+    df.index = np.arange(len(df))
+
+    df["cat_col_1"] = df["text_col"].apply(lambda s: s[0:3])
+    df.loc[0:10, "cat_col_1"] = None
+
+    # All modalities are kept, __null__ category is created
+    encoder = NumericalEncoder(encoding_type="num", min_modalities_number=2, max_cum_proba=0.8, max_na_percentage=0)
+
+    res = encoder.fit_transform(df)
+    assert '__default__' in encoder.model.variable_modality_mapping['cat_col_1']
+    assert '__null__' in encoder.model.variable_modality_mapping['cat_col_1']
+
+    df["cat_col_1"] = 'zzz' # Never seen value
+    res = encoder.transform(df)
+    assert res["cat_col_1"].unique()[0] == encoder.model.variable_modality_mapping['cat_col_1']['__default__']
+
+    df["cat_col_1"] = None
+    res = encoder.transform(df)
+    assert res["cat_col_1"].unique()[0] == encoder.model.variable_modality_mapping['cat_col_1']['__null__']
 
 
 def test_NumericalEncoder_with_boolean():
