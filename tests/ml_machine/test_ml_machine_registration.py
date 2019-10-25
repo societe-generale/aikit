@@ -39,11 +39,6 @@ def test_CountVectorizer_TextEncoder():
             assert hyper["ngram_range"] == 1
 
 
-def verif_all():
-    test_CountVectorizer_TextEncoder()
-    test_LGBMClassifier_Model()
-
-
 def test_hyper_init():
     np.random.seed(123)
     for model, hyper in MODEL_REGISTER.hyper_parameters.items():

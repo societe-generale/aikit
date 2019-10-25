@@ -135,7 +135,7 @@ The transformer includes also other capabilities to simplify encoding pipeline:
  - treating ``None`` has a special modality if many ``None`` are present,
  - if the columns are not specified, guess the columns to encode based on their type
  
- .. autoclass:: aikit.transformers_categories.NumericalEncoder
+ .. autoclass:: aikit.transformers.categories.NumericalEncoder
 
  
 CategoricalEncoder

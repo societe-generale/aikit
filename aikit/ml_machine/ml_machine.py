@@ -775,7 +775,7 @@ class RandomModelGenerator(object):
             else:
                 all_choices = [n for n in self.auto_ml_config.models_to_keep if n[0] == step["step"]]
 
-                # Peut etre qu'on veut enlever des choix ici pour certain steps
+                # Maybe we'd like to remove some choices here for some steps
 
             all_choices_by_steps.append([(step["step"], c) for c in all_choices])
 
