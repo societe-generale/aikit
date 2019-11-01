@@ -1676,36 +1676,6 @@ class JobManagerQueue(object):
         else:
             raise NotImplementedError("I don't know this job_type %s, please check the code" % job_type)
 
-            ########
-            # Test #
-            ########
-
-        #            temp_df = self.auto_ml_guider.result_reader.params_to_df(all_params1)
-        #            temp_df["metric_prediction"] = metric_prediction
-        #            temp_df["metric_std_prediction"] = np.sqrt(metric_variance_prediction)
-        #            temp_df["benchmark"] = benchmark
-        #
-        #            condboxplot("Model","metric_prediction",data = temp_df)
-        #            conddistplot("Model","metric_prediction",data = temp_df)
-        #            condboxplot("Model","metric_std_prediction",data = temp_df)
-        #
-        #            condboxplot("DimensionReduction","metric_std_prediction",data = temp_df.loc[temp_df["Model"] == "RandomForestClassifier",:])
-        #
-        #            condboxplot("DimensionReduction","metric_prediction",data = temp_df.loc[temp_df["Model"] == "RandomForestClassifier",:])
-        #            plt.cla()
-        #            condboxplot("DimensionReduction","metric_prediction",data = temp_df.loc[temp_df["Model"] == "LogisticRegression",:])
-        #
-        #            condboxplot("DimensionReduction","metric_prediction",data = temp_df.loc[temp_df["Model"] == "RandomForestClassifier",:])
-        #            conddistplot("DimensionReduction","metric_prediction",data = temp_df.loc[temp_df["Model"] == "RandomForestClassifier",:])
-        #
-        #            condboxplot("hasblock_TEXT","metric_prediction",data = temp_df.loc[temp_df["Model"] == "RandomForestClassifier",:])
-        ##            temp_df = pd.DataFrame({"model":models,"benchmark":benchmark})
-        ##            temp_df.groupby("model")["benchmark"].max()
-        ##            temp_df.groupby("model")["benchmark"].mean()
-        #
-        #            ii = temp_df["metric_prediction"] >= 0.85
-        ########
-
         #########################
         ### Approx or Full CV ###
         #########################
