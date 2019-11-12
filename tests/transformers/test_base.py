@@ -16,6 +16,8 @@ from sklearn.base import is_classifier, is_regressor
 from sklearn.exceptions import NotFittedError
 from sklearn.feature_extraction.text import CountVectorizer
 
+import pickle
+
 from tests.helpers.testing_help import get_sample_data, get_sample_df
 
 from aikit.tools.helper_functions import diff
@@ -429,6 +431,25 @@ def test_NumImputer_with_inf():
     assert not (Xenc.dtypes == "O").any()
 
     assert Xenc.isnull().sum().sum() == 0  # verif
+
+
+def test_NumImputer_is_picklable():
+    df = get_sample_df(100, seed=123)
+    df.loc[[2, 10, 50], "float_col"] = np.nan
+
+    imputer = NumImputer()
+    _ = imputer.fit_transform(df)
+
+    pickled_imputer = pickle.dumps(imputer)
+    
+    unpickled_imputer = pickle.loads(pickled_imputer)
+    
+    assert type(unpickled_imputer) == type(imputer)
+    X1 = imputer.transform(df)
+    X2 = unpickled_imputer.transform(df)
+    
+    assert X1.shape == X2.shape
+    assert (X1 == X2).all().all()
 
 
 def test_BoxCoxTargetTransformer_target_transform():

@@ -139,19 +139,20 @@ def test_AutoMlConfig(num_only):
     assert ("Model", "RandomForestClassifier") not in auto_ml_config.models_to_keep
     assert ("Model", "ExtraTreesClassifier") in auto_ml_config.models_to_keep
 
+
 def test_AutoMlConfig_change_type_of_problem():
 
     dfX, y, auto_ml_config = get_automl_config(True)
     assert auto_ml_config.type_of_problem == "CLASSIFICATION"
-    assert ('Model', 'RandomForestClassifier') in auto_ml_config.models_to_keep
-    assert ('Model', 'RandomForestRegressor')  not in auto_ml_config.models_to_keep    
+    assert ("Model", "RandomForestClassifier") in auto_ml_config.models_to_keep
+    assert ("Model", "RandomForestRegressor") not in auto_ml_config.models_to_keep
     with pytest.raises(ValueError):
         auto_ml_config.type_of_problem = "NOT_ALLOWED"
 
     auto_ml_config.type_of_problem = "REGRESSION"
     assert auto_ml_config.type_of_problem == "REGRESSION"
-    assert ('Model', 'RandomForestClassifier') not in auto_ml_config.models_to_keep    
-    assert ('Model', 'RandomForestRegressor')  in auto_ml_config.models_to_keep    
+    assert ("Model", "RandomForestClassifier") not in auto_ml_config.models_to_keep
+    assert ("Model", "RandomForestRegressor") in auto_ml_config.models_to_keep
 
 
 @pytest.mark.parametrize("num_only", [True, False])

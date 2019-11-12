@@ -14,6 +14,8 @@ from aikit.transformers import NumericalEncoder
 from aikit.transformers.categories import NumericalEncoder
 from tests.helpers.testing_help import get_sample_df
 
+import pickle
+
 try:
     import category_encoders
 except ModuleNotFoundError:
@@ -348,16 +350,16 @@ def test_NumericalEncoder_default_and_null_values():
     encoder = NumericalEncoder(encoding_type="num", min_modalities_number=2, max_cum_proba=0.8, max_na_percentage=0)
 
     res = encoder.fit_transform(df)
-    assert '__default__' in encoder.model.variable_modality_mapping['cat_col_1']
-    assert '__null__' in encoder.model.variable_modality_mapping['cat_col_1']
+    assert "__default__" in encoder.model.variable_modality_mapping["cat_col_1"]
+    assert "__null__" in encoder.model.variable_modality_mapping["cat_col_1"]
 
-    df["cat_col_1"] = 'zzz' # Never seen value
+    df["cat_col_1"] = "zzz"  # Never seen value
     res = encoder.transform(df)
-    assert res["cat_col_1"].unique()[0] == encoder.model.variable_modality_mapping['cat_col_1']['__default__']
+    assert res["cat_col_1"].unique()[0] == encoder.model.variable_modality_mapping["cat_col_1"]["__default__"]
 
     df["cat_col_1"] = None
     res = encoder.transform(df)
-    assert res["cat_col_1"].unique()[0] == encoder.model.variable_modality_mapping['cat_col_1']['__null__']
+    assert res["cat_col_1"].unique()[0] == encoder.model.variable_modality_mapping["cat_col_1"]["__null__"]
 
 
 def test_NumericalEncoder_with_boolean():
@@ -374,6 +376,24 @@ def test_NumericalEncoder_with_boolean():
     assert dfX_encoded["c__True"].dtype == np.int32
     assert dfX_encoded["c__False"].dtype == np.int32
 
+
+def test_NumericalEncoder_is_picklable():
+    np.random.seed(123)
+    df = get_sample_df(100, seed=123)
+    df.index = np.arange(len(df))
+
+    encoder = NumericalEncoder()
+    encoder.fit(df)
+
+    pickled_encoder = pickle.dumps(encoder)
+    unpickled_encoder = pickle.loads(pickled_encoder)
+    
+    assert type(unpickled_encoder) == type(encoder)
+    X1 = encoder.transform(df)
+    X2 = unpickled_encoder.transform(df)
+    
+    assert X1.shape == X2.shape
+    assert (X1 == X2).all().all()
 
 @pytest.mark.xfail()
 def test_bug_CategoryEncoder():

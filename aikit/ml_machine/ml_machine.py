@@ -321,7 +321,7 @@ class AutoMlConfig(object):
 
         if new_type_of_problem not in en.TypeOfProblem.alls:
             raise ValueError("'type_of_problem' should be among %s" % str(en.TypeOfProblem.alls))
-            
+
         old_type_of_problem = self._type_of_problem
 
         if old_type_of_problem != new_type_of_problem:
@@ -514,7 +514,7 @@ class AutoMlConfig(object):
     ### models to keep for block search ###
     #######################################
     def guess_models_to_keep_block_search(self, type_of_problem=None):
-        
+
         if type_of_problem is None:
             type_of_problem = self._type_of_problem
 

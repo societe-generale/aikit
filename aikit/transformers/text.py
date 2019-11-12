@@ -19,7 +19,6 @@ try:
     import nltk
 except ImportError:
     nltk = None
-    print("I wont be able to import NLTK")
 import re
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
@@ -214,12 +213,12 @@ class TextNltkProcessing(AbstractTextProcessor):
 
             if self.remove_stopwords:
                 if self.STOPOWORDS is None:
-                    raise ValueError("I couldn't load NLTK stopswords")
+                    raise ValueError("I couldn't load NLTK stopswords, please make sure it is available and/or install nltk")
                 words = [word for word in words if word not in self.STOPOWORDS]
 
             if self.stem:
                 if self.STEMMER is None:
-                    raise ValueError("I couldn't load NLTK stemmer")
+                    raise ValueError("I couldn't load NLTK stemmer, please make sure it is available and/or install nltk")
                 words = [self.STEMMER.stem(word) for word in words]
 
             return " ".join(words)

@@ -8,6 +8,8 @@ Created on Fri Sep 14 12:01:47 2018
 import pandas as pd
 import numpy as np
 
+import pickle
+
 from tests.helpers.testing_help import get_sample_df
 from aikit.transformers.target import TargetEncoderClassifier, TargetEncoderEntropyClassifier, TargetEncoderRegressor
 
@@ -79,6 +81,26 @@ def test_TargetEncoderRegressor():
             assert (res.index == df.index).all()
             assert encoder.model._columns_to_encode == ["cat_col"]
             assert encoder.model._columns_to_keep == ["float_col", "int_col", "text_col"]
+
+
+def test_TargetEncoderRegressor_is_picklable():
+    df = get_sample_df(100)
+    df["cat_col"] = df["text_col"].apply(lambda s: s[0:3])
+    np.random.seed(123)
+    y = np.random.randn(100)
+
+    encoder = TargetEncoderRegressor(cv=2)
+    encoder.fit(df, y)
+
+    pickled_encoder = pickle.dumps(encoder)
+    unpickled_encoder = pickle.loads(pickled_encoder)
+    
+    assert type(unpickled_encoder) == type(encoder)
+    X1 = encoder.transform(df)
+    X2 = unpickled_encoder.transform(df)
+    
+    assert X1.shape == X2.shape
+    assert (X1 == X2).all().all()
 
 
 def test_TargetEncoderClassifier():
@@ -187,6 +209,26 @@ def test_TargetEncoderClassifier():
             assert (res.index == df.index).all()
             assert encoder.model._columns_to_encode == ["cat_col"]
             assert encoder.model._columns_to_keep == ["float_col", "int_col", "text_col"]
+
+
+def test_TargetEncoderClassifier_is_picklable():
+    df = get_sample_df(100)
+    df["cat_col"] = df["text_col"].apply(lambda s: s[0:3])
+    np.random.seed(123)
+    y = 1 * (np.random.randn(100) > 0)
+
+    encoder = TargetEncoderClassifier(cv=2)
+    encoder.fit(df, y)
+
+    pickled_encoder = pickle.dumps(encoder)
+    unpickled_encoder = pickle.loads(pickled_encoder)
+    
+    assert type(unpickled_encoder) == type(encoder)
+    X1 = encoder.transform(df)
+    X2 = unpickled_encoder.transform(df)
+    
+    assert X1.shape == X2.shape
+    assert (X1 == X2).all().all()
 
 
 def test_target_encoder_with_cat_dtypes():
