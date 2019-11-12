@@ -1,35 +1,8 @@
-.. _ml_machine_details:
-
-Ml Machine Overview
-===================
-
-aikit proposes a tool to automatically search among machine learning models and preprocessings to find the best one(s).
-
-To do that the algorithm needs an 'X' DataFrame and a target 'y' and that is it. The algorithm starts to guess everything that is needed:
-
- * the type of problem (regression, classification)
- * the type of each variable (categorical, text or numerical)
- * the models/transformers to use
- * the scorer to use
- * the type of cross-validation to use
- * ...
- 
-Everything can be overrided by the the user if needed.
-(See detailed doc after).
-
-A folder also needs to be set because everything will transit on disk and be saved in that folder.
-
-Once everything is set a job controller should be launched. Its job will be to create new models to try.
-Then, one (or more) workers should be launched to actually do the job and test the model.
+.. _ml_machine_manual:
 
 
-Here is more or less what goes on:
-
- 1. the controller creates a random model (see detailed after)
- 2. one worker picks up that model and cross validates it
- 3. the controller picks up the result to help drive the random search
- 4. after a while the result can be aggregated to choose the model
- 
+Auto ML Manual Launch
+=====================
  
 Simple Launch
 -------------
