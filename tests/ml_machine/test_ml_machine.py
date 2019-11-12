@@ -236,7 +236,7 @@ def test_RandomModelGenerator_iterator(type_of_iterator, num_only):
         assert hasattr(Graph, "nodes")
 
         assert isinstance(all_models_params, dict)
-        for node in Graph.node:
+        for node in Graph.nodes:
             assert node in all_models_params
 
         assert isinstance(block_to_use, (tuple, list))
@@ -371,7 +371,7 @@ def test_RandomModelGenerator_random(num_only, specific_hyper, only_random_fores
         assert hasattr(Graph, "nodes")
 
         assert isinstance(all_models_params, dict)
-        for node in Graph.node:
+        for node in Graph.nodes:
             assert node in all_models_params
 
         assert isinstance(block_to_use, (tuple, list))
