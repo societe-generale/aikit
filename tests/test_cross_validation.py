@@ -934,6 +934,18 @@ class DummyModelCheckFitParams(RegressorMixin, BaseEstimator):
     def predict(self, X):
         return X[:, 0]
 
+class DummyModelCheckSampleWeight(RegressorMixin, BaseEstimator):
+    def __init__(self):
+        pass
+
+    def fit(self, X, y, sample_weight=None):
+        if sample_weight is not None:
+            assert X.shape[0] == sample_weight.shape[0] 
+        return self
+
+    def predict(self, X):
+        return X[:, 0]
+
 
 class DummyModelWithApprox(RegressorMixin, BaseEstimator):
     def __init__(self, check_kwargs=False):
@@ -975,6 +987,44 @@ class DummyModelWithApprox(RegressorMixin, BaseEstimator):
             return cv_res, X[:, 1]
         else:
             return cv_res
+        
+def test_cross_validation_sample_weight():
+    X, y = make_classification(n_samples=100, random_state=123)
+    sample_weight = np.ones(y.shape[0])
+    
+    estimator = DummyModelCheckSampleWeight()
+    estimator.fit(X, y, sample_weight=sample_weight)
+
+    cv_res, yhat = cross_validation(
+        estimator,
+        X,
+        y,
+        cv=10,
+        no_scoring=True,
+        return_predict=True,
+        method="predict",
+        fit_params={"sample_weight":sample_weight}
+    )
+    
+    # I just need to check that it works
+    assert yhat.shape[0] == y.shape[0]
+    
+    
+    estimator = DummyModelCheckSampleWeight()
+    estimator.fit(X, y)
+
+    cv_res, yhat = cross_validation(
+        estimator,
+        X,
+        y,
+        cv=10,
+        no_scoring=True,
+        return_predict=True,
+        method="predict"
+    )
+    
+    # I just need to check that it works
+    assert yhat.shape[0] == y.shape[0]
 
 
 @pytest.mark.parametrize("approximate_cv", [True, False])

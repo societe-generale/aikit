@@ -18,6 +18,8 @@ from joblib import Parallel, delayed
 
 import sklearn.model_selection
 from sklearn.model_selection._split import BaseCrossValidator, _num_samples, train_test_split
+from sklearn.model_selection._validation import _index_param_value
+
 import sklearn.base
 
 from aikit.tools.helper_functions import function_has_named_argument
@@ -266,7 +268,11 @@ def _compute_one_fold(
         index_test = X_test.index
     else:
         index_test = test
-
+        
+    fit_params = fit_params if fit_params is not None else {}
+    fit_params = {k: _index_param_value(X, v, train)
+                  for k, v in fit_params.items()}
+    # Try to subset the fit_params if that is possible, Ex : 'sample_weight=np.array(....)' should be subsetted but not 'epochs=10'
     start_fit = time()
 
     ### Fit estimator ###
