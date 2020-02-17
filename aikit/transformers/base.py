@@ -1241,18 +1241,6 @@ class BoxCoxTargetTransformer(_TargetTransformer):
             return np.sign(my) * (np.exp(np.log1p(self.ll * np.abs(my)) / self.ll) - 1)
 
 
-# def column_iterate(X, type_of_data = None):
-#    if type_of_data is None:
-#        type_of_data = get_type(X)
-#
-#    if type_of_data in (DataTypes.DataFrame,DataTypes.NumpyArray):
-#        for column in X.columns:
-#            yield column,X[column]
-#
-#    elif type_of_data in (DataTypes.NumpyArray, DataTypes.SparseArray):
-#        for j in range(X.shape[1]):
-#            yield j,X[:,j]
-
 # In[]
 def _gen_column_iterator(X, type_of_data=None):
     """ generic column interator, helper to iterator if the column of a data object """
