@@ -460,7 +460,7 @@ def test_convert_graph_to_code():
     ## ** 1 composition with several nodes bellow ** ##
     ###################################################
     Graph = nx.DiGraph()
-    # TODO : essayer de faire un stacking avec plusieurs trucs en dessous
+    # TODO : try to do a stacking with several things bellow
     Graph.add_edge(
         ("Stacking", ("Stacking", "StackingClassifierRegressor")), ("Model", ("Model", "RandomForestClassifier"))
     )

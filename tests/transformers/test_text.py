@@ -162,6 +162,16 @@ def test_CountVectorizerWrapper_output_type():
     res = vect.fit_transform(pd.DataFrame({"a": ["AA", "AAA", "bb"], "b": ["xxx", "zzz", "xxx"]}))
     assert res.dtype == "int64"
 
+def test_CountVectorizerWrapper_few_sample():
+    Xtrain = load_dataset("titanic")[0]
+
+    vect = CountVectorizerWrapper(min_df=1)
+
+    X = Xtrain.loc[0:10,["name","ticket"]]
+    Xres = vect.fit_transform(X)
+    
+    assert Xres.shape[0] == 11
+    
 
 def test_text_digit_anonymizer():
     transformer = TextDigitAnonymizer()
@@ -170,12 +180,26 @@ def test_text_digit_anonymizer():
     assert df_transformed is not None
     assert df_transformed.values.tolist() == [["AAA", "A###"]]
 
-    try:
+    with pytest.raises(TypeError):
         transformer.fit_transform(pd.DataFrame(data=[[11354]]))
-        pytest.fail("transform on non text data should fail with a TypeError")
-    except TypeError:
-        pass
 
+
+
+def test_Word2VecVectorizer_few_sample():
+    Xtrain = load_dataset("titanic")[0]
+
+    vect = Word2VecVectorizer(text_preprocess="nltk", same_embedding_all_columns=False, min_count=1)
+
+    X = Xtrain.loc[0:10,["name","ticket"]]
+    Xres = vect.fit_transform(X)
+    # Fails : RunTimeError : vocab is not setted ... Too few words maybe ?
+    assert Xres.shape[0] == X.shape[0]
+    assert Xres.isnull().sum().sum() == 0
+
+    X = Xtrain.loc[:,["name","ticket"]]
+    Xres = vect.fit_transform(X)
+    assert Xres.shape[0] == X.shape[0]
+    assert Xres.isnull().sum().sum() == 0
 
 @pytest.mark.skipif(Word2Vec is None, reason="gensim isn't installed")
 def test_Word2VecVectorizer():
@@ -193,7 +217,9 @@ def test_Word2VecVectorizer():
     assert list(Xres.columns) == vect.get_feature_names()
 
     ### keep mode ###
-    vect = Word2VecVectorizer(columns_to_use=["text_col"], window=100, keep_other_columns="keep")
+    vect = Word2VecVectorizer(
+        columns_to_use=["text_col"], window=100, drop_unused_columns=False, drop_used_columns=False
+    )
     vect.fit(df)
 
     Xres = vect.transform(df)
@@ -207,7 +233,9 @@ def test_Word2VecVectorizer():
     assert (Xres.loc[:, cols] == df.loc[:, cols]).all().all()
 
     ### delta mode ###
-    vect = Word2VecVectorizer(columns_to_use=["text_col"], window=100, keep_other_columns="delta")
+    vect = Word2VecVectorizer(
+        columns_to_use=["text_col"], window=100, drop_unused_columns=False, drop_used_columns=True
+    )
     vect.fit(df)
 
     Xres = vect.transform(df)

@@ -7,11 +7,13 @@ Created on Fri Sep 14 11:59:39 2018
 
 import pytest
 
+import itertools
 import numpy as np
 import pandas as pd
 
 from aikit.transformers import NumericalEncoder
-from aikit.transformers.categories import NumericalEncoder
+
+# from aikit.transformers.categories import NumericalEncoder
 from tests.helpers.testing_help import get_sample_df
 
 import pickle
@@ -39,18 +41,18 @@ def test_NumericalEncoder_dummy_output_dtype():
 
 
 def test_NumericalEncoder_with_cat_dtypes():
+    np.random.seed(123)
     X = get_sample_df(100)
     X["cat_col_1"] = X["text_col"].apply(lambda s: s[0:3])
-    y = 1 * (np.random.randn(100) > 0)
-    np.random.seed(123)
 
-    encoder = NumericalEncoder()
+    encoder = NumericalEncoder(columns_to_use=["cat_col_1"])
     X_no_cat_dtype_encoded = encoder.fit_transform(X)
 
     X_cat_dtype = X.copy()
     X_cat_dtype["cat_col_1"] = X_cat_dtype["cat_col_1"].astype("category")
     X_with_cat_dtype_encoded = encoder.fit_transform(X_cat_dtype)
 
+    assert X_with_cat_dtype_encoded.shape == X_no_cat_dtype_encoded.shape
     assert (X_with_cat_dtype_encoded == X_no_cat_dtype_encoded).all().all()
     assert (X_with_cat_dtype_encoded.dtypes == X_no_cat_dtype_encoded.dtypes).all()
 
@@ -82,7 +84,7 @@ def test_NumericalEncoder_encode_int():
     df = get_sample_df(100)[["float_col"]]
     df["int_col"] = np.random.choice((0, 1, 2), 100)
 
-    encoder = NumericalEncoder(columns_to_encode=["int_col"])
+    encoder = NumericalEncoder(columns_to_use=["int_col"])
     df_transformed = encoder.fit_transform(df)
 
     df_copy = df.copy()
@@ -104,7 +106,7 @@ def test_NumericalEncoder_columns_to_encode_object():
     dfX["object_column"] = ["string_%2.4f" % x for x in dfX["col_0"]]
 
     # with --object--
-    encoder = NumericalEncoder(columns_to_encode="--object--")
+    encoder = NumericalEncoder(columns_to_use="object")
     dfX_enc = encoder.fit_transform(dfX)
 
     assert not (dfX_enc.dtypes == "object").any()
@@ -149,7 +151,6 @@ def test_NumericalEncoder_dummy():
     assert col1 == encoder.columns_mapping["cat_col_1"]
     assert col2 == encoder.columns_mapping["cat_col_2"]
 
-    assert encoder.get_feature_names() == encoder.model._feature_names
     assert encoder.get_feature_names() == col + col1 + col2
 
     assert (res.loc[:, col1 + col2]).isnull().sum().sum() == 0
@@ -245,7 +246,6 @@ def test_NumericalEncoder_num():
     assert res.shape == df.shape
     assert (res.index == df.index).all()
 
-    assert encoder.get_feature_names() == encoder.model._feature_names
     assert encoder.get_feature_names() == list(res.columns)
 
     df2 = df.copy()
@@ -377,10 +377,76 @@ def test_NumericalEncoder_with_boolean():
     assert dfX_encoded["c__False"].dtype == np.int32
 
 
-def test_NumericalEncoder_is_picklable():
-    np.random.seed(123)
-    df = get_sample_df(100, seed=123)
-    df.index = np.arange(len(df))
+@pytest.mark.parametrize(
+    "drop_used_columns, drop_unused_columns, columns_to_use",
+    list(itertools.product((True, False), (True, False), ("all", "object", ["num1", "num2", "num3"]))),
+)
+def test_NumericalEncoder_drop_used_unused_columns(drop_used_columns, drop_unused_columns, columns_to_use):
+    # This test will verify the behavior of the encoder regarding the fact to drop or keep the use/unused columns
+
+    df = pd.DataFrame(
+        {
+            "obj1": ["a", "b", "c", "d"] * 25,
+            "obj2": ["AA", "BB"] * 50,
+            "num1": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 10,
+            "num2": [100, 101, 102, 103, 104] * 20,
+            "num3": [0.01, 0.02, 0.03, 0.04, 0.05] * 20,
+        }
+    )
+
+    df1 = df.loc[0:20,]
+    df2 = df.loc[20:]
+
+    # for drop_used_columns, drop_unused_columns, columns_to_use in list(itertools.product((True,False),(True,False),("all","object",["num1","num2","num3"]))):
+
+    resulting_columns = {col: ["%s__%s" % (col, str(v)) for v in df[col].value_counts().index] for col in df.columns}
+
+    if columns_to_use == "all":
+        cols = list(df.columns)
+    elif columns_to_use == "object":
+        cols = list(df.columns[df.dtypes == "object"])
+    else:
+        cols = columns_to_use
+
+    if drop_used_columns:
+        columns_A = []
+    else:
+        columns_A = cols
+
+    columns_B = []
+    for c in cols:
+        columns_B += resulting_columns[c]
+
+    if drop_unused_columns:
+        columns_C = []
+    else:
+        columns_C = [c for c in df.columns if c not in cols]
+
+    final_columns = columns_A + columns_C + columns_B
+
+    encoder = NumericalEncoder(
+        columns_to_use=columns_to_use, drop_used_columns=drop_used_columns, drop_unused_columns=drop_unused_columns
+    )
+
+    df1_transformed = encoder.fit_transform(df1)
+    df2_transformed = encoder.transform(df2)
+
+    assert df1_transformed.shape[0] == df1.shape[0]
+    assert df2_transformed.shape[0] == df2.shape[0]
+    assert type(df1_transformed) == type(df1)
+    assert type(df2_transformed) == type(df2)
+    assert (df1_transformed.index == df1.index).all()
+    assert (df2_transformed.index == df2.index).all()
+
+    assert df1_transformed.shape[1] == df2_transformed.shape[1]
+    assert list(df1_transformed.columns) == list(df2_transformed.columns)
+
+    assert len(df1_transformed.columns) == len(final_columns)
+    assert set(df1_transformed) == set(final_columns)
+
+
+#    assert list(df1_transformed.columns) == final_columns
+
 
     encoder = NumericalEncoder()
     encoder.fit(df)

@@ -10,84 +10,137 @@ import re
 # from scipy import sparse
 import numpy as np
 import pandas as pd
+import scipy.sparse as sps
 
 from sklearn.base import TransformerMixin, BaseEstimator
-from sklearn.utils.metaestimators import if_delegate_has_method
 
 from aikit.enums import DataTypes
 from aikit.tools.helper_functions import intersect, diff, exception_improved_logging
 
 import aikit.tools.data_structure_helper as dsh
 from aikit.tools.helper_functions import function_has_named_argument
+from aikit.tools.db_informations import guess_type_of_variable, TypeOfVariables
 
 from sklearn.exceptions import NotFittedError
 
 
 class ColumnsSelector(TransformerMixin, BaseEstimator):
     """ sklearn Transformer to select columns
-    
+
     Parameters
     ----------
-    columns_to_use : list of str (or int), or None
-        the columns to keep, if None (everything)
+    columns_to_use : list of str (or int), or "all" or list of type
+        the columns to keep.
+        if 'all' : keep everything
+        if list of columns : keep the list of columns (by name)
+        if list of int : keep the list of columns (by index)
+        otherwise the type to select (Ex : 'object'). Usage of pd.select_dtypes
             
-    columns_to_drop : list of str (or int), or None
-        the columns to drop, if None (nothing)
+    columns_to_drop : list of str (or int), or "all" or list of type
+        the columns NOT TO keep.
+        Same format as 'columns_to_use' but the columns that will be kept are the columns NOT defined by this attribute
 
     regex_match : boolean, default = False
         if True will use regex to find the columns to use, otherwise will use exact match
-    
+        
+    raise_if_shape_differs : boolean, default = True
+        if True will raise an error if the shape of the data is different in transform from in fit
+
     """
 
-    def __init__(self, columns_to_use=None, columns_to_drop=None, regex_match=False):
+    def __init__(self, columns_to_use="all", columns_to_drop=None, regex_match=False, raise_if_shape_differs=True):
 
         self.columns_to_use = columns_to_use
         self.columns_to_drop = columns_to_drop
 
         self.regex_match = regex_match
+        self.raise_if_shape_differs = raise_if_shape_differs
 
         self._already_fitted = False
 
     @staticmethod
-    def convert_to_list(cols_list):
-        """ helper function to make sure something is a list """
-        if isinstance(cols_list, str):
-            return [cols_list]
+    def _get_list_of_columns(columns, X, regex_match=False):
+        """ retrieve the corresponding list of columns from the specified 'columns' attribute given by the user """
 
-        elif isinstance(cols_list, int):
-            return [cols_list]
+        if columns is None:
+            list_columns = []
 
-        elif isinstance(cols_list, np.ndarray):
+        elif isinstance(columns, str) and columns == "all":
+            # 'columns' == 'all' ==> we keep all the columns
+            list_columns = None
 
-            if cols_list.ndim != 1:
-                raise ValueError("columns_to_use should be a list of columns")
+        elif isinstance(columns, str):
 
-            return list(cols_list)
+            if not isinstance(X, pd.DataFrame):
+                raise TypeError(
+                    "X should be a DataFrame when 'columns_to_use' or 'columns_to_drop' is a string : %s" % columns
+                )
 
-        elif isinstance(cols_list, (list, tuple)):
-            return list(cols_list)
+            if regex_match:
+                raise ValueError(
+                    "regex_match is True doesn't mean anything when 'columns' is a type : %s" % str(columns)
+                )
 
+            if columns in TypeOfVariables.alls:
+                list_columns = [c for c in X.columns if guess_type_of_variable(X[c]) == columns]
+            else:
+                list_columns = list(X.select_dtypes(include=columns).columns)
+
+        elif isinstance(columns, list):
+            list_columns = columns
+
+        elif isinstance(columns, np.ndarray):
+            if columns.ndim != 1:
+                raise TypeError("'columns_to_use' or 'columns_to_drop' should be a 1 dimensional array")
+
+            list_columns = columns
         else:
-            raise ValueError("I don't know how to treat columns_to_use")
+            raise TypeError(
+                "'columns_to_use' or 'columns_to_drop' should be either a string or a list and not %s"
+                % str(type(columns))
+            )
+
+        return list_columns
 
     def fit(self, X, y=None):
         self._expected_type = dsh.get_type(X)
         self._expected_nbcols = dsh._nbcols(X)
 
+        ######################################
+        ### Special case : keep everything ###
+        ######################################
+        self._return_data_as_inputed = False
+        if isinstance(self.columns_to_use, str) and self.columns_to_use == "all" and self.columns_to_drop is None:
+            self._already_fitted = True
+            self._columns_to_use_is_integer = True
+            self._final_columns_to_use = list(range(X.shape[0]))
+            self._return_data_as_inputed = True
+            if self._expected_type in (DataTypes.DataFrame, DataTypes.SparseDataFrame):
+                self._Xcolumns = list(X.columns)
+            else:
+                self._Xcolumns = list(range(self._expected_nbcols))
+
         ### Columns to use ###
-        if self.columns_to_use is None:
-            list_columns_to_use = None  # [i for i in range(self._expected_nbcols)]
-        else:
-            list_columns_to_use = self.convert_to_list(cols_list=self.columns_to_use)
+        list_columns_to_use = self._get_list_of_columns(columns=self.columns_to_use, X=X, regex_match=self.regex_match)
+        list_columns_to_drop = self._get_list_of_columns(
+            columns=self.columns_to_drop, X=X, regex_match=self.regex_match
+        )
 
-        ### Columns to drop ###
-        if self.columns_to_drop is None:
-            list_columns_to_drop = None
-        else:
-            list_columns_to_drop = self.convert_to_list(cols_list=self.columns_to_drop)
-
+        #################################
+        ### Special case : no columns ###
+        #################################
         if list_columns_to_use is not None and len(list_columns_to_use) == 0:
-            raise ValueError("columns_to_use is empty")
+            # This means that there is nothing to do : no columns will be kept
+            self._already_fitted = True
+            self._columns_to_use_is_integer = True
+            self._final_columns_to_use = []
+
+            if self._expected_type in (DataTypes.DataFrame, DataTypes.SparseDataFrame):
+                self._Xcolumns = list(X.columns)
+            else:
+                self._Xcolumns = list(range(self._expected_nbcols))
+
+            return self
 
         ### What is the type of columns_to_use and columns_to_drop :
         if list_columns_to_use is not None:
@@ -104,7 +157,7 @@ class ColumnsSelector(TransformerMixin, BaseEstimator):
         if is_int is not None and is_int_to_drop is not None:
             if is_int != is_int_to_drop:
                 raise ValueError(
-                    "Please be consistent between columns_to_use and columns_to_drop, both can be integer or str, but they should have the same type"
+                    "Please be consistent between 'columns_to_use' and 'columns_to_drop', both can be integer or str, but they should have the same type"
                 )
 
         if is_int is None and is_int_to_drop is None:
@@ -151,6 +204,9 @@ class ColumnsSelector(TransformerMixin, BaseEstimator):
 
                     final_columns_to_use = diff(final_columns_to_use, list_columns_to_drop)
 
+                else:
+                    final_columns_to_use = []
+
             else:
 
                 #############################################
@@ -164,7 +220,7 @@ class ColumnsSelector(TransformerMixin, BaseEstimator):
                         cols_that_match = []
                         for col in list(X.columns):
                             for r in list_columns_to_use:
-                                if re.search(r, col) is not None:
+                                if re.search(r, col) is not None:  # TODO : allow a compiled regex
                                     cols_that_match.append(col)
                                     break
 
@@ -172,7 +228,7 @@ class ColumnsSelector(TransformerMixin, BaseEstimator):
                         cols_that_match_drop = []
                         for col in list(X.columns):
                             for r in list_columns_to_drop:
-                                if re.search(r, col) is not None:
+                                if re.search(r, col) is not None:  # TODO : allow a compiled regex
                                     cols_that_match_drop.append(col)
                                     break
 
@@ -208,9 +264,12 @@ class ColumnsSelector(TransformerMixin, BaseEstimator):
 
                         final_columns_to_use = diff(final_columns_to_use, list_columns_to_drop)
 
+                    else:
+                        final_columns_to_use = []
+
         else:
 
-            if is_int:
+            if is_int or is_int is None:
                 ##########################################
                 ### Case 3 : Array + Integer selection ###
                 ##########################################
@@ -242,6 +301,8 @@ class ColumnsSelector(TransformerMixin, BaseEstimator):
                             raise ValueError("Column %d isn't in the columns of the DataFrame" % l)
 
                     final_columns_to_use = diff(final_columns_to_use, list_columns_to_drop)
+                else:
+                    final_columns_to_use = []
 
             else:
                 #########################################
@@ -275,10 +336,14 @@ class ColumnsSelector(TransformerMixin, BaseEstimator):
                 "I don't have the correct type as input, expected : %s, got : %s" % (self._expected_type, Xtype)
             )
 
-        if self._expected_nbcols != Xnbcols:
+        if self.raise_if_shape_differs and self._expected_nbcols != Xnbcols:
             raise ValueError(
                 "I don't have the correct number of columns, expected : %d, got : %d" % (self._expected_nbcols, Xnbcols)
             )
+            # TODO : remove that check in some cases
+
+        if self._return_data_as_inputed:
+            return X  # So no copy is made
 
         if self._expected_type in (DataTypes.DataFrame, DataTypes.SparseDataFrame):
             if self._columns_to_use_is_integer:
@@ -305,8 +370,10 @@ class ColumnsSelector(TransformerMixin, BaseEstimator):
                 for l in self._final_columns_to_use:
                     if l not in set_col:
                         raise ValueError("Column %d isn't in the column of the DataFrame" % l)
-
-                return X[:, self._final_columns_to_use]
+                if isinstance(X, sps.coo_matrix):
+                    return X.tocsc()[:, self._final_columns_to_use].tocoo()  # because COO matrix are not subscriptable
+                else:
+                    return X[:, self._final_columns_to_use]
 
             else:
                 raise ValueError("columns_to_use must be integers when type if array or sparseArray")
@@ -347,9 +414,8 @@ def _concat(*args, sep="__"):
 
 
 def try_to_find_features_names(model, input_features=None):
-    # TODO : il faudrait que ca prenne en entree un champs 'input_features_names' a passer a get_features_names
-    # TODO : il faut tester si le model accept 'input_features_names'
-    # TODO : il faudrait que pour les pipelines ca iter avec 'input_features_names' = get_features_names(last step)
+
+    # TODO : for pipeline needs to iterate with 'input_features_names' = get_features_names(last step)
 
     if hasattr(model, "get_feature_names"):
         # It already has a 'get_feature_names' method
@@ -517,11 +583,15 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         indicate that the transformer doesn't change the column (for example a StandardScaler)
         if that is the case you know that the resulting feature are the input feature
 
-    keep_other_columns : string, default = 'drop'
-        choices : 'keep','drop','delta'.
-        If 'keep'  : the original columns are kept     => result = columns + transformed columns
-        If 'drop'  : the original columns are dropped  => result = transformed columns
-        If 'delta' : only the original columns not used in transformed are kept => result = un-touched original columns + transformed columns
+    drop_used_columns : boolean, default=True
+        what to do with the ORIGINAL columns that were transformed.
+        If False, will keep them in the result (un-transformed)
+        If True, only the transformed columns are in the result
+        
+    drop_unused_columns: boolean, default=True
+        what to do with the column that were not used.
+        if False, will drop them
+        if True, will keep them in the result
         
     regex_match : boolean, default = False
         if True will use a regex to match columns otherwise exact match
@@ -538,7 +608,8 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         desired_output_type,
         must_transform_to_get_features_name,
         dont_change_columns,
-        keep_other_columns="drop",
+        drop_used_columns=True,
+        drop_unused_columns=True,
         regex_match=False,
     ):
 
@@ -564,7 +635,8 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         )  # if True I'll transform in the fit to get the feature names
         self.dont_change_columns = dont_change_columns
 
-        self.keep_other_columns = keep_other_columns
+        self.drop_used_columns = drop_used_columns
+        self.drop_unused_columns = drop_unused_columns
 
         self._model = None
         self._models = None
@@ -603,7 +675,6 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
 
             return self._models
 
-    # self.keep_other_columns = keep_other_columns
     # What to do with the other columns
     def _get_model(self, X, y):
         """ method used to delay the creation of the model until after X and y are known
@@ -614,12 +685,25 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         """
         raise NotImplementedError("Must be coded in inherited classes")
 
+    @exception_improved_logging
+    def _get_default_columns_to_use(self, X, y=None):
+        """method to retrieve the default columns to use for that transformer,
+        will be call if 'columns_to_use'='auto'
+        """
+        raise ValueError("I can't use 'columns_to_use'='auto' on that model, please specify columns_to_use")
+
     def _verif_params(self):
         # Model
         # for m in ("fit","fit_transform","transform"):
         #    if not hasattr(self._model,m):
         #        raise ValueError("model should have a '%s' method" % m)
-        for attr in ("work_on_one_column_only", "all_columns_at_once", "dont_change_columns"):
+        for attr in (
+            "work_on_one_column_only",
+            "all_columns_at_once",
+            "dont_change_columns",
+            "drop_used_columns",
+            "drop_unused_columns",
+        ):
             if not isinstance(getattr(self, attr), bool):
                 raise TypeError("%s should be boolean" % attr)
 
@@ -631,82 +715,79 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
                 if t not in DataTypes.alls:
                     raise ValueError("accepted_input_types should be within DataTypes, instead I got '%s'" % t)
 
-    def _get_rest_columns(self, input_features=None):
-        """ retrieve the name of the feature for the untransformed part on the data """
-
-        if self.keep_other_columns == "keep":
-            if input_features is None:
-                return self._Xcolumns
-            else:
-                return input_features
-
-        elif self.keep_other_columns == "drop":
-            return []
-
-        else:
-            if self.columns_to_use is None:
-                return []
-            else:
-                return self.anti_selector.get_feature_names(input_features)
-
     def _fit_transform_rest(self, X, transformed_part, is_fit, is_transform):
-        """ method to take care of the rest of data, that wasn't transformed,
-        it can either be 
-        * dropped (default) :  'keep_other_columns' == 'drop'
-        * kept as is        :  'keep_other_columns' == 'keep'
-        * keep only not used columns 'keep_other_columns' == 'delta'
+        """ 
+        method to take care of the what to do with wasn't transformed, there are 2 part of the data:
+            * the part that was used by the transformer : columns_to_use
+            * the part that wasn't used by the transformer : the rest
 
+        We can keep or drop those 2 parts
         """
-        if self.keep_other_columns == "keep":
-            # In that case I'll keep the original columns as well
-            if is_fit:
-                if hasattr(X, "columns"):
-                    self._Xcolumns = list(getattr(X, "columns"))
-                elif hasattr(X, "shape"):
-                    self._Xcolumns = [i for i in range(X.shape[1])]
-                else:
-                    self._Xcolumns = None
+        #        There are four possibilities :
+        #            * drop_unused_columns = True and drop_used_columns = True
+        #                => nothing to do. Nothing to ADD to the result of the wrapped transformer
+        #
+        #            * drop_unused_columns = True and drop_used_columns = False
+        #                => We need to add the 'un-transformed' data to the result
+        #                => Add an 'anti-selector' with 'columns_to_drop' = 'columns_to_use'
+        #                   This will selector the rest of the columns
+        #
+        #            * drop_unused_columns = False and drop_used_columns = True
+        #                => We need to add the 'transformed' part of the data
+        #                => Add a 'selector' : with 'columns_to_use' = 'columns_to_use'
+        #
+        #           * drop_unused_columns = False and drop_used_columns = True
+        #                => We need to add the full data
+        #                => ... don't add a selector (or a selector with columns_to_use = None)
+        #
+        #
+        if is_fit:
+            self.other_selector = None
 
+        if self.drop_unused_columns and self.drop_used_columns:
+            # Nothing to do
             if is_transform:
-                kept_features_names = self._get_rest_columns()
-                Xcomplete_result = dsh.generic_hstack(
-                    [X, transformed_part],
-                    output_type=self.desired_output_type,
-                    all_columns_names=[kept_features_names, self._feature_names_for_transform],
-                )
-
-                return Xcomplete_result
+                return transformed_part
             else:
-                return self
+                return None
 
-        elif self.keep_other_columns == "drop":
+        if is_fit:
 
-            return None
+            if hasattr(X, "columns"):
+                self._Xcolumns = list(getattr(X, "columns"))
+            elif hasattr(X, "shape"):
+                self._Xcolumns = [i for i in range(X.shape[1])]
+            else:
+                self._Xcolumns = None
 
-        # "delta' mode, I'll keep only the columns that were not used
-        if self.columns_to_use is None:
-            return transformed_part
+            if not self.drop_used_columns and self.drop_unused_columns:
+                self.other_selector = ColumnsSelector(columns_to_use=self.columns_to_use, regex_match=self.regex_match)
+
+            elif self.drop_used_columns and not self.drop_unused_columns:
+                self.other_selector = ColumnsSelector(columns_to_drop=self.columns_to_use, regex_match=self.regex_match)
+
+            elif not self.drop_used_columns and not self.drop_unused_columns:
+                self.other_selector = ColumnsSelector(columns_to_use="all")
+                # Maybe we  can 'by-pass' this
+            else:
+                self.other_selector = None  # we never go there, already out of the function
 
         if is_fit and is_transform:
-            self.anti_selector = ColumnsSelector(columns_to_drop=self.columns_to_use, regex_match=self.regex_match)
-            Xother = self.anti_selector.fit_transform(X)
+            Xother = self.other_selector.fit_transform(X)
 
         elif is_transform:
-            Xother = self.anti_selector.transform(X)
+            Xother = self.other_selector.transform(X)
 
         elif is_fit:
-            self.anti_selector = ColumnsSelector(columns_to_drop=self.columns_to_use, regex_match=self.regex_match)
-            self.anti_selector.fit(X)
+            self.other_selector.fit(X)
 
         if is_transform:
-            kept_features_names = self._get_rest_columns()
+            kept_features_names = self.other_selector.get_feature_names()
             return dsh.generic_hstack(
                 [Xother, transformed_part],
                 output_type=self.desired_output_type,
                 all_columns_names=[kept_features_names, self._feature_names_for_transform],
             )
-
-            # Rmk : generic_hstack will handle the case where Xother has no columns
         else:
             return self
 
@@ -721,9 +802,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
     @exception_improved_logging
     def fit(self, X, y=None, **fit_params):
         self._fit_transform(X, y, is_fit=True, is_transform=False, fit_params=fit_params)
-
-        if self.keep_other_columns in ("keep", "delta"):
-            self._fit_transform_rest(X, transformed_part=None, is_fit=True, is_transform=False)
+        self._fit_transform_rest(X, transformed_part=None, is_fit=True, is_transform=False)
 
         self._already_fitted = True
         return self
@@ -735,19 +814,13 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
 
         transformed_part = self._fit_transform(X, y=None, is_fit=False, is_transform=True)
 
-        if self.keep_other_columns in ("keep", "delta"):
-            return self._fit_transform_rest(X, transformed_part=transformed_part, is_fit=False, is_transform=True)
-        else:
-            return transformed_part
+        return self._fit_transform_rest(X, transformed_part=transformed_part, is_fit=False, is_transform=True)
 
     @exception_improved_logging
     def fit_transform(self, X, y=None, **fit_params):
         transformed_part = self._fit_transform(X, y=y, is_fit=True, is_transform=True, fit_params=fit_params)
 
-        if self.keep_other_columns in ("keep", "delta"):
-            result = self._fit_transform_rest(X, transformed_part=transformed_part, is_fit=True, is_transform=True)
-        else:
-            result = transformed_part
+        result = self._fit_transform_rest(X, transformed_part=transformed_part, is_fit=True, is_transform=True)
 
         self._already_fitted = True
         return result
@@ -755,11 +828,15 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
     # TODO : inverse transform
     def _fit_transform(self, X, y, is_fit, is_transform, fit_params=None):
         """ internal method that handle the fit and the transform """
+
         if fit_params is None:
             fit_params = {}
 
         if is_fit:
-            if self.columns_to_use is not None:
+            if isinstance(self.columns_to_use, str) and self.columns_to_use == "auto":
+                columns = self._get_default_columns_to_use(X, y)
+                self.selector = ColumnsSelector(columns_to_use=columns)
+            else:
                 self.selector = ColumnsSelector(columns_to_use=self.columns_to_use, regex_match=self.regex_match)
 
         if hasattr(X, "shape"):
@@ -767,15 +844,12 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
                 raise ValueError("the X object has 0 rows")
 
         Xindex = dsh._get_index(X)  # if X has an index retrieve it
-        if self.columns_to_use is not None:
-            if is_fit:
-                Xsubset = self.selector.fit_transform(X)
-            else:
-                Xsubset = self.selector.transform(X)
+        #        if self.columns_to_use is not None:
+        if is_fit:
+            Xsubset = self.selector.fit_transform(X)
         else:
-            Xsubset = X
-
-        # TODO : here allow a preprocessing pipeline
+            Xsubset = self.selector.transform(X)
+        # TODO (maybe): here allow a preprocessing pipeline
         #        if self.has_preprocessing:
         #            if is_fit:
         #                self.preprocessing = self._get_preprocessing()
@@ -787,7 +861,8 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         if self.selector is not None:
             Xsubset_columns = self.selector.get_feature_names()
         else:
-            Xsubset_columns = getattr(Xsubset, "columns", None)
+            raise NotImplementedError("should not go there anymore")
+            # Xsubset_columns = getattr(Xsubset, "columns", None)
 
         Xsubset_shape = getattr(Xsubset, "shape", None)
         # TODO : ici utiliser d'une facon ou d'une autre un '
@@ -825,8 +900,12 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
 
         if is_fit:
             self._verif_params()
+            self._empty_data = False
+            s = getattr(Xsubset, "shape", None)
+            if s is not None and len(s) > 1 and s[1] == 0:
+                self._empty_data = True
 
-        if self.all_columns_at_once:
+        if self.all_columns_at_once or self._empty_data:
 
             if is_fit:
                 self._model = self._get_model(Xsubset, y)
@@ -840,22 +919,37 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
             else:
                 Xsubset = dsh.make2dimensions(Xsubset)
 
+            # Call to underlying model
             Xres = None
             if is_fit and is_transform:
-                # fit_transform method
-                Xres = self._model.fit_transform(Xsubset, y, **fit_params)
+                ##############################
+                ###  fit_transform method  ###
+                ##############################
+                # test if the the data to transform actually has some columns
+
+                if not self._empty_data:
+                    # normal case
+                    Xres = self._model.fit_transform(Xsubset, y, **fit_params)
+                else:
+                    # It means there is no columns to transform
+                    Xres = Xsubset  # don't do anything
 
             elif is_fit and not is_transform:
-                # fit method
+                ####################
+                ###  fit method  ###
+                ####################
                 if self.must_transform_to_get_features_name:
                     Xres = self._model.fit_transform(Xsubset, y, **fit_params)
-                    # Peut etre que je vais forcer a faire le fit_transform a chaque fois...
-                    # pour savoir la taille
                 else:
                     self._model.fit(Xsubset, y, **fit_params)
             else:
-                # tansform
-                Xres = self._model.transform(Xsubset)
+                ####################
+                ###  transform   ###
+                ####################
+                if not self._empty_data:
+                    Xres = self._model.transform(Xsubset)
+                else:
+                    Xres = Xsubset
 
             if is_fit:
                 self._columns_informations = {
@@ -872,7 +966,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
                     input_shape=self._columns_informations["input_shape"],
                 )
 
-                self.kept_features_names = None  # for now
+                # self.kept_features_names = None  # for now
 
             if is_transform:
                 Xres = dsh.convert_generic(Xres, output_type=self.desired_output_type)
@@ -951,7 +1045,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
                     )
                 )
 
-                self.kept_features_names = None  # for now
+                # self.kept_features_names = None  # for now
 
             if is_transform:
                 Xres = dsh.generic_hstack(all_Xres, output_type=self.desired_output_type)
@@ -977,11 +1071,11 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
             if input_features is None:
                 input_columns = self._columns_informations["input_columns"]
 
-            elif self.columns_to_use is not None:
-                input_columns = self.selector.get_feature_names(input_features)
+            elif isinstance(self.columns_to_use, str) and self.columns_to_use == "all":
+                input_columns = input_features
 
             else:
-                input_columns = input_features
+                input_columns = self.selector.get_feature_names(input_features)
 
             feature_names = self.try_to_find_feature_names_all_at_once(
                 output_columns=self._columns_informations["output_columns"],
@@ -995,11 +1089,11 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
             if input_features is None:
                 input_columns = self._columns_informations["input_columns"]
 
-            elif self.columns_to_use is not None:
-                input_columns = self.selector.get_feature_names(input_features)
+            elif isinstance(self.columns_to_use, str) and self.columns_to_use == "all":
+                input_columns = input_features
 
             else:
-                input_columns = input_features
+                input_columns = self.selector.get_feature_names(input_features)
 
             feature_names = self.try_to_find_feature_names_separate(
                 all_output_columns=self._columns_informations["all_output_columns"],
@@ -1011,7 +1105,10 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         if feature_names is None:
             raise ValueError("I can't find features names")
 
-        kept_features_names = self._get_rest_columns(input_features=input_features)
+        if self.other_selector is None:
+            kept_features_names = []
+        else:
+            kept_features_names = self.other_selector.get_feature_names(input_features=input_features)
 
         return list(kept_features_names) + list(feature_names)
 

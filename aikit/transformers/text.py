@@ -308,12 +308,16 @@ class CountVectorizerWrapper(ModelWrapper):
     column_prefix : str or None, default = "BAG"
         prefix of the column
 
-    keep_other_columns : string, default = 'drop'
-        choices : 'keep','drop','delta'.
-        * If 'keep'  : the original columns are kept     => result = columns + transformed columns
-        * If 'drop'  : the original columns are dropped  => result = transformed columns
-        * If 'delta' : only the original columns not used in transformed are kept => result = un-touched original columns + transformed columns
+    drop_used_columns : boolean, default=True
+        what to do with the ORIGINAL columns that were transformed.
+        If False, will keep them in the result (un-transformed)
+        If True, only the transformed columns are in the result
         
+    drop_unused_columns: boolean, default=True
+        what to do with the column that were not used.
+        if False, will drop them
+        if True, will keep them in the result
+
     desired_output_type : None or DataType
         specify the desired output type of transformer, a conversion will be made if necesary
 
@@ -329,11 +333,12 @@ class CountVectorizerWrapper(ModelWrapper):
         max_features=None,
         vocabulary=None,
         tfidf=False,
-        columns_to_use=None,
+        columns_to_use="all",
         regex_match=False,
         desired_output_type=DataTypes.SparseArray,
         column_prefix="BAG",
-        keep_other_columns="drop",
+        drop_used_columns=True,
+        drop_unused_columns=True,
         **other_count_vectorizer_arguments
     ):
         self.analyzer = analyzer
@@ -361,7 +366,8 @@ class CountVectorizerWrapper(ModelWrapper):
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=False,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
@@ -412,6 +418,7 @@ class _Word2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
         same_embedding_all_columns=True,
         use_fast_text=False,
         random_state=None,
+        min_count=5,
         other_params=None,
     ):
 
@@ -424,6 +431,7 @@ class _Word2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
 
         self.random_state = random_state
 
+        self.min_count=min_count
         self.other_params = other_params
 
         self.models = None
@@ -510,8 +518,10 @@ class _Word2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
                     Xsplitted_all += Xs
                 # Unlist everything
 
-                model = Word2Vec(size=self.size, window=self.window, seed=self.random_state, **other_params)
+                model = Word2Vec(size=self.size, window=self.window, seed=self.random_state, workers=1, min_count=self.min_count, **other_params)
                 model.build_vocab(Xsplitted_all)
+                if not model.wv.vocab:
+                    raise ValueError("Empty vocabulary, please change 'min_count'")
                 model.train(Xsplitted_all, total_examples=model.corpus_count, epochs=model.epochs)
 
                 self.models = [model for j in range(self._nbcols)]  # j time the same model, model train on everything
@@ -523,8 +533,10 @@ class _Word2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
                 self.models = []
                 for jj, Xs in enumerate(Xsplitted):
                     seed = self.random_state + jj if self.random_state else None
-                    model = Word2Vec(size=self.size, window=self.window, seed=seed, **other_params)
-                    model.build_vocab(Xs)
+                    model = Word2Vec(size=self.size, window=self.window, seed=seed, workers=1, min_count=self.min_count, **other_params)
+                    model.build_vocab(Xs) # For some reason Word2Vec doesn't with few sample ....
+                    if not model.wv.vocab:
+                        raise ValueError(f"Empty vocabulary for column {jj}, please change 'min_count'")
                     model.train(Xs, total_examples=model.corpus_count, epochs=model.epochs)
 
                     self.models.append(model)
@@ -618,12 +630,15 @@ class Word2VecVectorizer(ModelWrapper):
     desired_output_type : data type, default = DataFrame
         desired output type
         
-    keep_other_columns : string, default = 'drop'
-        choices : 'keep','drop','delta'.
-        If 'keep'  : the original columns are kept     => result = columns + transformed columns
-        If 'drop'  : the original columns are dropped  => result = transformed columns
-        If 'delta' : only the original columns not used in transformed are kept => result = un-touched original columns + transformed columns
+    drop_used_columns : boolean, default=True
+        what to do with the ORIGINAL columns that were transformed.
+        If False, will keep them in the result (un-transformed)
+        If True, only the transformed columns are in the result
         
+    drop_unused_columns: boolean, default=True
+        what to do with the column that were not used.
+        if False, will drop them
+        if True, will keep them in the result
     
     """
 
@@ -631,19 +646,22 @@ class Word2VecVectorizer(ModelWrapper):
         self,
         size=100,
         window=5,
+        min_count=5,
         text_preprocess="default",
         same_embedding_all_columns=True,
         use_fast_text=False,
         random_state=None,
         other_params=None,
-        columns_to_use=None,
+        columns_to_use="all",
         desired_output_type=DataTypes.DataFrame,
         regex_match=False,
-        keep_other_columns="drop",
+        drop_used_columns=True,
+        drop_unused_columns=True,
     ):
 
         self.size = size
         self.window = window
+        self.min_count=min_count
         self.text_preprocess = text_preprocess
         self.same_embedding_all_columns = same_embedding_all_columns
         self.use_fast_text = use_fast_text
@@ -664,7 +682,8 @@ class Word2VecVectorizer(ModelWrapper):
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=False,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
@@ -672,6 +691,7 @@ class Word2VecVectorizer(ModelWrapper):
         return _Word2VecVectorizer(
             size=self.size,
             window=self.window,
+            min_count=self.min_count,
             text_preprocess=self.text_preprocess,
             same_embedding_all_columns=self.same_embedding_all_columns,
             use_fast_text=self.use_fast_text,
@@ -899,12 +919,15 @@ class Char2VecVectorizer(ModelWrapper):
     desired_output_type : data type, default = DataFrame
         desired output type
         
-    keep_other_columns : string, default = 'drop'
-        choices : 'keep','drop','delta'.
-        If 'keep'  : the original columns are kept     => result = columns + transformed columns
-        If 'drop'  : the original columns are dropped  => result = transformed columns
-        If 'delta' : only the original columns not used in transformed are kept => result = un-touched original columns + transformed columns
-
+    drop_used_columns : boolean, default=True
+        what to do with the ORIGINAL columns that were transformed.
+        If False, will keep them in the result (un-transformed)
+        If True, only the transformed columns are in the result
+        
+    drop_unused_columns: boolean, default=True
+        what to do with the column that were not used.
+        if False, will drop them
+        if True, will keep them in the result
     """
 
     def __init__(
@@ -917,10 +940,11 @@ class Char2VecVectorizer(ModelWrapper):
         use_fast_text=False,
         random_state=None,
         other_params=None,
-        columns_to_use=None,
+        columns_to_use="all",
         desired_output_type=DataTypes.DataFrame,
         regex_match=False,
-        keep_other_columns="drop",
+        drop_used_columns=True,
+        drop_unused_columns=True,
     ):
 
         self.size = size
@@ -946,7 +970,8 @@ class Char2VecVectorizer(ModelWrapper):
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=False,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):

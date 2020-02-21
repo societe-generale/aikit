@@ -72,7 +72,7 @@ variable_by_type = {
 ADDITIONAL_CONVERSIONS_FUNCTIONS = {
     DataTypes.SparseArray: (scipy.sparse.coo_matrix, scipy.sparse.csc_matrix, scipy.sparse.csr_matrix)
 }
-# TODO : peut etre faire des changements de type int,int32, ...
+# TODO : maybe try additionnal change of type : int, int32, ...
 
 
 def _array_equal(m1, m2):
@@ -781,13 +781,14 @@ def didnot_change_column_names(df_tranformed, df):
 
 def test_NumericalEncoder_onehot1():
 
+    cols = variable_by_type["NUM"] + variable_by_type["CAT"]
     # One Hot mode #
     verif_encoder(
-        df1=df1,
-        df2=df2,
+        df1=df1.loc[:, cols],
+        df2=df2.loc[:, cols],
         y1=None,
         klass=NumericalEncoder,
-        enc_kwargs={"columns_to_use": variable_by_type["NUM"] + variable_by_type["CAT"]},
+        enc_kwargs={"columns_to_use": variable_by_type["CAT"], "drop_unused_columns": False},
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),
         additional_test_functions=[check_all_numerical],
     )
@@ -811,7 +812,7 @@ def test_NumericalEncoder_onehot3():
         df2=df2.loc[:, variable_by_type["NUM"] + variable_by_type["CAT"]],
         y1=y1,
         klass=NumericalEncoder,
-        enc_kwargs={"columns_to_keep": []},
+        enc_kwargs={"drop_unused_columns": True},
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),  # DataTypes.NumpyArray),
         additional_test_functions=[check_all_numerical, check_no_null, check_between_01],
     )
@@ -819,12 +820,13 @@ def test_NumericalEncoder_onehot3():
 
 def test_NumericalEncoder_numerical1():
     # Numerical Mode #
+    cols = variable_by_type["NUM"] + variable_by_type["CAT"]
     verif_encoder(
-        df1=df1,
-        df2=df2,
+        df1=df1.loc[:, cols],
+        df2=df2.loc[:, cols],
         y1=None,
         klass=NumericalEncoder,
-        enc_kwargs={"columns_to_use": variable_by_type["NUM"] + variable_by_type["CAT"], "encoding_type": "num"},
+        enc_kwargs={"columns_to_use": variable_by_type["CAT"], "encoding_type": "num", "drop_unused_columns": False},
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),
         additional_test_functions=[check_all_numerical],
     )
@@ -848,7 +850,7 @@ def test_NumericalEncoder_numerical3():
         df2=df2.loc[:, variable_by_type["CAT"]],
         y1=y1,
         klass=NumericalEncoder,
-        enc_kwargs={"columns_to_keep": [], "encoding_type": "num"},
+        enc_kwargs={"columns_to_use": "all", "encoding_type": "num"},
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),  # DataTypes.NumpyArray),
         additional_test_functions=[check_all_numerical, check_no_null, nb_columns_verify(5)],
     )
@@ -998,20 +1000,6 @@ def test_TargetEncoderClassifier3(cv, noise_level, smoothing_value):
         difference_fit_transform=(noise_level is not None) or (cv is not None)
         # Rmk : if there is noise or cv isn't not there will be difference between fit THEN transform and fit_transform
     )
-
-
-def verif_TargetEncoderClassifier():
-    for cv in (None, 10):
-
-        for noise_level in (None, 0.1):
-
-            for smoothing_value in (0, 1):
-
-                test_TargetEncoderClassifier1(cv=cv, noise_level=noise_level, smoothing_value=smoothing_value)
-
-                test_TargetEncoderClassifier2(cv=cv, noise_level=noise_level, smoothing_value=smoothing_value)
-
-                test_TargetEncoderClassifier3(cv=cv, noise_level=noise_level, smoothing_value=smoothing_value)
 
 
 @pytest.mark.longtest
@@ -2093,32 +2081,3 @@ def test_CdfScaler_with_params(distribution, output_distribution):
         randomized_transformer=False,
     )
 
-
-def verif_CdfScaler():
-
-    test_CdfScaler1()
-    test_CdfScaler2()
-
-    for distribution, output_distribution in itertools.product(
-        ("none", "kernel", "auto-param", "auto-kernel", "rank"), ("uniform", "normal")
-    ):
-        test_CdfScaler_with_params(distribution, output_distribution)
-
-
-# In[]
-def verif_all():
-    test_conversion()
-    test_generic_hstack()
-    test_ColumnsSelector()
-
-    verif_NumericalEncoder()
-
-    verif_TargetEncoderClassifier()
-    verif_TargetEncoderClassifierEntropy()
-    verif_TargetEncoderRegressor()
-    test_CountVectorizerWrapper()
-    verif_TruncatedSVDWrapper()
-    verif_CdfScaler()
-
-    verif_FeaturesSelectorClassifier()
-    verif_KMeansTransformer()

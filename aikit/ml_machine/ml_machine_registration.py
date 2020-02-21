@@ -101,8 +101,26 @@ class ModelRepresentationBase(_AbstractModelRepresentation):
         "analyzer": hp.HyperChoice(["word", "char", "char_wb"]),
         "penalty": ["l1", "l2"],
         "random_state": [123],  # So that every for every model with a random_state attribute, it will be passed and fix
-        "columns_to_encode": ["--object--"],
+        
+        "drop_used_columns":[True],
+        "drop_unused_columns":[True]
     }
+    # This dictionnary is used to specify the default hyper-parameters that are used during the random search phase
+    # They will be used if :
+    # * the model has a paramters among that list
+    # * the parameters is not specified within the class (within 'custom_hyper')
+    
+    
+    
+    default_default_hyper = {
+            "random_state":123,
+            "drop_used_columns":True,
+            "drop_unused_columns":True
+            }
+    # This dictionnary is used to specify the default hyper-parameters that are used during the default model phase
+    # They will be used if :
+    # * the model has a paramters among that list
+    # * the default parameters is not specified within the class (withing 'default_parameters')
 
 
 ### Linear
@@ -505,7 +523,8 @@ class TextNltkProcessing_DigitAnonymizer(ModelRepresentationBase):
 class NumericalEncoder_CatEncoder(ModelRepresentationBase):
     klass = NumericalEncoder
     category = StepCategories.CategoryEncoder
-    type_of_variable = (TypeOfVariables.CAT, TypeOfVariables.NUM)
+
+    type_of_variable = (TypeOfVariables.CAT, )
 
     custom_hyper = {"encoding_type": ["dummy", "num"], "min_nb_observations": hp.HyperRangeInt(2, 20)}
 
@@ -522,7 +541,7 @@ class TargetEncoderClassifier_CatEncoder(ModelRepresentationBase):
     klass = TargetEncoderClassifier
     category = StepCategories.CategoryEncoder
 
-    type_of_variable = (TypeOfVariables.CAT, TypeOfVariables.NUM)
+    type_of_variable = (TypeOfVariables.CAT, )
 
     custom_hyper = {
         "cv": [None, 2, 5, 10],
@@ -565,7 +584,7 @@ class TargetEncoderRegressor_CatEncoder(ModelRepresentationBase):
 class NumImputer_Inputer(ModelRepresentationBase):
     klass = NumImputer
     category = StepCategories.MissingValueImputer
-    type_of_variable = None  # Peut etre faire que sur NUM, CAT, TEXT a priori on aura jamais de valeur manquante ?
+    type_of_variable = None
 
     type_of_model = None
     use_y = False
@@ -584,7 +603,7 @@ class TruncatedSVD_DimensionReduction(ModelRepresentationBase):
     type_of_model = None
     use_y = False
 
-    custom_hyper = {"keep_other_columns": ["keep", "drop"]}
+    custom_hyper = {"drop_used_columns": [True, False]}
 
 
 @register
@@ -615,7 +634,7 @@ class Text_TruncatedSVD_DimensionReduction(ModelRepresentationBase):
     type_of_model = None
     use_y = False
 
-    custom_hyper = {"keep_other_columns": ["keep", "drop"]}
+    custom_hyper = {"drop_used_columns": [True, False]}
 
 
 @register
@@ -631,7 +650,7 @@ class KMeansTransformer_DimensionReduction(ModelRepresentationBase):
     use_y = False
     type_of_variable = None
 
-    custom_hyper = {"keep_other_columns": ["keep", "drop"]}
+    custom_hyper = {"drop_used_columns": [True, False]}
 
 
 @register

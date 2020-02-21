@@ -9,6 +9,8 @@ import pytest
 import pandas as pd
 import numpy as np
 
+from copy import deepcopy
+
 from sklearn.utils import check_random_state
 
 from aikit.datasets.datasets import load_dataset, DatasetEnum
@@ -228,10 +230,12 @@ def test_RandomModelGenerator_iterator(type_of_iterator, num_only):
 
     # verif iterator
     for model in iterator:
-
+        
         assert isinstance(model, tuple)
         assert len(model) == 3
         Graph, all_models_params, block_to_use = model
+        
+        #graphviz_graph(Graph)
 
         assert hasattr(Graph, "edges")
         assert hasattr(Graph, "nodes")
@@ -249,40 +253,23 @@ def test_RandomModelGenerator_iterator(type_of_iterator, num_only):
         assert "name_mapping" in result
         assert "json_code" in result
 
-        model = sklearn_model_from_param(result["json_code"])
-        assert hasattr(model, "fit")
+        sk_model = sklearn_model_from_param(result["json_code"])
+        assert hasattr(sk_model, "fit")
 
+        if type_of_iterator == "default" and ('Model', ('Model', 'RandomForestClassifier')) in Graph.nodes:
+            # in that case I'll actually do the fitting here
+            # I'll simplify the model to have 2 estimators (faster)
+            
+            all_models_params[('Model', ('Model', 'RandomForestClassifier'))]["n_estimators"] = 2
+            result = convert_graph_to_code(Graph, all_models_params, also_returns_mapping=True)
+            sk_model = sklearn_model_from_param(result["json_code"])
+            
+            sub_index = np.concatenate((np.where(y==0)[0][0:10],np.where(y==1)[0][0:10]),axis=0)
+            # Needs at least 20 observations to make sure all transformers works
+            sk_model.fit(dfX.iloc[sub_index,:] ,y[sub_index])
 
-# def test_RandomModelGenerator_block_search():
-#    dfX, y, auto_ml_config = get_automl_config()
-#
-#    random_model_generator = RandomModelGenerator(auto_ml_config=auto_ml_config, random_state=123)
-#
-#    # verif iterator
-#    for model in random_model_generator.iterate_block_search_models():
-#
-#        assert isinstance(model, tuple)
-#        assert len(model) == 3
-#        Graph, all_models_params, block_to_use = model
-#
-#        assert hasattr(Graph, "edges")
-#        assert hasattr(Graph, "nodes")
-#
-#        assert isinstance(all_models_params, dict)
-#        for node in Graph.node:
-#            assert node in all_models_params
-#
-#        assert isinstance(block_to_use, (tuple, list))
-#        for b in block_to_use:
-#            assert b in TypeOfVariables.alls
-#
-#        result = convert_graph_to_code(Graph, all_models_params, also_returns_mapping=True)
-#        assert isinstance(result, dict)
-#        assert "name_mapping" in result
-#        assert "json_code" in result
-#
-#        model = sklearn_model_from_param(result["json_code"])
-#        assert hasattr(model, "fit")
+            yhat = sk_model.predict(dfX.head(2))
+            assert yhat.shape == (2,)
 
 
 def test_random_list_generator():
@@ -348,6 +335,7 @@ def _all_same(all_gen):
 )
 def test_RandomModelGenerator_random(num_only, specific_hyper, only_random_forest):
 
+    #num_only, specific_hyper, only_random_forest = False, True, True
     dfX, y, auto_ml_config = get_automl_config(num_only)
 
     if specific_hyper:
@@ -384,8 +372,8 @@ def test_RandomModelGenerator_random(num_only, specific_hyper, only_random_fores
         assert "name_mapping" in result
         assert "json_code" in result
 
-        model = sklearn_model_from_param(result["json_code"])
-        assert hasattr(model, "fit")
+        sk_model = sklearn_model_from_param(result["json_code"])
+        assert hasattr(sk_model, "fit")
 
         rf_key = ("Model", ("Model", "RandomForestClassifier"))
         if only_random_forest:
@@ -394,6 +382,24 @@ def test_RandomModelGenerator_random(num_only, specific_hyper, only_random_fores
         if specific_hyper:
             if rf_key in all_models_params:
                 assert all_models_params[rf_key]["n_estimators"] in (10, 20)
+                
+                
+        if ('Model', ('Model', 'RandomForestClassifier')) in Graph.nodes:
+            # in that case I'll actually do the fitting here
+            # I'll simplify the model to have 2 estimators (faster)
+            all_models_params_copy = deepcopy(all_models_params)
+            all_models_params_copy[('Model', ('Model', 'RandomForestClassifier'))]["n_estimators"] = 2
+            result = convert_graph_to_code(Graph, all_models_params_copy, also_returns_mapping=True)
+            sk_model = sklearn_model_from_param(result["json_code"])
+            
+            sub_index = np.concatenate((np.where(y==0)[0][0:100],np.where(y==1)[0][0:100]),axis=0)
+            # Needs at least 20 observations to make sure all transformers works
+            if hasattr(sk_model, "verbose"):
+                sk_model.verbose=True
+            sk_model.fit(dfX.iloc[sub_index,:] ,y[sub_index])
+
+            yhat = sk_model.predict(dfX.head(2))
+            assert yhat.shape == (2,)
 
     if not only_random_forest:
         assert any([rf_key not in m[1] for m in all_gen])  # Check that RandomForest wasn't drawn every time

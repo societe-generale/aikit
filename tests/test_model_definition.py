@@ -301,6 +301,8 @@ def test_param_from_sklearn_model():
     assert isinstance(param, tuple)
     assert len(param) == 2
     assert param[0] == "RandomForestClassifier"
+    
+    assert isinstance(sklearn_model_from_param(param_from_sklearn_model(model)), model.__class__)
     s = json.dumps(param) # check that it can be json serialized
     assert isinstance(s, str)
     

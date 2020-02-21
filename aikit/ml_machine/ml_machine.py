@@ -209,6 +209,13 @@ class AutoMlConfig(object):
     @columns_informations.deleter
     def columns_informations(self):
         self._columns_informations = None
+        
+    def infos(self):
+        """ helper to quickly see info of variables """
+        if self.dfX is not None:
+            return pd.concat((pd.DataFrame(self.columns_informations).T,self.dfX.dtypes.rename("type")),axis=1)
+        else:
+            return pd.DataFrame(self.columns_informations).T
 
     # @property
     # def var_type_columns_dico(self):
@@ -786,17 +793,12 @@ class RandomModelGenerator(object):
             # Blocks
             blocks_to_use = tuple(self.auto_ml_config.columns_block.keys())  # keep all blocks
 
-            # TODO : peut etre rajouter des modeles en enlevant a chaque fois un bloc ?
-            # if len(blocks_to_use) == 1:
-            #    all_blocks = [blocks_to_use]
-            # else:
-            #    all_blocks = [blocks_to_use] + [tuple(diff(blocks_to_use,[b])) for b in blocks_to_use]
-
             # Hyper
             hyper_parameters_by_step = {}
             for step_name, model_name in models_by_steps.items():
                 if model_name[0] is not None:
-                    default_parameters = MODEL_REGISTER.informations.get(model_name, {}).get("default_parameters", {})
+                    default_parameters = MODEL_REGISTER.default_hyper_parameters.get(model_name, {})
+#                    default_parameters = MODEL_REGISTER.informations.get(model_name, {}).get("default_parameters", {})
                     # If default_parameters present in register use it, otherwise use {} (and so will go back to default parameter of the model)
                     hyper_parameters_by_step[(step_name, model_name)] = default_parameters
 
