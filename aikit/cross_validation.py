@@ -18,7 +18,14 @@ from joblib import Parallel, delayed
 
 import sklearn.model_selection
 from sklearn.model_selection._split import BaseCrossValidator, _num_samples, train_test_split
-from sklearn.model_selection._validation import _index_param_value
+try:
+    from sklearn.utils.validation import _check_fit_params # In sklearn 0.22
+except ImportError:
+    from sklearn.model_selection._validation import _index_param_value
+    _check_fit_params = _index_param_value
+
+
+
 
 import sklearn.base
 
@@ -270,7 +277,7 @@ def _compute_one_fold(
         index_test = test
         
     fit_params = fit_params if fit_params is not None else {}
-    fit_params = {k: _index_param_value(X, v, train)
+    fit_params = {k: _check_fit_params(X, v, train)
                   for k, v in fit_params.items()}
     # Try to subset the fit_params if that is possible, Ex : 'sample_weight=np.array(....)' should be subsetted but not 'epochs=10'
     start_fit = time()

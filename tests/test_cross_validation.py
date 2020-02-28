@@ -1057,7 +1057,7 @@ def test_approx_cross_validation_fit_params(approximate_cv):
     )
 
 
-def test_approx_cross_validatoin_pass_kwargs():
+def test_approx_cross_validation_pass_kwargs():
     X, y = make_classification(n_samples=100, random_state=123)
 
     estimator = DummyModelWithApprox(check_kwargs=True)
