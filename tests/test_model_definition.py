@@ -6,12 +6,13 @@ Created on Fri Sep 14 11:40:18 2018
 """
 
 import copy
-
+import json
 
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
 
-from aikit.model_definition import sklearn_model_from_param
+from aikit.model_definition import sklearn_model_from_param, param_from_sklearn_model, filtered_get_params
 
 from aikit.transformers.base import BoxCoxTargetTransformer, KMeansTransformer, TruncatedSVDWrapper, NumImputer
 from aikit.transformers.categories import NumericalEncoder
@@ -27,15 +28,18 @@ class Test_sklearn_model_from_param:
         ### Random Forest ###
         #####################
 
-        param1 = ("RandomForestClassifier", {"n_estimators": 100, "criterion": "entropy"})
-        param1_c = copy.deepcopy(param1)
+        param = ("RandomForestClassifier", {"n_estimators": 100, "criterion": "entropy"})
+        param_c = copy.deepcopy(param)
 
-        model1 = sklearn_model_from_param(param1)
+        model = sklearn_model_from_param(param)
 
-        assert isinstance(model1, RandomForestClassifier)
-        assert model1.n_estimators == 100
+        assert isinstance(model, RandomForestClassifier)
+        assert model.n_estimators == 100
 
-        assert param1 == param1_c  # verif that param was not modified inside function
+        assert param == param_c  # verif that param was not modified inside function
+        
+        param_reverse = param_from_sklearn_model(model)
+        assert param_reverse == param
 
     def test_logistic_regression(self):
         ###########################
@@ -43,41 +47,49 @@ class Test_sklearn_model_from_param:
         ###########################
         from sklearn.linear_model import LogisticRegression
 
-        param2 = ("LogisticRegression", {"C": 10})
-        param2_c = copy.deepcopy(param2)
+        param = ("LogisticRegression", {"C": 10})
+        param_c = copy.deepcopy(param)
 
-        model2 = sklearn_model_from_param(param2)
+        model = sklearn_model_from_param(param)
 
-        assert isinstance(model2, LogisticRegression)
-        assert model2.C == 10
+        assert isinstance(model, LogisticRegression)
+        assert model.C == 10
 
-        assert param2 == param2_c  # verif that param was not modified inside function
+        assert param == param_c  # verif that param was not modified inside function
+
+        param_reverse = param_from_sklearn_model(model)
+        assert param_reverse == param
 
     def test_graph_pipeline(self):
         #####################
         ### GraphPipeline ###
         #####################
 
-        param3 = (
+        param = (
             "GraphPipeline",
             {
                 "models": {
-                    "svd": ("TruncatedSVDWrapper", {"n_components": 2}),
+                    "svd": ("TruncatedSVDWrapper", {"n_components": 3}),
                     "logit": ("LogisticRegression", {"C": 10}),
                 },
                 "edges": [("svd", "logit")],
             },
         )
 
-        param3_c = copy.deepcopy(param3)
+        param_c = copy.deepcopy(param)
 
-        model3 = sklearn_model_from_param(param3)
+        model = sklearn_model_from_param(param)
 
-        assert isinstance(model3, GraphPipeline)
-        assert isinstance(model3.models["logit"], LogisticRegression)
-        assert isinstance(model3.models["svd"], TruncatedSVDWrapper)
+        assert isinstance(model, GraphPipeline)
+        assert isinstance(model.models["logit"], LogisticRegression)
+        assert isinstance(model.models["svd"], TruncatedSVDWrapper)
+        assert model.models["svd"].n_components==3
 
-        assert param3 == param3_c
+        assert param == param_c
+        
+        param_reverse = param_from_sklearn_model(model)
+        assert param_reverse == param
+
 
     def test_graph_pipeline_list(self):
         #####################
@@ -86,59 +98,64 @@ class Test_sklearn_model_from_param:
 
         # Test when inputs are list and not tuples
 
-        param4 = [
+        param = (
             "GraphPipeline",
             {
                 "edges": [["encoder", "imputer", "rf"], ["vect", "svd", "rf"]],
                 "models": {
-                    "encoder": [
+                    "encoder": (
                         "NumericalEncoder",
                         {
                             "columns_to_use": ["^BLOCK_", "^NUMBERTOKEN_", "^DATETOKEN_", "^CURRENCYTOKEN_"],
                             "regex_match": True,
                         },
-                    ],
-                    "imputer": ["NumImputer", {}],
-                    "rf": ["RandomForestClassifier", {"n_estimators": 500}],
-                    "svd": ["TruncatedSVDWrapper", {"n_components": 200}],
-                    "vect": [
+                    ),
+                    "imputer": ("NumImputer", {}),
+                    "rf": ("RandomForestClassifier", {"n_estimators": 500}),
+                    "svd": ("TruncatedSVDWrapper", {"n_components": 200}),
+                    "vect": (
                         "CountVectorizerWrapper",
                         {
                             "analyzer": "char",
                             "columns_to_use": ["STRINGLEFTOF", "STRINGABOVEOF"],
                             "ngram_range": [1, 4],
                         },
-                    ],
+                    ),
                 },
             },
-        ]
+        )
 
-        param4_c = copy.deepcopy(param4)
+        param_c = copy.deepcopy(param)
 
-        model4 = sklearn_model_from_param(param4)
+        model = sklearn_model_from_param(param)
 
-        assert isinstance(model4, GraphPipeline)
-        assert isinstance(model4.models["encoder"], NumericalEncoder)
-        assert isinstance(model4.models["imputer"], NumImputer)
-        assert isinstance(model4.models["vect"], CountVectorizerWrapper)
-        assert isinstance(model4.models["svd"], TruncatedSVDWrapper)
-        assert isinstance(model4.models["rf"], RandomForestClassifier)
+        assert isinstance(model, GraphPipeline)
+        assert isinstance(model.models["encoder"], NumericalEncoder)
+        assert isinstance(model.models["imputer"], NumImputer)
+        assert isinstance(model.models["vect"], CountVectorizerWrapper)
+        assert isinstance(model.models["svd"], TruncatedSVDWrapper)
+        assert isinstance(model.models["rf"], RandomForestClassifier)
 
-        assert param4 == param4_c
-
+        assert param == param_c
+        
+        param_reverse = param_from_sklearn_model(model)
+        assert param_reverse == param
+        
     def test_boxcox_target_transformer(self):
 
         ## syntax 1 ##
 
-        params = ("BoxCoxTargetTransformer", ("RandomForestClassifier", {}))
+        param = ("BoxCoxTargetTransformer", ("RandomForestClassifier", {}))
 
-        params_c = copy.deepcopy(params)
+        param_c = copy.deepcopy(param)
 
-        model = sklearn_model_from_param(params_c)
+        model = sklearn_model_from_param(param_c)
         assert isinstance(model, BoxCoxTargetTransformer)
         assert isinstance(model.model, RandomForestClassifier)
-        assert params == params_c
-
+        assert param == param_c
+        param_reverse = param_from_sklearn_model(model)  # rmk : difference from param because the RandomForest isn't explicitely passed with a named attribute
+        assert param_reverse[0] == param[0]
+        
         ## syntax 2 ##
         params = ("BoxCoxTargetTransformer", ("RandomForestClassifier", {}), {"ll": 10})
 
@@ -149,6 +166,9 @@ class Test_sklearn_model_from_param:
         assert isinstance(model.model, RandomForestClassifier)
         assert model.ll == 10
         assert params == params_c
+        param_reverse = param_from_sklearn_model(model) # rmk : difference from param because the RandomForest isn't explicitely passed with a named attribute
+
+        assert param_reverse[0] == param[0]
 
         ## syntax 3 ##
         params = ("BoxCoxTargetTransformer", {"model": ("RandomForestClassifier", {}), "ll": 10})
@@ -161,7 +181,9 @@ class Test_sklearn_model_from_param:
         assert isinstance(model.model, RandomForestClassifier)
         assert model.ll == 10
         assert params == params_c
-
+        param_reverse = param_from_sklearn_model(model) # rmk : difference from param because the RandomForest isn't explicitely passed with a named attribute
+        assert param_reverse == params
+        
     def boxcox_and_graphpipeline(self):
 
         params = (
@@ -214,6 +236,10 @@ class Test_sklearn_model_from_param:
         )
 
         assert params == params_c
+        
+        param_reverse = param_from_sklearn_model(model) # rmk : difference from param because the RandomForest isn't explicitely passed with a named attribute
+
+        assert param_reverse[0] == params[0]
 
     def test_stacking_classifier(self):
 
@@ -236,3 +262,137 @@ class Test_sklearn_model_from_param:
         assert isinstance(model.models[1], ExtraTreesClassifier)
         assert isinstance(model.blender, LogisticRegression)
         assert model.cv == 5
+        param_reverse = param_from_sklearn_model(model) # rmk : difference from param because the RandomForest isn't explicitely passed with a named attribute
+
+        assert param_reverse == params
+
+
+def test_filtered_get_params():
+    forest = RandomForestClassifier(n_estimators=250)
+    assert RandomForestClassifier().get_params()["n_estimators"] != 250
+    assert filtered_get_params(forest) == {"n_estimators":250}
+    
+    forest = RandomForestClassifier(n_estimators=250, max_depth=None)
+    assert filtered_get_params(forest) == {"n_estimators":250}
+
+    
+    model = BoxCoxTargetTransformer(RandomForestClassifier(n_estimators=250), ll=0)
+    fparams = filtered_get_params(model)
+    
+    assert "ll" not in fparams
+    assert "model" in fparams
+    
+    
+    model = BoxCoxTargetTransformer(RandomForestClassifier(n_estimators=250), ll=1)
+    assert BoxCoxTargetTransformer(RandomForestClassifier()).get_params()["ll"] != 1
+    fparams = filtered_get_params(model)
+    
+    assert "ll" in fparams
+    assert fparams["ll"] == 1
+    assert "model" in fparams
+
+
+def test_param_from_sklearn_model():
+    # simple RandomForest
+    model = RandomForestClassifier(n_estimators=250)
+    assert RandomForestClassifier().get_params()["n_estimators"] != 250
+    assert param_from_sklearn_model(model, simplify_default=True) == ('RandomForestClassifier', {'n_estimators': 250})
+    param = param_from_sklearn_model(model, simplify_default=False)
+    assert isinstance(param, tuple)
+    assert len(param) == 2
+    assert param[0] == "RandomForestClassifier"
+    
+    assert isinstance(sklearn_model_from_param(param_from_sklearn_model(model)), model.__class__)
+    s = json.dumps(param) # check that it can be json serialized
+    assert isinstance(s, str)
+    
+    assert isinstance(sklearn_model_from_param(param_from_sklearn_model(model)), model.__class__)
+    
+    # Composition model : BoxCoxTargetTransformer of RandomForestClassifier
+    model = BoxCoxTargetTransformer(RandomForestClassifier(n_estimators=250), ll=0)
+    param = param_from_sklearn_model(model, simplify_default=True)
+    assert param == ('BoxCoxTargetTransformer',
+                                   {'model': ('RandomForestClassifier', {'n_estimators': 250})})
+    
+    assert isinstance(sklearn_model_from_param(param_from_sklearn_model(model)), model.__class__)
+    s = json.dumps(param) # check that it can be json serialized
+    assert isinstance(s, str)
+    
+    
+    # Composition model : BoxCoxTargetTransformer of RandomForestClassifier
+    model = BoxCoxTargetTransformer(RandomForestClassifier(n_estimators=250), ll=1)
+    param = param_from_sklearn_model(model, simplify_default=True)
+    assert param == ('BoxCoxTargetTransformer',
+                                   {'ll':1, 'model': ('RandomForestClassifier', {'n_estimators': 250})})
+    s = json.dumps(param) # check that it can be json serialized
+    assert isinstance(s, str)
+
+    
+    assert isinstance(sklearn_model_from_param(param_from_sklearn_model(model)), model.__class__)
+    
+    # Pipeline
+    model = Pipeline([("enc", NumericalEncoder()), ("forest", RandomForestClassifier(n_estimators=250))])
+    param = param_from_sklearn_model(model, simplify_default=True)
+    assert param == ('Pipeline',
+                                   {'steps': [('enc', ('NumericalEncoder', {})),
+                                              ('forest', ('RandomForestClassifier', {'n_estimators': 250}))]})
+   
+    assert isinstance(sklearn_model_from_param(param_from_sklearn_model(model)), model.__class__)
+    s = json.dumps(param) # check that it can be json serialized
+    assert isinstance(s, str)
+
+
+    # GraphPipeline
+    model = GraphPipeline(models={"enc":NumericalEncoder(),"forest":RandomForestClassifier(n_estimators=250)},
+                          edges=[("enc","forest")]
+                          )
+    
+    param = param_from_sklearn_model(model, simplify_default=True)
+    assert param == ('GraphPipeline',
+             {'models': {'enc': ('NumericalEncoder', {}),
+               'forest': ('RandomForestClassifier', {'n_estimators': 250})},
+              'edges': [('enc', 'forest')]
+              })
+
+    assert isinstance(sklearn_model_from_param(param_from_sklearn_model(model)), model.__class__)
+    
+    
+    # GraphPipeline with verbose = True
+    model = GraphPipeline(models={"enc":NumericalEncoder(),"forest":RandomForestClassifier(n_estimators=250)},
+                          edges=[("enc","forest")],
+                          verbose=True
+                          )
+    
+    param = param_from_sklearn_model(model, simplify_default=True)
+    assert param == ('GraphPipeline',
+             {'models': {'enc': ('NumericalEncoder', {}),
+               'forest': ('RandomForestClassifier', {'n_estimators': 250})},
+              'edges': [('enc', 'forest')],
+              'verbose':True
+              })
+
+    s = json.dumps(param) # check that it can be json serialized
+    assert isinstance(s, str)
+
+    model2 = sklearn_model_from_param(param_from_sklearn_model(model))
+    assert model2.verbose is True
+    assert isinstance(model2, model.__class__)
+
+    # GraphPipeline + composition
+    model = GraphPipeline(models={"enc":NumericalEncoder(),
+                                  "forest":BoxCoxTargetTransformer(RandomForestClassifier(n_estimators=250), ll=1)},
+                          edges=[("enc","forest")]
+                          )
+
+    param = param_from_sklearn_model(model, simplify_default=True)
+    assert param == ('GraphPipeline',
+         {'edges': [('enc', 'forest')],
+          'models': {'enc': ('NumericalEncoder', {}),
+           'forest': ('BoxCoxTargetTransformer',
+            {'ll': 1, 'model': ('RandomForestClassifier', {'n_estimators': 250})})}})
+
+    assert isinstance(sklearn_model_from_param(param_from_sklearn_model(model)), model.__class__)
+    s = json.dumps(param) # check that it can be json serialized
+    assert isinstance(s, str)
+
+

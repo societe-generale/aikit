@@ -54,6 +54,7 @@ def get_type(data):
     else:
         return None
 
+
 def get_rid_of_categories(df):
     did_copy = False
     for col in df.columns:
@@ -65,6 +66,7 @@ def get_rid_of_categories(df):
             df[col] = df[col].get_values()
 
     return df
+
 
 def convert_to_dataframe(xx, mapped_type=None):
     """ convert something to a DataFrame """
@@ -539,7 +541,7 @@ def generic_hstack(all_datas, output_type=None, all_columns_names=None):
             for i, data in enumerate(all_sparse_data):
                 if data.dtype == np.object:
                     all_sparse_data[i] = data.astype(np.float64)
-                
+
             return sparse.hstack(all_sparse_data)
 
     elif output_type == DataTypes.SparseDataFrame:

@@ -24,11 +24,7 @@ from sklearn.base import is_classifier, is_regressor, RegressorMixin, Transforme
 
 from sklearn.datasets import make_classification, make_regression
 import sklearn.model_selection
-from sklearn.model_selection import (StratifiedKFold,
-                                     KFold,
-                                     TimeSeriesSplit,
-                                     GroupKFold,
-                                     cross_val_predict)
+from sklearn.model_selection import StratifiedKFold, KFold, TimeSeriesSplit, GroupKFold, cross_val_predict
 
 from sklearn.model_selection._validation import _score, _multimetric_score
 from sklearn.exceptions import NotFittedError
@@ -38,17 +34,18 @@ from aikit.enums import DataTypes
 from aikit.transformers.model_wrapper import DebugPassThrough
 from aikit.pipeline import GraphPipeline
 
-from aikit.cross_validation import (cross_validation,
-                                    create_scoring,
-                                    create_cv,
-                                    score_from_params_clustering,
-                                    is_clusterer,
-                                    _score_with_group,
-                                    _multimetric_score_with_group,
-                                    IndexTrainTestCv,
-                                    RandomTrainTestCv,
-                                    SpecialGroupCV
-                                    )
+from aikit.cross_validation import (
+    cross_validation,
+    create_scoring,
+    create_cv,
+    score_from_params_clustering,
+    is_clusterer,
+    _score_with_group,
+    _multimetric_score_with_group,
+    IndexTrainTestCv,
+    RandomTrainTestCv,
+    SpecialGroupCV,
+)
 
 from aikit.scorer import SCORERS, _GroupProbaScorer, max_proba_group_accuracy
 
@@ -57,7 +54,7 @@ from aikit.scorer import SCORERS, _GroupProbaScorer, max_proba_group_accuracy
 
 def test_is_classifier_is_regressor_is_clusterer():
     """ verif behavior of is_classifier and is_regressor """
-    rf_c = RandomForestClassifier(n_estimators=10,random_state=123)
+    rf_c = RandomForestClassifier(n_estimators=10, random_state=123)
     assert is_classifier(rf_c)
     assert not is_regressor(rf_c)
     assert not is_clusterer(rf_c)
@@ -77,12 +74,12 @@ def test_is_classifier_is_regressor_is_clusterer():
     assert not is_regressor(sc)
     assert not is_clusterer(sc)
 
-    pipe_c = Pipeline([("s", StandardScaler()), ("r", RandomForestClassifier(n_estimators=10,random_state=123))])
+    pipe_c = Pipeline([("s", StandardScaler()), ("r", RandomForestClassifier(n_estimators=10, random_state=123))])
     assert is_classifier(pipe_c)
     assert not is_regressor(pipe_c)
     assert not is_clusterer(pipe_c)
 
-    pipe_r = Pipeline([("s", StandardScaler()), ("r", RandomForestRegressor(n_estimators=10,random_state=123))])
+    pipe_r = Pipeline([("s", StandardScaler()), ("r", RandomForestRegressor(n_estimators=10, random_state=123))])
     assert not is_classifier(pipe_r)
     assert is_regressor(pipe_r)
     assert not is_clusterer(pipe_r)
@@ -263,7 +260,7 @@ def test_cross_validation0(with_groups):
     y = np.random.randn(100)
 
     if with_groups:
-        groups = np.array([0]*25+[1]*25+[2]*25+[3]*25)
+        groups = np.array([0] * 25 + [1] * 25 + [2] * 25 + [3] * 25)
     else:
         groups = None
 
@@ -286,8 +283,10 @@ def test_cross_validation0(with_groups):
     ]
     assert len(result) == 10
 
-    forest = RandomForestRegressor(n_estimators=10,random_state=123)
-    result, yhat = cross_validation(forest, X, y, groups, scoring=["neg_mean_squared_error", "r2"], cv=10, return_predict=True)
+    forest = RandomForestRegressor(n_estimators=10, random_state=123)
+    result, yhat = cross_validation(
+        forest, X, y, groups, scoring=["neg_mean_squared_error", "r2"], cv=10, return_predict=True
+    )
     with pytest.raises(sklearn.exceptions.NotFittedError):
         forest.predict(X)
 
@@ -308,7 +307,7 @@ def test_cross_validation0(with_groups):
 
     X = np.random.randn(100, 10)
     y = np.array(["A"] * 33 + ["B"] * 33 + ["C"] * 34)
-    forest = RandomForestClassifier(n_estimators=10,random_state=123)
+    forest = RandomForestClassifier(n_estimators=10, random_state=123)
 
     result = cross_validation(forest, X, y, groups, scoring=["accuracy", "neg_log_loss"], cv=10)
     with pytest.raises(sklearn.exceptions.NotFittedError):
@@ -358,16 +357,16 @@ class TransformerFailNoGroups(TransformerMixin, BaseEstimator):
     def fit(self, X, y, groups=None):
         if groups is None:
             raise ValueError("I need a groups")
-            
+
         assert X.shape[0] == groups.shape[0]
         return self
-    
+
     def fit_transform(self, X, y, groups):
         if groups is None:
             raise ValueError("I need a groups")
-            
+
         assert X.shape[0] == groups.shape[0]
-        
+
         return X
 
     def transform(self, X):
@@ -378,21 +377,13 @@ def test_cross_validation_passing_of_groups():
     np.random.seed(123)
     X = np.random.randn(100, 10)
     y = np.random.randn(100)
-    groups = np.random.randint(0,20,size=100)
-    
+    groups = np.random.randint(0, 20, size=100)
+
     estimator = TransformerFailNoGroups()
-    
-    cv_res, yhat = cross_validation(
-        estimator,
-        X,
-        y,
-        groups,
-        cv=10,
-        no_scoring=True,
-        return_predict=True
-    )
+
+    cv_res, yhat = cross_validation(estimator, X, y, groups, cv=10, no_scoring=True, return_predict=True)
     # Check that it doesn't fail : meaning the estimator has access to the groups
-    
+
     assert cv_res is None
     assert (yhat == X).all()
 
@@ -456,7 +447,7 @@ def test_cross_validation_with_scorer_object_classifier():
             (True, False),
             (True, False),
             (True, False),
-            (True, False)
+            (True, False),
         )
     ),
 )
@@ -464,9 +455,9 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
 
     X, y = make_classification(n_samples=100, random_state=123)
     if with_groups:
-        groups = np.array([0]*25+[1]*25+[2]*25+[3]*25)
+        groups = np.array([0] * 25 + [1] * 25 + [2] * 25 + [3] * 25)
     else:
-        groups=None
+        groups = None
 
     X = convert_generic(X, output_type=x_data_type)
     if x_data_type == DataTypes.DataFrame:
@@ -517,7 +508,9 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
     #####################
     ### Score + Proba ###
     #####################
-    cv_res, yhat_proba = cross_validation(estimator, X, y, groups, cv=10, scoring=scoring, verbose=0, return_predict=True)
+    cv_res, yhat_proba = cross_validation(
+        estimator, X, y, groups, cv=10, scoring=scoring, verbose=0, return_predict=True
+    )
 
     assert isinstance(cv_res, pd.DataFrame)
     assert cv_res.shape[0] == 10
@@ -562,7 +555,16 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
     ### Predict only ###
     ####################
     cv_res, yhat = cross_validation(
-        estimator, X, y, groups, cv=10, scoring=scoring, verbose=0, return_predict=True, method="predict", no_scoring=True
+        estimator,
+        X,
+        y,
+        groups,
+        cv=10,
+        scoring=scoring,
+        verbose=0,
+        return_predict=True,
+        method="predict",
+        no_scoring=True,
     )
 
     assert yhat.shape[0] == y.shape[0]
@@ -584,18 +586,20 @@ def test_cross_validation(add_third_class, x_data_type, y_string_class, shuffle,
             (True, False),
             (True, False),
             (True, False),
-            (True, False)
+            (True, False),
         )
     ),
 )
-def test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline, with_groups):
+def test_approx_cross_validation_early_stop(
+    add_third_class, x_data_type, y_string_class, shuffle, graph_pipeline, with_groups
+):
 
     X, y = make_classification(n_samples=100, random_state=123)
-    
+
     if with_groups:
-        groups = np.array([0]*25+[1]*25+[2]*25+[3]*25)
+        groups = np.array([0] * 25 + [1] * 25 + [2] * 25 + [3] * 25)
     else:
-        groups=None
+        groups = None
 
     if add_third_class:
         y[0:2] = 2
@@ -624,9 +628,11 @@ def test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_stri
         scoring = ["accuracy", "neg_log_loss"]
 
     if graph_pipeline:
-        estimator = GraphPipeline({"pt": DebugPassThrough(), "lg": LogisticRegression(C=1,random_state=123)}, edges=[("pt", "lg")])
+        estimator = GraphPipeline(
+            {"pt": DebugPassThrough(), "lg": LogisticRegression(C=1, random_state=123)}, edges=[("pt", "lg")]
+        )
     else:
-        estimator = LogisticRegression(C=1,random_state=123)
+        estimator = LogisticRegression(C=1, random_state=123)
 
     cv_res, yhat = cross_validation(
         estimator,
@@ -639,7 +645,7 @@ def test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_stri
         return_predict=True,
         method="predict",
         stopping_round=1,
-        stopping_threshold=1.01, # So that accuracy is sure to be bellow
+        stopping_threshold=1.01,  # So that accuracy is sure to be bellow
     )
 
     assert isinstance(cv_res, pd.DataFrame)
@@ -678,7 +684,10 @@ def test_approx_cross_validation_early_stop(add_third_class, x_data_type, y_stri
     "x_data_type, shuffle, graph_pipeline, with_groups",
     list(
         itertools.product(
-            (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray), (True, False), (True, False), (True, False)
+            (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
+            (True, False),
+            (True, False),
+            (True, False),
         )
     ),
 )
@@ -691,9 +700,9 @@ def test_approx_cross_validation_transformer(x_data_type, shuffle, graph_pipelin
 
     X, y = make_classification(n_samples=100, random_state=123)
     if with_groups:
-        groups = np.array([0]*25+[1]*25+[2]*25+[3]*25)
+        groups = np.array([0] * 25 + [1] * 25 + [2] * 25 + [3] * 25)
     else:
-        groups=None
+        groups = None
 
     X = convert_generic(X, output_type=x_data_type)
     if x_data_type == DataTypes.DataFrame:
@@ -925,6 +934,18 @@ class DummyModelCheckFitParams(RegressorMixin, BaseEstimator):
     def predict(self, X):
         return X[:, 0]
 
+class DummyModelCheckSampleWeight(RegressorMixin, BaseEstimator):
+    def __init__(self):
+        pass
+
+    def fit(self, X, y, sample_weight=None):
+        if sample_weight is not None:
+            assert X.shape[0] == sample_weight.shape[0] 
+        return self
+
+    def predict(self, X):
+        return X[:, 0]
+
 
 class DummyModelWithApprox(RegressorMixin, BaseEstimator):
     def __init__(self, check_kwargs=False):
@@ -966,6 +987,44 @@ class DummyModelWithApprox(RegressorMixin, BaseEstimator):
             return cv_res, X[:, 1]
         else:
             return cv_res
+        
+def test_cross_validation_sample_weight():
+    X, y = make_classification(n_samples=100, random_state=123)
+    sample_weight = np.ones(y.shape[0])
+    
+    estimator = DummyModelCheckSampleWeight()
+    estimator.fit(X, y, sample_weight=sample_weight)
+
+    cv_res, yhat = cross_validation(
+        estimator,
+        X,
+        y,
+        cv=10,
+        no_scoring=True,
+        return_predict=True,
+        method="predict",
+        fit_params={"sample_weight":sample_weight}
+    )
+    
+    # I just need to check that it works
+    assert yhat.shape[0] == y.shape[0]
+    
+    
+    estimator = DummyModelCheckSampleWeight()
+    estimator.fit(X, y)
+
+    cv_res, yhat = cross_validation(
+        estimator,
+        X,
+        y,
+        cv=10,
+        no_scoring=True,
+        return_predict=True,
+        method="predict"
+    )
+    
+    # I just need to check that it works
+    assert yhat.shape[0] == y.shape[0]
 
 
 @pytest.mark.parametrize("approximate_cv", [True, False])
@@ -1162,7 +1221,8 @@ def test_approx_cross_validation_cv(approximate_cv):
     assert yhat.ndim == 2
     assert yhat.shape == X.shape
 
-@pytest.mark.skipif(sklearn.__version__ >= '0.21', reason="bug fixed in 0.21")
+
+@pytest.mark.skipif(sklearn.__version__ >= "0.21", reason="bug fixed in 0.21")
 @pytest.mark.xfail
 def test_cross_val_predict_sklearn_few_sample_per_classes():
     np.random.seed(123)
@@ -1177,6 +1237,7 @@ def test_cross_val_predict_sklearn_few_sample_per_classes():
 
     assert (yhat_proba.max(axis=1) > 0).all()
 
+
 @pytest.mark.parametrize("with_groups", [True, False])
 def test_cross_validation_few_sample_per_classes(with_groups):
     np.random.seed(123)
@@ -1184,7 +1245,7 @@ def test_cross_validation_few_sample_per_classes(with_groups):
 
     y = np.array(["AA"] * 33 + ["BB"] * 33 + ["CC"] * 33 + ["DD"])
     if with_groups:
-        groups = np.array([0]*25+[1]*25+[2]*25+[3]*25)
+        groups = np.array([0] * 25 + [1] * 25 + [2] * 25 + [3] * 25)
     else:
         groups = None
 
@@ -1192,132 +1253,134 @@ def test_cross_validation_few_sample_per_classes(with_groups):
 
     logit = LogisticRegression()
 
-    _, yhat_proba = cross_validation(logit, X, y, groups=groups,cv=cv, return_predict=True, no_scoring=True)
+    _, yhat_proba = cross_validation(logit, X, y, groups=groups, cv=cv, return_predict=True, no_scoring=True)
     assert (yhat_proba.max(axis=1) > 0).all()
 
     assert yhat_proba.shape == (100, 4)
     assert list(yhat_proba.columns) == ["AA", "BB", "CC", "DD"]
-    
+
+
 def test_IndexTrainTestCv():
     np.random.seed(123)
-    X = np.random.randn(100,10)
-    
-    test_index = [0,1,10]
+    X = np.random.randn(100, 10)
+
+    test_index = [0, 1, 10]
     cv = IndexTrainTestCv(test_index=test_index)
-    
-    assert hasattr(cv,"split")
-    assert hasattr(cv,"get_n_splits")
-    
+
+    assert hasattr(cv, "split")
+    assert hasattr(cv, "get_n_splits")
+
     assert cv.get_n_splits(X) == 1
-    
+
     splits = list(cv.split(X))
     assert len(splits) == 1
     assert len(splits[0]) == 2
     train, test = splits[0]
     assert (test == test_index).all()
-    assert len(np.intersect1d(train,test)) == 0
-    assert (np.sort(np.union1d(train,test)) == np.arange(100)).all()
+    assert len(np.intersect1d(train, test)) == 0
+    assert (np.sort(np.union1d(train, test)) == np.arange(100)).all()
+
 
 def test_RandomTrainTestCv():
     np.random.seed(123)
-    X = np.random.randn(100,10)
-    
+    X = np.random.randn(100, 10)
+
     cv = RandomTrainTestCv(test_size=0.1, random_state=123)
-    
-    assert hasattr(cv,"split")
-    assert hasattr(cv,"get_n_splits")
-    
+
+    assert hasattr(cv, "split")
+    assert hasattr(cv, "get_n_splits")
+
     assert cv.get_n_splits(X) == 1
-    
+
     splits = list(cv.split(X))
     assert len(splits) == 1
     assert len(splits[0]) == 2
     train, test = splits[0]
     assert len(test) == 10
-    
-    assert len(np.intersect1d(train,test)) == 0
-    
-    assert (np.sort(np.union1d(train,test)) == np.arange(100)).all()
-    
+
+    assert len(np.intersect1d(train, test)) == 0
+
+    assert (np.sort(np.union1d(train, test)) == np.arange(100)).all()
+
     cv = RandomTrainTestCv(test_size=0.1, random_state=123)
     splits = list(cv.split(X))
     train2, test2 = splits[0]
-    
+
     assert (test2 == test).all()
-    assert (train2 == train).all() # same result when seed is the the same
-    
-    
+    assert (train2 == train).all()  # same result when seed is the the same
+
     cv = RandomTrainTestCv(test_size=0.1, random_state=456)
     splits = list(cv.split(X))
     train3, test3 = splits[0]
-    
+
     assert not (test3 == test).all()
-    assert not (train3 == train).all() # different result when seed is the the same
-    
+    assert not (train3 == train).all()  # different result when seed is the the same
+
 
 def test_SpecialGroupCV():
     np.random.seed(123)
-    X = np.random.randn(1000,10)
+    X = np.random.randn(1000, 10)
     y = np.random.randn(1000)
-    groups = np.random.randint(0,50,size=1000)
-    
-    cv = SpecialGroupCV(KFold(n_splits=10,shuffle=True,random_state=123))
-    
+    groups = np.random.randint(0, 50, size=1000)
+
+    cv = SpecialGroupCV(KFold(n_splits=10, shuffle=True, random_state=123))
+
     assert hasattr(cv, "split")
     assert hasattr(cv, "get_n_splits")
-    
-    assert cv.get_n_splits(X,y, groups=groups) == 10
-    splits = list(cv.split(X,y, groups=groups))
+
+    assert cv.get_n_splits(X, y, groups=groups) == 10
+    splits = list(cv.split(X, y, groups=groups))
     assert len(splits) == 10
 
-    all_index = np.zeros(X.shape[0],dtype=np.int32)
-    indexes = np.arange(X.shape[0],dtype=np.int32)
+    all_index = np.zeros(X.shape[0], dtype=np.int32)
+    indexes = np.arange(X.shape[0], dtype=np.int32)
     for train, test in splits:
         groups_train = groups[train]
-        groups_test  = groups[test]
-        
-        index_train = indexes[train]
-        index_test  = indexes[test]
+        groups_test = groups[test]
 
-        assert len(np.intersect1d(groups_train, groups_test)) == 0 #no groups in both
-        assert len(np.intersect1d(index_train, index_test)) == 0   #no index in both
-        
-        assert np.array_equal(np.sort(np.concatenate((index_train,index_test))),indexes) # train + test = everything
-        
+        index_train = indexes[train]
+        index_test = indexes[test]
+
+        assert len(np.intersect1d(groups_train, groups_test)) == 0  # no groups in both
+        assert len(np.intersect1d(index_train, index_test)) == 0  # no index in both
+
+        assert np.array_equal(np.sort(np.concatenate((index_train, index_test))), indexes)  # train + test = everything
+
         all_index[test] += 1
-        
-    assert (all_index == 1).all() # all things taken once and only once in test
+
+    assert (all_index == 1).all()  # all things taken once and only once in test
 
     # check : same split if we use the same seed
-    cv2 = SpecialGroupCV(KFold(n_splits=10,shuffle=True,random_state=123))
-    splits2 = list(cv2.split(X,y=None,groups=groups))
-    for (train1, test1),(train2,test2) in zip(splits, splits2):
+    cv2 = SpecialGroupCV(KFold(n_splits=10, shuffle=True, random_state=123))
+    splits2 = list(cv2.split(X, y=None, groups=groups))
+    for (train1, test1), (train2, test2) in zip(splits, splits2):
         assert np.array_equal(train1, train2)
         assert np.array_equal(test1, test2)
-        
-    cv3 = SpecialGroupCV(KFold(n_splits=10,shuffle=True,random_state=456))
-    splits = list(cv3.split(X,groups=groups))
+
+    cv3 = SpecialGroupCV(KFold(n_splits=10, shuffle=True, random_state=456))
+    splits = list(cv3.split(X, groups=groups))
     with pytest.raises(AssertionError):
-        for (train1, test1),(train2,test2) in zip(splits, splits2):
+        for (train1, test1), (train2, test2) in zip(splits, splits2):
             assert np.array_equal(train1, train2)
             assert np.array_equal(test1, test2)
         # some things should be different if different seed
-        
-    cv = SpecialGroupCV(KFold(n_splits=10,shuffle=True,random_state=123))
+
+    cv = SpecialGroupCV(KFold(n_splits=10, shuffle=True, random_state=123))
     with pytest.raises(ValueError):
-        list(cv.split(X)) # doesn't work because groups isn't setted
+        list(cv.split(X))  # doesn't work because groups isn't setted
+
 
 def test__score_with_group__multimetric_score_with_group():
     roc_auc_scorer = SCORERS["roc_auc"]
-    
+
     np.random.seed(123)
-    X_test = np.random.randn(100,10)
-    y_test = 1*(np.random.randn(100)>0)
-    group_test = np.array([0]*25 + [1] * 25 + [2] * 25 + [3]*25)
-    
+    X_test = np.random.randn(100, 10)
+    y_test = 1 * (np.random.randn(100) > 0)
+    group_test = np.array([0] * 25 + [1] * 25 + [2] * 25 + [3] * 25)
+
     estimator = LogisticRegression(solver="lbfgs", random_state=123)
-    estimator.fit(X_test,y_test)
-    
+    estimator.fit(X_test, y_test)
+
     #######################################################
     ###   Test with a scorer that doesn't accept group  ###
     #######################################################
@@ -1327,63 +1390,63 @@ def test__score_with_group__multimetric_score_with_group():
         else:
             result1 = _score_with_group(estimator, X_test, y_test, group_test, roc_auc_scorer)
         result2 = _score(estimator, X_test, y_test, roc_auc_scorer)
-        
+
         assert not pd.isnull(result1)
         assert isinstance(result1, numbers.Number)
-        assert abs(result1 - result2) <= 10**(-10)
-        
+        assert abs(result1 - result2) <= 10 ** (-10)
+
     for i in range(2):
         if i == 0:
-            result1 = _multimetric_score_with_group(estimator, X_test, y_test, None, {"auc":roc_auc_scorer})
+            result1 = _multimetric_score_with_group(estimator, X_test, y_test, None, {"auc": roc_auc_scorer})
         else:
-            result1 = _multimetric_score_with_group(estimator, X_test, y_test, group_test, {"auc":roc_auc_scorer})
-        result2 = _multimetric_score(estimator, X_test, y_test, {"auc":roc_auc_scorer})
-        
-        assert isinstance(result1,dict)
+            result1 = _multimetric_score_with_group(estimator, X_test, y_test, group_test, {"auc": roc_auc_scorer})
+        result2 = _multimetric_score(estimator, X_test, y_test, {"auc": roc_auc_scorer})
+
+        assert isinstance(result1, dict)
         assert set(result1.keys()) == {"auc"}
         assert not pd.isnull(result1["auc"])
-        assert isinstance(result1["auc"],numbers.Number)
-        assert abs(result1["auc"] - result2["auc"]) <= 10**(-10)
-    
+        assert isinstance(result1["auc"], numbers.Number)
+        assert abs(result1["auc"] - result2["auc"]) <= 10 ** (-10)
+
     ##############################################
     ### test with a scorer that accepts group  ###
     ##############################################
-        
+
     max_proba_scorer = _GroupProbaScorer(score_func=max_proba_group_accuracy, sign=1, kwargs={})
-    
+
     result1 = _score_with_group(estimator, X_test, y_test, group_test, max_proba_scorer)
     assert not pd.isnull(result1)
     assert isinstance(result1, numbers.Number)
     assert 0 <= result1 <= 1
-    
+
     with pytest.raises(TypeError):
         result1 = _score_with_group(estimator, X_test, y_test, None, max_proba_scorer)
     # raise error because scorer expects group
 
-    result1 = _multimetric_score_with_group(estimator, X_test, y_test, group_test, {"mp_score":max_proba_scorer})
+    result1 = _multimetric_score_with_group(estimator, X_test, y_test, group_test, {"mp_score": max_proba_scorer})
     assert isinstance(result1, dict)
     assert set(result1.keys()) == {"mp_score"}
     r = result1["mp_score"]
     assert not pd.isnull(r)
     assert isinstance(r, numbers.Number)
     assert 0 <= r <= 1
-    
+
     with pytest.raises(TypeError):
-        result1 = _multimetric_score_with_group(estimator, X_test, y_test, None, {"mp_score":max_proba_scorer})
+        result1 = _multimetric_score_with_group(estimator, X_test, y_test, None, {"mp_score": max_proba_scorer})
         # raise error because scorer expects group
-    
+
     #######################
     ###  test with both ###
     #######################
-    result1 = _multimetric_score_with_group(estimator, X_test, y_test, group_test, {"mp_score":max_proba_scorer,
-                                                                                    "auc":roc_auc_scorer
-                                                                                    })
+    result1 = _multimetric_score_with_group(
+        estimator, X_test, y_test, group_test, {"mp_score": max_proba_scorer, "auc": roc_auc_scorer}
+    )
     assert isinstance(result1, dict)
-    assert set(result1.keys()) == {"auc","mp_score"}
+    assert set(result1.keys()) == {"auc", "mp_score"}
     r = result1["mp_score"]
     assert not pd.isnull(r)
     assert isinstance(r, numbers.Number)
-    assert 0 <= r <= 1  
+    assert 0 <= r <= 1
 
 
 def test_cross_validation_with_max_proba_accuracy():
@@ -1392,64 +1455,61 @@ def test_cross_validation_with_max_proba_accuracy():
 
     max_proba_scorer = _GroupProbaScorer(score_func=max_proba_group_accuracy, sign=1, kwargs={})
 
-    X = np.random.randn(100,10)
-    y = 1*(np.random.randn(100)>0)
-    groups = np.array([0]*25 + [1] * 25 + [2] * 25 + [3]*25)
-    
+    X = np.random.randn(100, 10)
+    y = 1 * (np.random.randn(100) > 0)
+    groups = np.array([0] * 25 + [1] * 25 + [2] * 25 + [3] * 25)
+
     estimator = LogisticRegression(solver="lbfgs", random_state=123)
-    
-    cv_res = cross_validation(estimator,X,y,groups,scoring=max_proba_scorer,cv=cv)
-    
+
+    cv_res = cross_validation(estimator, X, y, groups, scoring=max_proba_scorer, cv=cv)
+
     assert isinstance(cv_res, pd.DataFrame)
-    assert cv_res.shape == (4,6)
-    
-    cv_res = cross_validation(estimator,X,y,groups,scoring={"mp_acc":max_proba_scorer},cv=cv)
-    
+    assert cv_res.shape == (4, 6)
+
+    cv_res = cross_validation(estimator, X, y, groups, scoring={"mp_acc": max_proba_scorer}, cv=cv)
+
     assert isinstance(cv_res, pd.DataFrame)
-    assert cv_res.shape == (4,6)
+    assert cv_res.shape == (4, 6)
     assert "train_mp_acc" in cv_res.columns
     assert "test_mp_acc" in cv_res.columns
     assert cv_res["train_mp_acc"].max() <= 1
     assert cv_res["train_mp_acc"].min() >= 0
-    
+
     assert cv_res["test_mp_acc"].max() <= 1
     assert cv_res["test_mp_acc"].min() >= 0
 
-    
 
-@pytest.mark.parametrize('add_third_class, cast_data_frame, cast_string',
-                         list(itertools.product([True,False],[True,False],[True,False])) )
-def test_cross_validation_classifier_multi_output(add_third_class,
-                                       cast_data_frame,
-                                       cast_string):
+@pytest.mark.parametrize(
+    "add_third_class, cast_data_frame, cast_string",
+    list(itertools.product([True, False], [True, False], [True, False])),
+)
+def test_cross_validation_classifier_multi_output(add_third_class, cast_data_frame, cast_string):
 
     estimator = RandomForestClassifier(n_estimators=10, random_state=123)
-    
+
     X, y = make_classification(n_samples=10)
-    yd2 = np.concatenate((y.reshape((-1,1)),y.reshape((-1,1))),axis=1)
-    
+    yd2 = np.concatenate((y.reshape((-1, 1)), y.reshape((-1, 1))), axis=1)
+
     if add_third_class:
-        yd2[0,1] = 2
+        yd2[0, 1] = 2
 
     if cast_string:
-        yd2 = yd2.astype('str').astype('object')
-        yd2[:,0] = "cl_a_" + yd2[:,0]
-        yd2[:,1] = "cl_b_" + yd2[:,1]
+        yd2 = yd2.astype("str").astype("object")
+        yd2[:, 0] = "cl_a_" + yd2[:, 0]
+        yd2[:, 1] = "cl_b_" + yd2[:, 1]
 
     if cast_data_frame:
         yd2 = pd.DataFrame(yd2)
 
-    cv_res = cross_validation(estimator, X, yd2, cv=3,scoring="log_loss_patched")
+    cv_res = cross_validation(estimator, X, yd2, cv=3, scoring="log_loss_patched")
     assert cv_res.shape[0] == 3
     assert isinstance(cv_res, pd.DataFrame)
     assert "test_log_loss_patched" in cv_res.columns
     assert "train_log_loss_patched" in cv_res.columns
 
-    cv_res, yhat = cross_validation(estimator, X, yd2,
-                                    cv=3,
-                                    scoring="log_loss_patched",
-                                    return_predict=True,
-                                    method="predict")
+    cv_res, yhat = cross_validation(
+        estimator, X, yd2, cv=3, scoring="log_loss_patched", return_predict=True, method="predict"
+    )
 
     assert cv_res.shape[0] == 3
     assert isinstance(cv_res, pd.DataFrame)
@@ -1458,12 +1518,9 @@ def test_cross_validation_classifier_multi_output(add_third_class,
     assert isinstance(yhat, np.ndarray)
     assert yhat.shape == yd2.shape
 
-    cv_res, yhat_proba = cross_validation(estimator, X,
-                                          yd2,
-                                          cv=3,
-                                          scoring="log_loss_patched",
-                                          return_predict=True,
-                                          method="predict_proba")
+    cv_res, yhat_proba = cross_validation(
+        estimator, X, yd2, cv=3, scoring="log_loss_patched", return_predict=True, method="predict_proba"
+    )
 
     assert cv_res.shape[0] == 3
     assert isinstance(cv_res, pd.DataFrame)
@@ -1472,41 +1529,36 @@ def test_cross_validation_classifier_multi_output(add_third_class,
     assert isinstance(yhat_proba, list)
     assert len(yhat_proba) == 2
     for j, p in enumerate(yhat_proba):
-        assert p.shape == (yd2.shape[0], 2 + 1*(j==1)*(add_third_class))
-        assert (p.sum(axis=1) - 1).abs().max() <= 10**(-10)
+        assert p.shape == (yd2.shape[0], 2 + 1 * (j == 1) * (add_third_class))
+        assert (p.sum(axis=1) - 1).abs().max() <= 10 ** (-10)
         assert isinstance(p, pd.DataFrame)
         assert p.min().min() >= 0
         assert p.max().max() <= 1
-        
+
         if cast_data_frame:
-            assert list(p.columns) == list(np.sort(np.unique(yd2.iloc[:,j])))
+            assert list(p.columns) == list(np.sort(np.unique(yd2.iloc[:, j])))
         else:
-            assert list(p.columns) == list(np.sort(np.unique(yd2[:,j])))
+            assert list(p.columns) == list(np.sort(np.unique(yd2[:, j])))
 
 
-@pytest.mark.parametrize('cast_data_frame', [True, False])
+@pytest.mark.parametrize("cast_data_frame", [True, False])
 def test_cross_validation_regressor_multi_output(cast_data_frame):
 
     estimator = RandomForestRegressor(n_estimators=10, random_state=123)
-    
+
     X, y = make_regression(n_samples=10)
-    yd2 = np.concatenate((y.reshape((-1,1)),y.reshape((-1,1))),axis=1)
-    
+    yd2 = np.concatenate((y.reshape((-1, 1)), y.reshape((-1, 1))), axis=1)
+
     if cast_data_frame:
         yd2 = pd.DataFrame(yd2)
 
-
-    cv_res = cross_validation(estimator, X, yd2, cv=2,scoring="r2")
+    cv_res = cross_validation(estimator, X, yd2, cv=2, scoring="r2")
     assert cv_res.shape[0] == 2
     assert isinstance(cv_res, pd.DataFrame)
     assert "test_r2" in cv_res.columns
     assert "train_r2" in cv_res.columns
-    
-    cv_res, yhat = cross_validation(estimator, X, yd2,
-                                    cv=2,
-                                    scoring="r2",
-                                    return_predict=True,
-                                    method="predict")
+
+    cv_res, yhat = cross_validation(estimator, X, yd2, cv=2, scoring="r2", return_predict=True, method="predict")
 
     assert cv_res.shape[0] == 2
     assert isinstance(cv_res, pd.DataFrame)
@@ -1514,4 +1566,3 @@ def test_cross_validation_regressor_multi_output(cast_data_frame):
     assert "train_r2" in cv_res.columns
     assert isinstance(yhat, np.ndarray)
     assert yhat.shape == yd2.shape
-    

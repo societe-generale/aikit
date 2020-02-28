@@ -38,7 +38,7 @@ import sklearn.metrics.scorer
 # from aikit.helper_functions import is_user
 from aikit.enums import DataTypes
 from aikit.transformers.model_wrapper import ModelWrapper, ColumnsSelector
-from aikit.tools.data_structure_helper import _nbcols, get_type, generic_hstack, make2dimensions, convert_to_array
+from aikit.tools.data_structure_helper import _nbcols, _nbrows, get_type, generic_hstack, make2dimensions, convert_to_array
 
 from aikit.cross_validation import cross_validation
 
@@ -72,7 +72,7 @@ def int_n_components(nbcolumns, n_components):
 def f_forest_regression(X, y, rf_params=None):
     """ return features importances for classification problems based on RandomForest """
     if rf_params is None:
-        rf_params = {"n_estimators": 100}
+        rf_params = {"n_estimators": 100, "random_state":123}
 
     forest = RandomForestRegressor(**rf_params)
     forest.fit(X, y)
@@ -83,7 +83,7 @@ def f_forest_classification(X, y, rf_params=None):
     """ return features importances for regression problems based on RandomForest """
 
     if rf_params is None:
-        rf_params = {"n_estimators": 100}
+        rf_params = {"n_estimators": 100, "random_state":123}
 
     forest = RandomForestClassifier(**rf_params)
     forest.fit(X, y)
@@ -306,9 +306,10 @@ class FeaturesSelectorClassifier(ModelWrapper):
         component_selection="number",
         random_state=None,
         model_params=None,
-        columns_to_use=None,
+        columns_to_use="all",
         regex_match=False,
-        keep_other_columns="drop",
+        drop_used_columns=True,
+        drop_unused_columns=True,
     ):
         self.n_components = n_components
         self.selector_type = selector_type
@@ -327,7 +328,8 @@ class FeaturesSelectorClassifier(ModelWrapper):
             desired_output_type=None,
             must_transform_to_get_features_name=False,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
@@ -348,9 +350,10 @@ class FeaturesSelectorRegressor(ModelWrapper):
         selector_type="forest",
         component_selection="number",
         model_params=None,
-        columns_to_use=None,
+        columns_to_use="all",
         regex_match=False,
-        keep_other_columns="drop",
+        drop_used_columns=True,
+        drop_unused_columns=True,
     ):
         self.n_components = n_components
         self.selector_type = selector_type
@@ -369,7 +372,8 @@ class FeaturesSelectorRegressor(ModelWrapper):
             desired_output_type=None,
             must_transform_to_get_features_name=False,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
@@ -401,7 +405,7 @@ class PassThrough(ModelWrapper):
     def __init__(self):
 
         super(PassThrough, self).__init__(
-            columns_to_use=None,
+            columns_to_use="all",
             regex_match=False,
             work_on_one_column_only=False,
             all_columns_at_once=True,
@@ -410,7 +414,8 @@ class PassThrough(ModelWrapper):
             desired_output_type=None,
             must_transform_to_get_features_name=False,
             dont_change_columns=True,
-            keep_other_columns=False,
+            drop_used_columns=True,
+            drop_unused_columns=True,
         )
 
     def _get_model(self, X, y=None):
@@ -447,14 +452,19 @@ class _LambdaTransformer(TransformerMixin, BaseEstimator):
 
 class LambdaTransformer(ModelWrapper):
     def __init__(
-        self, fun, columns_to_use=None, regex_match=False, desired_output_type=None, keep_other_columns="drop"
+        self,
+        fun,
+        columns_to_use="all",
+        regex_match=False,
+        desired_output_type=None,
+        drop_used_columns=True,
+        drop_unused_columns=True,
     ):
 
         self.fun = fun
         self.columns_to_use = columns_to_use
         self.regex_match = regex_match
         self.desired_output_type = desired_output_type
-        self.keep_other_columns = keep_other_columns
 
         super(LambdaTransformer, self).__init__(
             columns_to_use=columns_to_use,
@@ -466,7 +476,8 @@ class LambdaTransformer(ModelWrapper):
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=False,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
@@ -485,12 +496,17 @@ class TruncatedSVDWrapper(ModelWrapper):
 
     # TODO : add percentage of explained variance ?
     def __init__(
-        self, n_components=2, columns_to_use=None, regex_match=False, keep_other_columns="drop", random_state=None
+        self,
+        n_components=2,
+        columns_to_use="all",
+        regex_match=False,
+        random_state=None,
+        drop_used_columns=True,
+        drop_unused_columns=True,
     ):
         self.n_components = n_components
         self.columns_to_use = columns_to_use
         self.regex_match = regex_match
-        self.keep_other_columns = keep_other_columns
         self.random_state = random_state
 
         super(TruncatedSVDWrapper, self).__init__(
@@ -503,7 +519,8 @@ class TruncatedSVDWrapper(ModelWrapper):
             desired_output_type=DataTypes.DataFrame,
             must_transform_to_get_features_name=True,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
@@ -520,11 +537,12 @@ class PCAWrapper(ModelWrapper):
         n_components``can not be greater than the total number of columns.
     """
 
-    def __init__(self, n_components=2, columns_to_use=None, regex_match=False, keep_other_columns="drop"):
+    def __init__(
+        self, n_components=2, columns_to_use="all", regex_match=False, drop_used_columns=True, drop_unused_columns=True
+    ):
         self.n_components = n_components
         self.columns_to_use = columns_to_use
         self.regex_match = regex_match
-        self.keep_other_columns = keep_other_columns
 
         super(PCAWrapper, self).__init__(
             columns_to_use=columns_to_use,
@@ -536,12 +554,15 @@ class PCAWrapper(ModelWrapper):
             desired_output_type=DataTypes.DataFrame,
             must_transform_to_get_features_name=True,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
         nbcolumns = _nbcols(X)
-        n_components = int_n_components(nbcolumns, self.n_components)
+        nbrows    = _nbrows(X)
+        
+        n_components = min(int_n_components(nbcolumns, self.n_components),nbrows)
 
         return PCA(n_components=n_components)
 
@@ -671,6 +692,12 @@ class _KMeansTransformer(BaseEstimator, TransformerMixin):
             result[row_sum[:, 0] == 0, :] = 0.0
             result[result < 10 ** (-10)] = 0.0
             result[result > 1 - 10 ** (-10)] = 1.0
+            
+            row_sum_is_inf = np.isinf(row_sum)[:,0]
+            result[row_sum_is_inf,:] = 1*(cluster_one_hot[row_sum_is_inf,:]) # go back to one-hot
+            
+            assert not np.isinf(result).any()
+            assert not pd.isnull(result).any()
 
             return result
 
@@ -756,11 +783,15 @@ class KMeansTransformer(ModelWrapper):
     regex_match : boolean, default = False
         if True use regex to match columns
 
-    keep_other_columns : string, default = 'drop'
-        choices : 'keep','drop','delta'.
-        If 'keep'  : the original columns are kept     => result = columns + transformed columns
-        If 'drop'  : the original columns are dropped  => result = transformed columns
-        If 'delta' : only the original columns not used in transformed are kept => result = un-touched original columns + transformed columns
+    drop_used_columns : boolean, default=True
+        what to do with the ORIGINAL columns that were transformed.
+        If False, will keep them in the result (un-transformed)
+        If True, only the transformed columns are in the result
+
+    drop_unused_columns: boolean, default=True
+        what to do with the column that were not used.
+        if False, will drop them
+        if True, will keep them in the result
 
     desired_output_type : DataType
         the type of result
@@ -775,10 +806,11 @@ class KMeansTransformer(ModelWrapper):
         temperature=1,
         scale_input=True,
         random_state=None,
-        columns_to_use=None,
-        keep_other_columns="drop",
+        columns_to_use="all",
         regex_match=False,
         desired_output_type=DataTypes.DataFrame,
+        drop_used_columns=True,
+        drop_unused_columns=True,
     ):
 
         self.n_clusters = n_clusters
@@ -788,7 +820,6 @@ class KMeansTransformer(ModelWrapper):
         self.scale_input = scale_input
 
         self.columns_to_use = columns_to_use
-        self.keep_other_columns = keep_other_columns
         self.regex_match = regex_match
         self.desired_output_type = desired_output_type
 
@@ -802,7 +833,8 @@ class KMeansTransformer(ModelWrapper):
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=False,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
@@ -1241,18 +1273,6 @@ class BoxCoxTargetTransformer(_TargetTransformer):
             return np.sign(my) * (np.exp(np.log1p(self.ll * np.abs(my)) / self.ll) - 1)
 
 
-# def column_iterate(X, type_of_data = None):
-#    if type_of_data is None:
-#        type_of_data = get_type(X)
-#
-#    if type_of_data in (DataTypes.DataFrame,DataTypes.NumpyArray):
-#        for column in X.columns:
-#            yield column,X[column]
-#
-#    elif type_of_data in (DataTypes.NumpyArray, DataTypes.SparseArray):
-#        for j in range(X.shape[1]):
-#            yield j,X[:,j]
-
 # In[]
 def _gen_column_iterator(X, type_of_data=None):
     """ generic column interator, helper to iterator if the column of a data object """
@@ -1292,11 +1312,14 @@ def _index_with_number(X):
 
     index_res = np.zeros(X.shape[0], dtype=np.bool)
     for i, x in enumerate(X):
-        is_number = True
-        try:
-            np.float32(x)
-        except ValueError:
+        if isinstance(x, str):
             is_number = False
+        else:
+            is_number = True
+            try:
+                np.float32(x)
+            except ValueError:
+                is_number = False
         index_res[i] = is_number
 
     return index_res
@@ -1348,22 +1371,23 @@ class _NumImputer(BaseEstimator, TransformerMixin):
 
             # Here Xca is an array
             ii_not_null = ~pd.isnull(Xca)
-            
-            #ii_not_inf  = np.abs(Xca) != np.inf
-            #ii_not_null = np.logical_and(ii_not_null, ii_not_inf)
-            
+
+            # ii_not_inf  = np.abs(Xca) != np.inf
+            # ii_not_null = np.logical_and(ii_not_null, ii_not_inf)
+
             if Xca.dtype.kind not in ("f", "i"):
                 ii_contain_number = _index_with_number(Xca)
                 ii_not_null = np.logical_and(ii_not_null, ii_contain_number)
-            
-                ii_not_inf = np.array([True] * ii_not_null.shape[0]) # assume not 'inf'
-                ii_not_inf[ ii_contain_number] = np.logical_not(np.isinf(Xca[ii_contain_number].astype(np.float32))) # only compute 'isinf' where it is a number
-                
+
+                ii_not_inf = np.array([True] * ii_not_null.shape[0])  # assume not 'inf'
+                ii_not_inf[ii_contain_number] = np.logical_not(
+                    np.isinf(Xca[ii_contain_number].astype(np.float32))
+                )  # only compute 'isinf' where it is a number
+
                 ii_not_null = np.logical_and(ii_not_null, ii_not_inf)
             else:
                 ii_not_inf = np.logical_not(np.isinf(Xca))
                 ii_not_null = np.logical_and(ii_not_null, ii_not_inf)
-                
 
             any_not_null = ii_not_null.any()
             all_not_null = ii_not_null.all()
@@ -1459,14 +1483,15 @@ class _NumImputer(BaseEstimator, TransformerMixin):
 
                     ii_null = np.logical_or(ii_null, np.logical_not(ii_contain_number))
 
-                    ii_inf = np.array([False] * ii_null.shape[0]) # assume not 'inf'
-                    ii_inf[ ii_contain_number ] = np.isinf(Xca[ii_contain_number].astype(np.float32)) # only compute 'isinf' where it is a number
-                    
+                    ii_inf = np.array([False] * ii_null.shape[0])  # assume not 'inf'
+                    ii_inf[ii_contain_number] = np.isinf(
+                        Xca[ii_contain_number].astype(np.float32)
+                    )  # only compute 'isinf' where it is a number
+
                     ii_null = np.logical_or(ii_null, ii_inf)
                 else:
                     ii_inf = np.isinf(Xca)
                     ii_null = np.logical_or(ii_null, ii_inf)
-                    
 
                 has_null = ii_null.any()
 
@@ -1564,6 +1589,16 @@ class NumImputer(ModelWrapper):
     columns_to_use : list of str or None
         the columns to use
 
+    drop_used_columns : boolean, default=True
+        what to do with the ORIGINAL columns that were transformed.
+        If False, will keep them in the result (un-transformed)
+        If True, only the transformed columns are in the result
+        
+    drop_unused_columns: boolean, default=True
+        what to do with the column that were not used.
+        if False, will drop them
+        if True, will keep them in the result
+
     regex_match : boolean, default = False
         if True, use regex to match columns
     """
@@ -1574,8 +1609,10 @@ class NumImputer(ModelWrapper):
         add_is_null=True,
         fix_value=0,
         allow_unseen_null=True,
-        columns_to_use=None,
+        columns_to_use="all",
         regex_match=False,
+        drop_used_columns=True,
+        drop_unused_columns=True,
     ):
         self.strategy = strategy
         self.add_is_null = add_is_null
@@ -1591,6 +1628,8 @@ class NumImputer(ModelWrapper):
             desired_output_type=None,
             must_transform_to_get_features_name=False,
             dont_change_columns=False,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
@@ -1618,36 +1657,6 @@ class NumImputer(ModelWrapper):
 
         """
         return not self.add_is_null
-
-
-# class RandomForestTransformer(BaseEstimator,TransformerMixin):
-#    def __init__(self):
-#        pass
-#
-#    def fit(self,X, y):
-#        self.rf = RandomForestClassifier()
-#        self.one_hot = OneHotEncoder()
-#
-#        self.rf.fit(X,y)
-#        Xnode = self.rf.apply(X)
-#        self.one_hot.fit(Xnode)
-#        return self
-#
-#    def transform(self,X):
-#        Xnode = self.rf.apply(X)
-#        result = self.one_hot.transform(Xnode)
-#        return result
-#
-#    def fit_transform(self,X,y):
-#        self.rf = RandomForestClassifier()
-#        self.one_hot = OneHotEncoder()
-#
-#        self.rf.fit(X,y)
-#        Xnode = self.rf.apply(X)
-#        result = self.one_hot.fit_transform(Xnode)
-#        return result
-#
-# In[]
 
 
 # In[] : Scaler
@@ -1771,6 +1780,12 @@ class _CdfScaler(BaseEstimator, TransformerMixin):
         self._random_gen = check_random_state(self.random_state)
 
         self._expected_type = type_of_data
+        
+        s = getattr(X,"shape",None)
+        if s is not None:
+            self._epsilon = 1/(2*s[0])
+        else:
+            self._epsilon = 0.0001
 
         if type_of_data == DataTypes.SparseArray and not isinstance(X, sps.csc_matrix):
             X = sps.csc_matrix(X)
@@ -1805,12 +1820,18 @@ class _CdfScaler(BaseEstimator, TransformerMixin):
             ###  Parametric law  ###
             ########################
             if dist == "gamma":
-                params = scipy.stats.gamma.fit(Xca_sample)
-                self.fitted_distributions[col] = scipy.stats.gamma(*params)
+                if Xca_sample.std() == 0:
+                    self.fitted_distributions[col] = None
+                else:
+                    params = scipy.stats.gamma.fit(Xca_sample)
+                    self.fitted_distributions[col] = scipy.stats.gamma(*params)
 
             elif dist == "normal":
                 params = scipy.stats.norm.fit(Xca_sample)
-                self.fitted_distributions[col] = scipy.stats.norm(*params)
+                if params[1] == 0.0: # std == 0
+                    self.fitted_distributions[col] = None
+                else:
+                    self.fitted_distributions[col] = scipy.stats.norm(*params)
 
             elif dist == "beta":
                 params = scipy.stats.beta.fit(Xca_sample)
@@ -1826,7 +1847,11 @@ class _CdfScaler(BaseEstimator, TransformerMixin):
             ###  Non Parametric kernel estimation  ###
             ##########################################
             elif dist == "kernel":
-                self.fitted_distributions[col] = KDEMultivariate(data=Xca_sample, var_type="c", bw="normal_reference")
+                kde = KDEMultivariate(data=Xca_sample, var_type="c", bw="normal_reference")
+                if kde.bw == 0: # means data is almost constant => can't compute a cdf
+                    self.fitted_distributions[col] = None
+                else:                    
+                    self.fitted_distributions[col] = kde
 
             ###############################################
             ###  Non Parametric simple rank estimation  ###
@@ -1879,7 +1904,10 @@ class _CdfScaler(BaseEstimator, TransformerMixin):
 
             ### Apply CDF ###
             if dist in {"gamma", "normal", "beta", "kernel"}:
-                Xca_modified = self.fitted_distributions[col].cdf(Xca)
+                if self.fitted_distributions[col] is not None:
+                    Xca_modified = (1 - 2 * self._epsilon) * self.fitted_distributions[col].cdf(Xca) + self._epsilon
+                else:
+                    Xca_modified = Xca[:] * 0 + 0.5 # constant 0.5
 
             ### Don't do anything ###
             elif dist == "none":
@@ -1960,11 +1988,15 @@ class CdfScaler(ModelWrapper):
     regex_match : boolean, default = False
         if True use regex to match columns
 
-    keep_other_columns : string, default = 'drop'
-        choices : 'keep','drop','delta'.
-        If 'keep'  : the original columns are kept     => result = columns + transformed columns
-        If 'drop'  : the original columns are dropped  => result = transformed columns
-        If 'delta' : only the original columns not used in transformed are kept => result = un-touched original columns + transformed columns
+    drop_used_columns : boolean, default=True
+        what to do with the ORIGINAL columns that were transformed.
+        If False, will keep them in the result (un-transformed)
+        If True, only the transformed columns are in the result
+        
+    drop_unused_columns: boolean, default=True
+        what to do with the column that were not used.
+        if False, will drop them
+        if True, will keep them in the result
 
     desired_output_type : DataType
         the type of result
@@ -1979,9 +2011,10 @@ class CdfScaler(ModelWrapper):
         verbose=False,
         sampling_number=1000,
         random_state=None,
-        columns_to_use=None,
+        columns_to_use="all",
         regex_match=False,
-        keep_other_columns="drop",
+        drop_used_columns=True,
+        drop_unused_columns=True,
         desired_output_type=None,
     ):
 
@@ -2002,7 +2035,8 @@ class CdfScaler(ModelWrapper):
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=False,
             dont_change_columns=True,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):

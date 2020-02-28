@@ -1,7 +1,7 @@
-.. _ml_machine:
+.. _ml_machine_explanation:
 
-Ml Machine
-==========
+Auto ML Inner Workings
+======================
 
 Here is a more detailed explanation about what the Ml Machine is doing.
 

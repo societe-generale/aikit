@@ -122,16 +122,9 @@ class SpecialModels:
 
     GraphPipeline = "GraphPipeline"
     Pipeline = "Pipeline"
-    ModelsUnion = "ModelsUnion"
+    FeatureUnion = "FeatureUnion"
     ColumnsSelector = "ColumnsSelector"
 
-    alls = (GraphPipeline, Pipeline, ModelsUnion, ColumnsSelector)
+    alls = (GraphPipeline, Pipeline, FeatureUnion, ColumnsSelector)
 
 
-# In[]
-def verif_all():
-    test_TypeOfProblem()
-    test_TypeOfVariables()
-    test_StepCategories()
-    test_DataTypes()
-    test_SpecialModelss()

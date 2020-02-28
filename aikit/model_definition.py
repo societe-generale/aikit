@@ -6,6 +6,10 @@ Created on Thu Jan 18 15:30:27 2018
 """
 
 import copy
+import inspect
+
+from sklearn.base import BaseEstimator
+import numpy as np
 
 from aikit.model_registration import DICO_NAME_KLASS
 from aikit.enums import SpecialModels
@@ -158,54 +162,90 @@ def sklearn_model_from_param(param, _copy=True):
         return param
 
 
-# def param_from_sklearn_model(model, _simplify_default = False):
-#
-#    if isinstance(model,Pipeline):
-#        return (SpecialModels.Pipeline,{"steps":[(name,param_from_model(step)) for name,step in model.steps]})
-#
-#    elif isinstance(model,ModelsUnion):
-#        return (SpecialModels.ModelsUnion ,{"transformer_list":[(name,param_from_model(step, _simplify_default = _simplify_default)) for name,step in model.transformer_list],
-#                                "n_jobs":model.n_jobs,
-#                                "transformer_weights":model.transformer_weights
-#                                })
-#
-#    elif isinstance(model, GraphPipeline):
-#        return (SpecialModels.GraphPipeline , {n:param_from_model(p) for n,p in model.models.items() } , model.edges)
-#
-#
-#    elif isinstance(model,BaseEstimator) and model.__class__.__name__ in MODEL_REGISTER.dico_name_class:
-#        if not _simplify_default:
-#            param_dico = {k:param_from_model(v,_simplify_default = _simplify_default) for k,v in model.get_params().items() }
-#        else:
-#            # Experimental
-#            default_params = _get_default_params(model.__class__)
-#            param_dico = {}
-#            for k,v in model.get_params().items():
-#                if not (k in default_params and v == default_params[k]):
-#                    param_dico[k] = param_from_model(v, _simplify_default = _simplify_default)
-#
-#        return (model.__class__.__name__,param_dico)
-#        # Ici : peut etre faire un filtre si on a les valeurs par default ?
-#
-#    elif isinstance(model, (dict,OrderedDict)):
-#        res = model.__class__()
-#        for k,v in model.items():
-#            res[k] = param_from_model(v, _simplify_default = _simplify_default)
-#
-#        return res
-#
-#    elif isinstance(model,list):
-#        return [param_from_model(v,_simplify_default = _simplify_default) for v in model]
-#
-#    elif isinstance(model,tuple):
-#        return tuple([param_from_model(v,_simplify_default = _simplify_default) for v in model])
-#
-#    elif isinstance(model,(np.int64,np.int32)):
-#        return int(model)
-#
-#    elif isinstance(model,(np.float64,np.float32)):
-#        return float(model)
-#
-#    else:
-#        return model
-# In[]
+def filtered_get_params(model, simplify_default=True):
+
+    if not simplify_default:
+        return model.get_params(deep=False)
+    
+    params = model.get_params(deep=False)
+    new_params = params.__class__()
+
+    args = inspect.signature(model.__class__)
+    for param, value in params.items():
+        skip=False
+        if param in args.parameters:
+            if value == args.parameters[param].default:
+                skip=True
+        if not skip:
+            new_params[param]=value
+            
+    return new_params
+
+
+def param_from_sklearn_model(model, simplify_default=True):
+    """ convert a sklearn model into a its json representation
+    
+    Parameters
+    ----------
+    model : sklearn.BaseEstimator
+        the model to convert
+        
+    simplify_default : boolean, default=True
+        if True will simplify the arguments that are identical to the default one
+        
+    Returns
+    -------
+    model json representation
+    
+    
+    Example
+    -------
+    >>> model = RandomForestClassifier(n_estimators=200)
+    >>> param_from_sklearn_model(model)
+    >>> ('RandomForestClassifier', {'n_estimators': 200})
+
+    
+    """
+    if isinstance(model, BaseEstimator):
+        if  model.__class__.__name__ not in DICO_NAME_KLASS._mapping:
+            print(f"You'll need to include your class '{model.__class__.__name__}' into the register to be able to reload it")
+
+        if simplify_default:
+            param_dico = {k:param_from_sklearn_model(v, simplify_default=simplify_default) for k,v in filtered_get_params(model, simplify_default=True).items() } 
+        else:
+            param_dico = {k:param_from_sklearn_model(v, simplify_default=simplify_default) for k,v in model.get_params(deep=False).items() } 
+        
+        return (model.__class__.__name__, param_dico)
+    
+    
+    elif isinstance(model, dict):
+        res = model.__class__() # to keep the same format (dict, OrderedDict)
+        for k,v in model.items():
+            res[k] = param_from_sklearn_model(v, simplify_default=simplify_default)
+    
+        return res
+    
+    elif isinstance(model, list):
+        return [param_from_sklearn_model(v, simplify_default=simplify_default) for v in model]
+    
+    elif isinstance(model, tuple):
+        return tuple([param_from_sklearn_model(v, simplify_default=simplify_default) for v in model])
+    
+    elif isinstance(model, np.number):
+        if model.dtype.kind == "i":
+            return int(model)
+
+        elif model.dtype.kind == "f":
+            return float(model)
+        
+        else:
+            return model
+    
+    elif isinstance(model, np.bool_):
+        return bool(model)
+    
+    elif isinstance(model, np.str_):
+        return str(model)
+    
+    else:
+        return model

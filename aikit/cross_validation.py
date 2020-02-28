@@ -18,6 +18,8 @@ from joblib import Parallel, delayed
 
 import sklearn.model_selection
 from sklearn.model_selection._split import BaseCrossValidator, _num_samples, train_test_split
+from sklearn.model_selection._validation import _index_param_value
+
 import sklearn.base
 
 from aikit.tools.helper_functions import function_has_named_argument
@@ -138,20 +140,14 @@ def create_scoring(estimator, scoring):
     return scorers
 
 
-
-def _score_with_group(estimator,
-           X_test,
-           y_test,
-           groups_test,
-           scorer,
-           is_multimetric=False):
+def _score_with_group(estimator, X_test, y_test, groups_test, scorer, is_multimetric=False):
     """Compute the score(s) of an estimator on a given test set.
 
     Will return a single float if is_multimetric is False and a dict of floats,
     if is_multimetric is True
     """
     # Copy of sklearn '_score' but where the 'groups' can be passed to the scorer
-    if isinstance(y_test,pd.DataFrame):
+    if isinstance(y_test, pd.DataFrame):
         y_test = y_test.values
 
     if is_multimetric:
@@ -173,7 +169,7 @@ def _score_with_group(estimator,
             else:
                 score = scorer(estimator, X_test, y_test)
 
-        if hasattr(score, 'item'):
+        if hasattr(score, "item"):
             try:
                 # e.g. unwrap memmapped scalars
                 score = score.item()
@@ -182,9 +178,9 @@ def _score_with_group(estimator,
                 pass
 
         if not isinstance(score, numbers.Number):
-            raise ValueError("scoring must return a number, got %s (%s) "
-                             "instead. (scorer=%r)"
-                             % (str(score), type(score), scorer))
+            raise ValueError(
+                "scoring must return a number, got %s (%s) " "instead. (scorer=%r)" % (str(score), type(score), scorer)
+            )
     return score
 
 
@@ -200,15 +196,14 @@ def _multimetric_score_with_group(estimator, X_test, y_test, groups_test, scorer
                 score = scorer(estimator, X_test, groups_test)
             else:
                 score = scorer(estimator, X_test)
-            
-                
+
         else:
             if has_group:
                 score = scorer(estimator, X_test, y_test, groups_test)
             else:
                 score = scorer(estimator, X_test, y_test)
 
-        if hasattr(score, 'item'):
+        if hasattr(score, "item"):
             try:
                 # e.g. unwrap memmapped scalars
                 score = score.item()
@@ -217,44 +212,39 @@ def _multimetric_score_with_group(estimator, X_test, y_test, groups_test, scorer
                 pass
 
         if isinstance(score, dict):
-            for k,v in score.items():
-                scores[str(name)+ "_" + str(k)] = v
+            for k, v in score.items():
+                scores[str(name) + "_" + str(k)] = v
         elif isinstance(score, pd.Series):
-            for k,v in score.to_dict().items():
-                scores[str(name)+ "_" + str(k)] = v
+            for k, v in score.to_dict().items():
+                scores[str(name) + "_" + str(k)] = v
         else:
-            scores[name] = score            
+            scores[name] = score
             if not isinstance(score, numbers.Number):
-                raise ValueError("scoring must return a number, got %s (%s) "
-                                 "instead. (scorer=%s)"
-                                 % (str(score), type(score), name))
+                raise ValueError(
+                    "scoring must return a number, got %s (%s) "
+                    "instead. (scorer=%s)" % (str(score), type(score), name)
+                )
     return scores
 
 
-
-
-def _compute_one_fold(fold_index,
-                      train,
-                      test,
-                      
-                      multi_output_proba,
-                      all_classes,
-                      classes,
-
-                      estimator,
-                      X,
-                      y,
-                      groups,
-                      scorers,
-
-                      verbose,
-                      fit_params,
-                      return_predict,
-                      method,
-                      no_scoring
-                      
-                      
-                      ):
+def _compute_one_fold(
+    fold_index,
+    train,
+    test,
+    multi_output_proba,
+    all_classes,
+    classes,
+    estimator,
+    X,
+    y,
+    groups,
+    scorers,
+    verbose,
+    fit_params,
+    return_predict,
+    method,
+    no_scoring,
+):
     if verbose:
         print("cv %d started\n" % fold_index)
 
@@ -264,28 +254,30 @@ def _compute_one_fold(fold_index,
     ### split train test ###
     X_train, y_train = sklearn.model_selection._validation._safe_split(estimator, X, y, train)
     if groups is not None:
-        groups_train, _ = sklearn.model_selection._validation._safe_split(estimator, groups,None, train)
+        groups_train, _ = sklearn.model_selection._validation._safe_split(estimator, groups, None, train)
     else:
         groups_train = None
 
-    
     X_test, y_test = sklearn.model_selection._validation._safe_split(estimator, X, y, test, train)
     if groups is not None:
-        groups_test, _ = sklearn.model_selection._validation._safe_split(estimator, groups,None, test, train)
+        groups_test, _ = sklearn.model_selection._validation._safe_split(estimator, groups, None, test, train)
     else:
         groups_test = None
-    
 
     if hasattr(X_test, "index"):
         index_test = X_test.index
     else:
         index_test = test
-
+        
+    fit_params = fit_params if fit_params is not None else {}
+    fit_params = {k: _index_param_value(X, v, train)
+                  for k, v in fit_params.items()}
+    # Try to subset the fit_params if that is possible, Ex : 'sample_weight=np.array(....)' should be subsetted but not 'epochs=10'
     start_fit = time()
 
     ### Fit estimator ###
     if y_train is None:
-        if groups_train is not None and function_has_named_argument( cloned_estimator.fit, "groups"):
+        if groups_train is not None and function_has_named_argument(cloned_estimator.fit, "groups"):
             cloned_estimator.fit(X_train, groups=groups_train, **fit_params)
         else:
             cloned_estimator.fit(X_train, **fit_params)
@@ -297,7 +289,7 @@ def _compute_one_fold(fold_index,
 
     fit_time = time() - start_fit
 
-    result_predict=None
+    result_predict = None
     if return_predict:
         func = getattr(cloned_estimator, method)
         predictions = func(X_test)
@@ -305,30 +297,23 @@ def _compute_one_fold(fold_index,
         ## re-alignement with class ##
         if method in ("predict_proba", "predict_log_proba", "decision_function"):
 
-            def _align_predict(predictions,
-                               classes,
-                               cloned_estimator_classes_):
+            def _align_predict(predictions, classes, cloned_estimator_classes_):
 
                 float_min = np.finfo(predictions.dtype).min
-                default_values = {"decision_function": float_min,
-                                  "predict_log_proba": float_min,
-                                  "predict_proba": 0}
-                
-                predictions_for_all_classes = pd.DataFrame(default_values[method],
-                                                           index=index_test,
-                                                           columns=classes)
+                default_values = {"decision_function": float_min, "predict_log_proba": float_min, "predict_proba": 0}
+
+                predictions_for_all_classes = pd.DataFrame(default_values[method], index=index_test, columns=classes)
 
                 for j, c in enumerate(cloned_estimator_classes_):
                     predictions_for_all_classes[c] = predictions[:, j]
-                    
+
                 return predictions_for_all_classes
 
             if multi_output_proba:
-                predictions = [_align_predict(p, c, cloned_c)
-                    for p, c, cloned_c in zip(predictions,
-                                              all_classes,
-                                              cloned_estimator.classes_
-                                              )]
+                predictions = [
+                    _align_predict(p, c, cloned_c)
+                    for p, c, cloned_c in zip(predictions, all_classes, cloned_estimator.classes_)
+                ]
             else:
                 predictions = _align_predict(predictions, classes, cloned_estimator.classes_)
 
@@ -337,7 +322,7 @@ def _compute_one_fold(fold_index,
     result = OrderedDict()
 
     ### Score test ###
-    test_scores_dictionary= None
+    test_scores_dictionary = None
     if not no_scoring:
         start_score = time()
         test_scores_dictionary = _score_with_group(
@@ -365,9 +350,8 @@ def _compute_one_fold(fold_index,
 
     result["n_test_samples"] = sklearn.model_selection._validation._num_samples(X_test)
     result["fold_nb"] = fold_index
-    
-    return result, result_predict, test_scores_dictionary
 
+    return result, result_predict, test_scores_dictionary
 
 
 def cross_validation(
@@ -486,13 +470,13 @@ def cross_validation(
     ### make everything indexable ###
     X, y = sklearn.model_selection._validation.indexable(X, y)
     if groups is not None:
-        groups, _ = sklearn.model_selection._validation.indexable(groups,None)
+        groups, _ = sklearn.model_selection._validation.indexable(groups, None)
 
     if isinstance(scoring, str):
         scoring = [scoring]
 
     ### Scoring ###
-    scorers=None
+    scorers = None
     if not no_scoring:
         scorers = create_scoring(estimator, scoring)
     # Here : scorers is a dictionnary of scorers objects
@@ -573,134 +557,128 @@ def cross_validation(
 
     prediction_blocks = []
     all_results = []
-    
-    multi_output_proba=False
-    all_classes=None
-    classes=None
+
+    multi_output_proba = False
+    all_classes = None
+    classes = None
     if method in ("predict_proba", "predict_log_proba", "decision_function"):
-        if getattr(y,"ndim",1) == 1 or y.shape[1] == 1:
-            classes = np.sort(np.unique(y)) # ca vda pas marcher en multi output 
+        if getattr(y, "ndim", 1) == 1 or y.shape[1] == 1:
+            classes = np.sort(np.unique(y))  # ca vda pas marcher en multi output
             multi_output_proba = False
         else:
             if y.ndim > 2:
                 raise TypeError("This function doesn't work for y that has %d dimension" % y.ndim)
-                
+
             multi_output_proba = True
             all_classes = []
             for d in range(y.shape[1]):
-                if hasattr(y,"iloc"):
-                    classes = np.sort(np.unique(y.iloc[:,d].values))
+                if hasattr(y, "iloc"):
+                    classes = np.sort(np.unique(y.iloc[:, d].values))
                 else:
-                    classes = np.sort(np.unique(y[:,d]))
+                    classes = np.sort(np.unique(y[:, d]))
                 all_classes.append(classes)
-
 
     stop_cv = False
     max_main_scorer = None
-    
+
     #################
     ### Main Loop ###
     #################
     if no_scoring:
-        try_early_stopping=False
+        try_early_stopping = False
     else:
-        try_early_stopping=stopping_round is not None and stopping_threshold is not None
+        try_early_stopping = stopping_round is not None and stopping_threshold is not None
 
     if not try_early_stopping:
-        
+
         if parallel_kwargs is None:
             parallel_kwargs = {}
-            
+
         if "pre_dispatch" not in parallel_kwargs:
-            parallel_kwargs["pre_dispatch"] = '2*n_jobs'
+            parallel_kwargs["pre_dispatch"] = "2*n_jobs"
         if "verbose" not in parallel_kwargs:
             parallel_kwargs["verbose"] = True
 
         parallel = Parallel(n_jobs=n_jobs, **parallel_kwargs)
-        
-        temp_results = parallel( delayed(_compute_one_fold)(
-                          fold_index=fold_index,
-                          train=train,
-                          test=test,
-                          
-                          multi_output_proba=multi_output_proba,
-                          all_classes=all_classes,
-                          classes=classes,
-    
-                          estimator=estimator,
-                          X=X,
-                          y=y,
-                          groups=groups,
-                          scorers=scorers,
-    
-                          verbose=verbose,
-                          fit_params=fit_params,
-                          return_predict=return_predict,
-                          method=method,
-                          no_scoring=no_scoring
-                          )
-                    for fold_index, (train, test) in enumerate(cv.split(X, y, groups=groups)))
-                    
+
+        temp_results = parallel(
+            delayed(_compute_one_fold)(
+                fold_index=fold_index,
+                train=train,
+                test=test,
+                multi_output_proba=multi_output_proba,
+                all_classes=all_classes,
+                classes=classes,
+                estimator=estimator,
+                X=X,
+                y=y,
+                groups=groups,
+                scorers=scorers,
+                verbose=verbose,
+                fit_params=fit_params,
+                return_predict=return_predict,
+                method=method,
+                no_scoring=no_scoring,
+            )
+            for fold_index, (train, test) in enumerate(cv.split(X, y, groups=groups))
+        )
+
         for result, result_prediction, test_scores_dictionary in temp_results:
             all_results.append(result)
             prediction_blocks.append(result_prediction)
-            
+
             # No early stopping in that case...
-    
+
     else:
         if n_jobs > 1 and verbose:
             print("I won't use Parallel since you ask for early stopping")
 
         for fold_index, (train, test) in enumerate(cv.split(X, y, groups=groups)):
-    
+
             if verbose:
                 print("cv %d started\n" % fold_index)
-                
-                
+
             result, result_prediction, test_scores_dictionary = _compute_one_fold(
-                          fold_index=fold_index,
-                          train=train,
-                          test=test,
-                          
-                          multi_output_proba=multi_output_proba,
-                          all_classes=all_classes,
-                          classes=classes,
-    
-                          estimator=estimator,
-                          X=X,
-                          y=y,
-                          groups=groups,
-                          scorers=scorers,
-    
-                          verbose=verbose,
-                          fit_params=fit_params,
-                          return_predict=return_predict,
-                          method=method,
-                          no_scoring=no_scoring
-                    )
-    
+                fold_index=fold_index,
+                train=train,
+                test=test,
+                multi_output_proba=multi_output_proba,
+                all_classes=all_classes,
+                classes=classes,
+                estimator=estimator,
+                X=X,
+                y=y,
+                groups=groups,
+                scorers=scorers,
+                verbose=verbose,
+                fit_params=fit_params,
+                return_predict=return_predict,
+                method=method,
+                no_scoring=no_scoring,
+            )
+
             all_results.append(result)
             prediction_blocks.append(result_prediction)
-    
+
             ### Look if I need to stop ###
             if not no_scoring:
                 stop_cv = False
                 if stopping_round is not None and fold_index >= stopping_round and stopping_threshold is not None:
-    
+
                     if isinstance(scoring, list) and scoring[0] in test_scores_dictionary:
                         main_score_name = scoring[0]
                     else:
                         main_score_name = sorted(test_scores_dictionary.keys())[0]
-    
+
                     if max_main_scorer is None:
                         max_main_scorer = test_scores_dictionary[main_score_name]
                     else:
                         max_main_scorer = max(max_main_scorer, test_scores_dictionary[main_score_name])
-    
+
                     if max_main_scorer <= stopping_threshold:
                         # I stop if ALL the scorers are bad
                         stop_cv = True
-    
+
                 if stop_cv:
                     break
 
@@ -736,22 +714,21 @@ def cross_validation(
                     if sp.issparse(predictions[0]):
                         predictions = sp.vstack(predictions, format=predictions[0].format)
                         predictions = predictions[inv_test_indices]
-    
+
                     elif hasattr(predictions[0], "iloc"):
                         predictions = pd.concat(predictions, axis=0)
                         predictions = predictions.iloc[inv_test_indices, :]
-    
+
                     else:
                         predictions = np.concatenate(predictions)
                         predictions = predictions[inv_test_indices]
-                        
+
                     return predictions
 
                 if multi_output_proba:
                     predictions = [_concat([p[d] for p in predictions], inv_test_indices) for d in range(y.shape[1])]
                 else:
                     predictions = _concat(predictions, inv_test_indices)
-
 
     ### Result ###
     if not no_scoring:
@@ -904,6 +881,7 @@ def score_from_params_clustering(
 
 # In[]
 
+
 class IndexTrainTestCv(BaseCrossValidator):
     """ cv like object but with only 1 fold.
     Use that object if you want to specify exactly which observations are used from training and testing.
@@ -915,12 +893,13 @@ class IndexTrainTestCv(BaseCrossValidator):
     test_index : array like
         the index of the testing set
     """
+
     def __init__(self, test_index):
         self.test_index = test_index
-        
+
     def get_n_splits(self, X, y=None, groups=None):
         return 1
-    
+
     def _iter_test_indices(self, X, y=None, groups=None):
         yield self.test_index
 
@@ -940,19 +919,21 @@ class RandomTrainTestCv(BaseCrossValidator):
         the random state to use to make the random split
     
     """
-    def __init__(self, test_size=0.1, random_state=123):
-        self.test_size=test_size
-        self.random_state=random_state
 
-    def get_n_splits(self,X, y=None, groups=None):
+    def __init__(self, test_size=0.1, random_state=123):
+        self.test_size = test_size
+        self.random_state = random_state
+
+    def get_n_splits(self, X, y=None, groups=None):
         return 1
-        
+
     def _iter_test_indices(self, X, y=None, groups=None):
         n = _num_samples(X)
         index = np.arange(n)
-        
-        train_index, test_index = train_test_split(index,test_size=self.test_size,random_state=self.random_state)
+
+        train_index, test_index = train_test_split(index, test_size=self.test_size, random_state=self.random_state)
         yield test_index
+
 
 class SpecialGroupCV(BaseCrossValidator):
     """ crossvalidator object that compute its folds based on the groups
@@ -965,12 +946,10 @@ class SpecialGroupCV(BaseCrossValidator):
     groups_columns : None or columns
         if groups is a DataFrame or array, the columns corresponding to the split
     """
-    def __init__(self,
-                 base_cv,
-                 groups_column=None
-                 ):
+
+    def __init__(self, base_cv, groups_column=None):
         self.base_cv = base_cv
-        self.groups_column=groups_column
+        self.groups_column = groups_column
 
     def get_n_splits(self, X=None, y=None, groups=None):
 
@@ -979,33 +958,32 @@ class SpecialGroupCV(BaseCrossValidator):
 
         ugroups = np.sort(np.unique(self._groups_to_use(groups)))
         return self.base_cv.get_n_splits(ugroups)
-    
+
     def _groups_to_use(self, groups):
         if self.groups_column is None:
             if hasattr(groups, "values"):
                 groups = groups.values
-    
+
             shape = getattr(groups, "shape", None)
             if shape is not None and len(shape) > 1:
-                groups = groups[:,0] # retrieve first column
+                groups = groups[:, 0]  # retrieve first column
         else:
             groups = groups[self.groups_column]
-            
+
         return groups
 
     def _iter_test_masks(self, X, y, groups=None):
-        
+
         if groups is None:
             raise ValueError("The 'groups' parameter should not be None.")
 
         groups = self._groups_to_use(groups)
-            
 
         ugroups = np.sort(np.unique(groups))
         for index_train, index_test in self.base_cv.split(ugroups):
 
-            groups_test  = np.sort(np.unique(ugroups[index_test])) # groups to keep in test
-            
-            boolean_test_index = (pd.core.algorithms.match(groups, groups_test) != -1)
-            
+            groups_test = np.sort(np.unique(ugroups[index_test]))  # groups to keep in test
+
+            boolean_test_index = pd.core.algorithms.match(groups, groups_test) != -1
+
             yield boolean_test_index

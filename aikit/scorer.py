@@ -12,6 +12,7 @@ from sklearn.metrics import silhouette_score, calinski_harabaz_score, davies_bou
 from sklearn.metrics.scorer import SCORERS, _BaseScorer, type_of_target
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,13 +35,14 @@ class log_loss_scorer_patched(object):
         if isinstance(y_pred, list):
             # this means that this is a multi-target prediction
             all_log_losses = [
-            -1.0 * sklearn.metrics.log_loss(y[:,j], y_pred[j], sample_weight=sample_weight, labels=clf.classes_[j])
-                for j in range(len(y_pred)) ]
-        
+                -1.0 * sklearn.metrics.log_loss(y[:, j], y_pred[j], sample_weight=sample_weight, labels=clf.classes_[j])
+                for j in range(len(y_pred))
+            ]
+
             # Avg of all log-loss
             # TODO : we could also returns everythings
             return np.mean(all_log_losses)
-        
+
         else:
             return -1.0 * sklearn.metrics.log_loss(y, y_pred, sample_weight=sample_weight, labels=clf.classes_)
 
@@ -70,8 +72,10 @@ class avg_roc_auc_score(object):
         )
         # return classes_present.sum() / len(classes_present) * score
 
+
 class avg_average_precision(object):
     """ Average of Average Precision, make sklearn average precision scorer works with multi-class """
+
     def __init__(self, average="macro"):
         self.average = average
         self._deprecation_msg = None
@@ -92,6 +96,7 @@ class avg_average_precision(object):
         return sklearn.metrics.average_precision_score(
             y2[:, classes_present], y_pred[:, classes_present], sample_weight=sample_weight, average=self.average
         )
+
 
 class confidence_score(object):
     """ Mesure howmuch 'maxproba' helps discriminate between mistaken and correct instance
@@ -233,38 +238,31 @@ class _GroupProbaScorer(_BaseScorer):
             if y_pred.shape[1] == 2:
                 y_pred = y_pred[:, 1]
             else:
-                raise ValueError('got predict_proba of shape {},'
-                                 ' but need classifier with two'
-                                 ' classes for {} scoring'.format(
-                                     y_pred.shape, self._score_func.__name__))
+                raise ValueError(
+                    "got predict_proba of shape {},"
+                    " but need classifier with two"
+                    " classes for {} scoring".format(y_pred.shape, self._score_func.__name__)
+                )
         if sample_weight is not None:
-            return self._sign * self._score_func(y,
-                                                 y_pred,
-                                                 groups,
-                                                 sample_weight=sample_weight,
-                                                 **self._kwargs)
+            return self._sign * self._score_func(y, y_pred, groups, sample_weight=sample_weight, **self._kwargs)
         else:
-            return self._sign * self._score_func(y,
-                                                 y_pred,
-                                                 groups, **self._kwargs)
+            return self._sign * self._score_func(y, y_pred, groups, **self._kwargs)
 
     def _factory_args(self):
         return ", needs_proba=True"
-    
+
+
 def max_proba_group_accuracy(y, y_pred, groups):
     """ group by group average of 'True' if prediction with highest probability is True """
     if y_pred.ndim != 1:
         raise ValueError("this function is for binary classification only")
 
-    df = pd.DataFrame({"proba":y_pred,"groups":groups,"y":y})
-    
+    df = pd.DataFrame({"proba": y_pred, "groups": groups, "y": y})
+
     def _max_proba_is_true(sub_group):
-        return sub_group.sort_values(by="proba",ascending=False)["y"].iloc[0]
-    
+        return sub_group.sort_values(by="proba", ascending=False)["y"].iloc[0]
+
     return df.groupby("groups").apply(_max_proba_is_true).mean()
-
-
-
 
 
 log_r2_scorer = sklearn.metrics.make_scorer(log_r2_score)

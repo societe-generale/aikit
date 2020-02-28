@@ -20,6 +20,7 @@ from aikit.ml_machine.data_persister import FolderDataPersister, SavingType
 from aikit.tools.helper_functions import function_has_named_argument
 from aikit.model_definition import sklearn_model_from_param
 
+
 def start_runner(runner):
     """ helper function to start a running object """
     runner.run()
@@ -49,7 +50,6 @@ class MlMachineLauncher(object):
         result = "result"
         fit = "fit"
 
-
     def __init__(self, base_folder, name=None, loader=None, set_configs=None):
 
         self.base_folder = base_folder
@@ -71,13 +71,12 @@ class MlMachineLauncher(object):
         self.dfX = None
         self.y = None
         self.groups = None
-        
-        self._seed = None # to initialize the attribute
+
+        self._seed = None  # to initialize the attribute
         self._nbworks = None
 
         self.command = None
-        
-        
+
     @staticmethod
     def _get_args_parse():
         parser = argparse.ArgumentParser(description="Ml Machine launcher")
@@ -87,16 +86,15 @@ class MlMachineLauncher(object):
         parser.add_argument("--nbworkers", "-n", help="number of workers to start", type=int, default=1)
         parser.add_argument("--seed", help="force seed of worker(s) or controllers", type=int, default=None)
         parser.add_argument("--job_ids", help="the job_id(s) of the model to fit")
-        
-        return parser
 
+        return parser
 
     def _process_command_arguments(self, parser=None):
         """ process the command arguments to save in the manager the command to launch and its parameters """
 
         if parser is None:
             parser = self._get_args_parse()
-        
+
         if not hasattr(parser, "parse_args"):
             raise TypeError("'parser' should have a 'parse_args' method")
 
@@ -104,7 +102,7 @@ class MlMachineLauncher(object):
 
         allowed_commands = [c.value for c in self.Commands]
         if args.command is None or args.command.lower() not in allowed_commands:
-            raise ValueError("Unknown command please choose among %s" % ', '.join(allowed_commands))
+            raise ValueError("Unknown command please choose among %s" % ", ".join(allowed_commands))
 
         self.command = self.Commands(args.command.lower())
         self._nbworkers = args.nbworkers
@@ -279,9 +277,9 @@ class MlMachineLauncher(object):
             print("file %s saved" % self.base_folder + "/result_error.xlsx")
         except OSError:
             print("I couldn't save excel file")
-            
+
         return df_merged_result, df_merged_error
-    
+
     def fit_command(self, job_ids):
         """ this command is to launch the final fit one (or more) model(s)
         It can be executed using the 'fit' command keyword followed by '--job_ids ***'
@@ -296,28 +294,26 @@ class MlMachineLauncher(object):
         for job_id in job_ids:
             print("fitting of job_id '%s'" % job_id)
             self.reload()
-            
-            job_param = self.data_persister.read(job_id, path = "job_param", write_type = SavingType.json)
+
+            job_param = self.data_persister.read(job_id, path="job_param", write_type=SavingType.json)
             model = sklearn_model_from_param(job_param["model_json"])
             print("start fitting...")
-            
+
             if function_has_named_argument(model.fit, "groups") and self.groups is not None:
                 model.fit(self.dfX, self.y, groups=self.groups)
             else:
                 model.fit(self.dfX, self.y)
-                
+
             print("...model fitted!")
-            
+
             self.data_persister.write(model, job_id, path="saved_models", write_type=SavingType.pickle)
             self.data_persister.write(job_param["model_json"], job_id, path="saved_models", write_type=SavingType.json)
-            
+
             print("model persisted")
-            
+
             all_models.append(model)
 
         return all_models
-        
-            
 
     # In[]
     def reload(self):

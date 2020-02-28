@@ -907,7 +907,7 @@ class RandomForestClassifierTransformer(ModelWrapper):
         do_svd=False,
         svd_n_components=100,
         other_rf_params=None,
-        columns_to_use=None,
+        columns_to_use="all",
         desired_output_type=None,
     ):
 
@@ -964,7 +964,7 @@ class RandomForestRegressorTransformer(ModelWrapper):
         do_svd=False,
         svd_n_components=100,
         other_rf_params=None,
-        columns_to_use=None,
+        columns_to_use="all",
         desired_output_type=None,
     ):
 

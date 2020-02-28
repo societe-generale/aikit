@@ -16,14 +16,16 @@ import sklearn.model_selection
 
 import networkx as nx
 
-from aikit.tools.graph_helper import (edges_from_edges_string,
-                                      graph_from_edges,
-                                      edges_from_graph,
-                                      get_terminal_nodes,
-                                      iter_graph,
-                                      graphviz_graph,
-                                      get_all_predecessors,
-                                      get_two_by_two_edges)
+from aikit.tools.graph_helper import (
+    edges_from_edges_string,
+    graph_from_edges,
+    edges_from_graph,
+    get_terminal_nodes,
+    iter_graph,
+    graphviz_graph,
+    get_all_predecessors,
+    get_two_by_two_edges,
+)
 
 
 from aikit.transformers.model_wrapper import try_to_find_features_names
@@ -39,7 +41,7 @@ from aikit.cross_validation import cross_validation, create_cv
 def make_pipeline(*steps):
     """ Construct of linear GraphPipeline from a list of steps """
     models = {}
-    edges  = []
+    edges = []
     for model in steps:
         if not hasattr(model, "fit"):
             raise TypeError("the argument should be model with a 'fit' method")
@@ -47,16 +49,14 @@ def make_pipeline(*steps):
         if name in models:
             i = 1
             while (name + "_" + str(i)) in models:
-                i+=1
+                i += 1
             name = name + "_" + str(i)
-            
+
         models[name] = model
         edges.append(name)
 
     return GraphPipeline(models=models, edges=[tuple(edges)])
-        
-            
-        
+
 
 # In[]
 class GraphPipeline(TransformerMixin, BaseEstimator):
@@ -723,8 +723,8 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
         edges_number = {}
         for p in predecessors:
             for en, edge in enumerate(self._edges):
-                for e1,e2 in zip(edge[:-1], edge[1:]):
-                    if (e1,e2) == (p, node):
+                for e1, e2 in zip(edge[:-1], edge[1:]):
+                    if (e1, e2) == (p, node):
                         edges_number[p] = en
 
         return edges_number
@@ -1121,8 +1121,7 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
         self.verbose = _orig_verbose
 
         return result
-    
-    
+
     def get_subpipeline(self, end_node, deepcopy_models=False):
         """ create a New model that corresponds to the original GraphPipeline but with a new ending node
         If the original GraphPipeline was fitted, the new model will also be fitted
@@ -1142,36 +1141,35 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
 
         """
         self._complete_init()
-    
+
         if end_node not in self.complete_graph:
             raise ValueError("the node '%s' isn't in the original graph" % end_node)
-            
+
         # get all predecessors of nodes => to include in the graph
-        predecessors = get_all_predecessors(self.complete_graph, end_node )
+        predecessors = get_all_predecessors(self.complete_graph, end_node)
         nodes_to_keep = list(predecessors) + [end_node]
-        
+
         # Remark : we could separated into a  submethod to create a subpipeline from a list of nodes
-        
+
         if len(nodes_to_keep) == 1:
             assert end_node == nodes_to_keep[0]
             return self._models[end_node]
 
-        
         # filter edges
         edges_to_keep = []
-        for e1,e2 in get_two_by_two_edges(*self._edges):
+        for e1, e2 in get_two_by_two_edges(*self._edges):
             if e1 in nodes_to_keep and e2 in nodes_to_keep:
-                edges_to_keep.append((e1,e2))
-    
+                edges_to_keep.append((e1, e2))
+
         # I do that insteaf of :
         # complete_graph_sub.subgraph(nodes_to_keep).edges
         # beacause that way I preseve the order of the edges, which handle the concatenation order
-    
+
         # Retrieve sklearn model
         if deepcopy_models:
-            models = {node:deepcopy(self._models[node]) for node in nodes_to_keep}
+            models = {node: deepcopy(self._models[node]) for node in nodes_to_keep}
         else:
-            models = {node:self._models[node] for node in nodes_to_keep}
+            models = {node: self._models[node] for node in nodes_to_keep}
 
         # Change 'no_concat_nodes'
         if self.no_concat_nodes is None:
@@ -1181,28 +1179,25 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
             no_concat_nodes = type(self.no_concat_nodes)(no_concat_nodes)
             if len(no_concat_nodes) == 0:
                 no_concat_nodes = None
-    
+
         ###############################
         ###   Create new pipeline   ###
         ###############################
-        sub_pipeline = GraphPipeline(models=models,
-                                     edges=edges_to_keep,
-                                     verbose=self.verbose,
-                                     no_concat_nodes=no_concat_nodes
-                                     )
-        
+        sub_pipeline = GraphPipeline(
+            models=models, edges=edges_to_keep, verbose=self.verbose, no_concat_nodes=no_concat_nodes
+        )
+
         # Internal modification to change the state
         if self._preparation_done:
             sub_pipeline._complete_init()
-        
-        
+
         if not self._already_fitted:
             return sub_pipeline
-    
+
         # here the pipeline was fitted
         sub_pipeline._already_fitted = True
-        sub_pipeline._Xinput_features  = deepcopy(self._Xinput_features)    #copy just to be safe
-        sub_pipeline._all_concat_order = dico_key_filter(self._all_concat_order, lambda n:n in nodes_to_keep)
-        sub_pipeline._all_concat_type  = dico_key_filter(self._all_concat_type , lambda n:n in nodes_to_keep)
-    
+        sub_pipeline._Xinput_features = deepcopy(self._Xinput_features)  # copy just to be safe
+        sub_pipeline._all_concat_order = dico_key_filter(self._all_concat_order, lambda n: n in nodes_to_keep)
+        sub_pipeline._all_concat_type = dico_key_filter(self._all_concat_type, lambda n: n in nodes_to_keep)
+
         return sub_pipeline
