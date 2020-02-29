@@ -7,6 +7,7 @@ Created on Fri Sep 14 14:25:29 2018
 import pytest
 
 import numpy as np
+
 try:
     from aikit.ml_machine.ml_machine_registration import LGBMClassifier_Model
 except ImportError:
@@ -16,6 +17,7 @@ from aikit.ml_machine.ml_machine_registration import CountVectorizer_TextEncoder
 from aikit.ml_machine.ml_machine_registration import MODEL_REGISTER
 
 from aikit.model_definition import DICO_NAME_KLASS
+
 
 @pytest.mark.skipif(LGBMClassifier_Model is None, reason="lightgbm is not installed")
 def test_LGBMClassifier_Model():
@@ -35,11 +37,6 @@ def test_CountVectorizer_TextEncoder():
     for hyper in all_hypers:
         if hyper["analyzer"] == "word":
             assert hyper["ngram_range"] == 1
-
-
-def verif_all():
-    test_CountVectorizer_TextEncoder()
-    test_LGBMClassifier_Model()
 
 
 def test_hyper_init():

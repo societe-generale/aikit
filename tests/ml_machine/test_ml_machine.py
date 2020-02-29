@@ -9,6 +9,8 @@ import pytest
 import pandas as pd
 import numpy as np
 
+from copy import deepcopy
+
 from sklearn.utils import check_random_state
 
 from aikit.datasets.datasets import load_dataset, DatasetEnum
@@ -20,9 +22,8 @@ from aikit.ml_machine.ml_machine import (
     AutoMlResultReader,
     MlJobManager,
     MlJobRunner,
-    
     _create_all_combinations,
-    random_list_generator
+    random_list_generator,
 )
 from aikit.ml_machine.model_graph import convert_graph_to_code
 from aikit.model_definition import sklearn_model_from_param
@@ -34,12 +35,13 @@ from aikit.ml_machine.data_persister import FolderDataPersister
 def loader(num_only=False):
     if num_only:
         np.random.seed(123)
-        dfX = pd.DataFrame(np.random.randn(100,10), columns=["COL_%d" % d for d in range(10)])
-        y = 1*(np.random.randn(100)>0)
+        dfX = pd.DataFrame(np.random.randn(100, 10), columns=["COL_%d" % d for d in range(10)])
+        y = 1 * (np.random.randn(100) > 0)
         return dfX, y
     else:
         dfX, y, _, _, _ = load_dataset(DatasetEnum.titanic)
         return dfX, y
+
 
 def get_automl_config(num_only):
     dfX, y = loader(num_only)
@@ -48,13 +50,14 @@ def get_automl_config(num_only):
 
     return dfX, y, auto_ml_config
 
+
 def test_AutoMlConfig_raise_if_wrong_nb_oberservations():
-    dfX = pd.DataFrame({"a":[0,1,2,3,4,5],"b":[0,10,20,30,40,50]})
-    y   = np.array([0,0,0,1,1,1])
+    dfX = pd.DataFrame({"a": [0, 1, 2, 3, 4, 5], "b": [0, 10, 20, 30, 40, 50]})
+    y = np.array([0, 0, 0, 1, 1, 1])
 
     auto_ml_config = AutoMlConfig(dfX, y[0:3])
     with pytest.raises(ValueError):
-        auto_ml_config.guess_everything() #raise because y doesn't have the correct number of observations
+        auto_ml_config.guess_everything()  # raise because y doesn't have the correct number of observations
 
 
 def test_AutoMlConfig_raise_multioutput():
@@ -67,14 +70,14 @@ def test_AutoMlConfig_raise_multioutput():
         auto_ml_config.guess_everything()  # raise because y has 2 dimensions
 
 
-@pytest.mark.parametrize('num_only', [True,False])
+@pytest.mark.parametrize("num_only", [True, False])
 def test_AutoMlConfig(num_only):
 
     dfX, y, auto_ml_config = get_automl_config(num_only)
 
     assert auto_ml_config.type_of_problem == TypeOfProblem.CLASSIFICATION
     assert auto_ml_config.columns_informations is not None
-    
+
     ###############################
     ###  Tests on needed steps  ###
     ###############################
@@ -83,26 +86,25 @@ def test_AutoMlConfig(num_only):
         assert isinstance(auto_ml_config.needed_steps, list)
         for step in auto_ml_config.needed_steps:
             assert isinstance(step, dict)
-            assert set(step.keys()) == {"optional","step"}
+            assert set(step.keys()) == {"optional", "step"}
             assert isinstance(step["optional"], bool)
             assert isinstance(step["step"], str)
 
     _check_steps(auto_ml_config)
     assert "Model" in [step["step"] for step in auto_ml_config.needed_steps]
     assert "Scaling" in [step["step"] for step in auto_ml_config.needed_steps]
-    
+
     # Try assigning to needed steps
     auto_ml_config.needed_steps = [s for s in auto_ml_config.needed_steps if s["step"] != "Scaling"]
-    
+
     _check_steps(auto_ml_config)
     assert "Model" in [step["step"] for step in auto_ml_config.needed_steps]
     assert "Scaling" not in [step["step"] for step in auto_ml_config.needed_steps]
-    
+
     with pytest.raises(TypeError):
         auto_ml_config.needed_steps = "this shouldn't be accepted has steps"
-        
-    _check_steps(auto_ml_config)
 
+    _check_steps(auto_ml_config)
 
     #################################
     ###  Tests on models to keep  ###
@@ -115,32 +117,47 @@ def test_AutoMlConfig(num_only):
             assert len(model) == 2
             assert isinstance(model[0], str)
             assert isinstance(model[1], str)
-            
+
     _check_models(auto_ml_config)
-    
-    assert ('Model', 'LogisticRegression') in auto_ml_config.models_to_keep
-    assert ('Model', 'RandomForestClassifier') in auto_ml_config.models_to_keep
-    assert ('Model', 'ExtraTreesClassifier') in auto_ml_config.models_to_keep
+
+    assert ("Model", "LogisticRegression") in auto_ml_config.models_to_keep
+    assert ("Model", "RandomForestClassifier") in auto_ml_config.models_to_keep
+    assert ("Model", "ExtraTreesClassifier") in auto_ml_config.models_to_keep
     # try assignation
     auto_ml_config.models_to_keep = [m for m in auto_ml_config.models_to_keep if m[1] != "LogisticRegression"]
-    
+
     with pytest.raises(TypeError):
         auto_ml_config.models_to_keep = "this shouldn't be accepted has models_to_keep"
-        
-    
+
     _check_models(auto_ml_config)
-    assert ('Model', 'LogisticRegression') not in auto_ml_config.models_to_keep
-    assert ('Model', 'RandomForestClassifier') in auto_ml_config.models_to_keep
-    assert ('Model', 'ExtraTreesClassifier') in auto_ml_config.models_to_keep
- 
+    assert ("Model", "LogisticRegression") not in auto_ml_config.models_to_keep
+    assert ("Model", "RandomForestClassifier") in auto_ml_config.models_to_keep
+    assert ("Model", "ExtraTreesClassifier") in auto_ml_config.models_to_keep
+
     auto_ml_config.filter_models(Model="ExtraTreesClassifier")
-    
+
     _check_models(auto_ml_config)
-    assert ('Model', 'LogisticRegression') not in auto_ml_config.models_to_keep
-    assert ('Model', 'RandomForestClassifier') not in auto_ml_config.models_to_keep
-    assert ('Model', 'ExtraTreesClassifier') in auto_ml_config.models_to_keep
-    
-@pytest.mark.parametrize('num_only', [True,False])
+    assert ("Model", "LogisticRegression") not in auto_ml_config.models_to_keep
+    assert ("Model", "RandomForestClassifier") not in auto_ml_config.models_to_keep
+    assert ("Model", "ExtraTreesClassifier") in auto_ml_config.models_to_keep
+
+
+def test_AutoMlConfig_change_type_of_problem():
+
+    dfX, y, auto_ml_config = get_automl_config(True)
+    assert auto_ml_config.type_of_problem == "CLASSIFICATION"
+    assert ("Model", "RandomForestClassifier") in auto_ml_config.models_to_keep
+    assert ("Model", "RandomForestRegressor") not in auto_ml_config.models_to_keep
+    with pytest.raises(ValueError):
+        auto_ml_config.type_of_problem = "NOT_ALLOWED"
+
+    auto_ml_config.type_of_problem = "REGRESSION"
+    assert auto_ml_config.type_of_problem == "REGRESSION"
+    assert ("Model", "RandomForestClassifier") not in auto_ml_config.models_to_keep
+    assert ("Model", "RandomForestRegressor") in auto_ml_config.models_to_keep
+
+
+@pytest.mark.parametrize("num_only", [True, False])
 def test_JobConfig(num_only):
 
     dfX, y, auto_ml_config = get_automl_config(num_only)
@@ -150,82 +167,81 @@ def test_JobConfig(num_only):
 
     assert job_config.cv is not None
     assert hasattr(job_config.cv, "split")
-    
 
     job_config.guess_scoring(auto_ml_config)
     assert isinstance(job_config.scoring, list)
-    
+
     assert hasattr(job_config, "allow_approx_cv")
     assert hasattr(job_config, "start_with_default")
     assert hasattr(job_config, "do_blocks_search")
-    
+
     assert isinstance(job_config.allow_approx_cv, bool)
     assert isinstance(job_config.start_with_default, bool)
-    assert isinstance(job_config.do_blocks_search, bool)   
-    
+    assert isinstance(job_config.do_blocks_search, bool)
+
     with pytest.raises(ValueError):
         job_config.cv = "this is not a cv"
-   
+
+
 def test_JobConfig_additional_scoring_function():
     job_config = JobConfig()
 
     assert job_config.additional_scoring_function is None
 
     def f(x):
-        return x+1
+        return x + 1
 
     job_config.additional_scoring_function = f
     assert job_config.additional_scoring_function is not None
     assert job_config.additional_scoring_function(1) == 2
-    
+
     with pytest.raises(TypeError):
-        job_config.additional_scoring_function = 10 # no a function
-        
-    
-    
+        job_config.additional_scoring_function = 10  # no a function
+
     def f(x):
-        return x+1
+        return x + 1
 
     job_config.additional_scoring_function = f
     assert job_config.additional_scoring_function is not None
     assert job_config.additional_scoring_function(1) == 2
-    
+
     with pytest.raises(TypeError):
-        job_config.additional_scoring_function = 10 # no a function
-        
-    
-    
-@pytest.mark.parametrize('num_only', [True,False])
-@pytest.mark.parametrize("type_of_iterator", ["default", "block_search","block_search_random"])
+        job_config.additional_scoring_function = 10  # no a function
+
+
+@pytest.mark.parametrize("num_only", [True, False])
+@pytest.mark.parametrize("type_of_iterator", ["default", "block_search", "block_search_random"])
 def test_RandomModelGenerator_iterator(type_of_iterator, num_only):
 
     dfX, y, auto_ml_config = get_automl_config(num_only)
 
     random_model_generator = RandomModelGenerator(auto_ml_config=auto_ml_config, random_state=123)
-    
+
     if type_of_iterator == "default":
         iterator = random_model_generator.iterator_default_models()
 
     elif type_of_iterator == "block_search":
         iterator = random_model_generator.iterate_block_search(random_order=False)
-        
+
     elif type_of_iterator == "block_search_random":
         iterator = random_model_generator.iterate_block_search(random_order=True)
-        
-    assert hasattr(iterator,"__iter__")
+
+    assert hasattr(iterator, "__iter__")
 
     # verif iterator
     for model in iterator:
-
+        
         assert isinstance(model, tuple)
         assert len(model) == 3
         Graph, all_models_params, block_to_use = model
+        
+        #graphviz_graph(Graph)
 
         assert hasattr(Graph, "edges")
         assert hasattr(Graph, "nodes")
 
         assert isinstance(all_models_params, dict)
-        for node in Graph.node:
+        for node in Graph.nodes:
             assert node in all_models_params
 
         assert isinstance(block_to_use, (tuple, list))
@@ -237,82 +253,69 @@ def test_RandomModelGenerator_iterator(type_of_iterator, num_only):
         assert "name_mapping" in result
         assert "json_code" in result
 
-        model = sklearn_model_from_param(result["json_code"])
-        assert hasattr(model, "fit")
+        sk_model = sklearn_model_from_param(result["json_code"])
+        assert hasattr(sk_model, "fit")
 
-#def test_RandomModelGenerator_block_search():
-#    dfX, y, auto_ml_config = get_automl_config()
-#
-#    random_model_generator = RandomModelGenerator(auto_ml_config=auto_ml_config, random_state=123)
-#
-#    # verif iterator
-#    for model in random_model_generator.iterate_block_search_models():
-#
-#        assert isinstance(model, tuple)
-#        assert len(model) == 3
-#        Graph, all_models_params, block_to_use = model
-#
-#        assert hasattr(Graph, "edges")
-#        assert hasattr(Graph, "nodes")
-#
-#        assert isinstance(all_models_params, dict)
-#        for node in Graph.node:
-#            assert node in all_models_params
-#
-#        assert isinstance(block_to_use, (tuple, list))
-#        for b in block_to_use:
-#            assert b in TypeOfVariables.alls
-#
-#        result = convert_graph_to_code(Graph, all_models_params, also_returns_mapping=True)
-#        assert isinstance(result, dict)
-#        assert "name_mapping" in result
-#        assert "json_code" in result
-#
-#        model = sklearn_model_from_param(result["json_code"])
-#        assert hasattr(model, "fit")
+        if type_of_iterator == "default" and ('Model', ('Model', 'RandomForestClassifier')) in Graph.nodes:
+            # in that case I'll actually do the fitting here
+            # I'll simplify the model to have 2 estimators (faster)
+            
+            all_models_params[('Model', ('Model', 'RandomForestClassifier'))]["n_estimators"] = 2
+            result = convert_graph_to_code(Graph, all_models_params, also_returns_mapping=True)
+            sk_model = sklearn_model_from_param(result["json_code"])
+            
+            sub_index = np.concatenate((np.where(y==0)[0][0:10],np.where(y==1)[0][0:10]),axis=0)
+            # Needs at least 20 observations to make sure all transformers works
+            sk_model.fit(dfX.iloc[sub_index,:] ,y[sub_index])
+
+            yhat = sk_model.predict(dfX.head(2))
+            assert yhat.shape == (2,)
 
 
 def test_random_list_generator():
-    elements = ["a","b","c","d","e","f","g","h","i","j"]
-    
+    elements = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
+
     for i in range(2):
         if i == 0:
-            probas = [1/min(i+1,10+1-i) for i in range(len(elements))]
+            probas = [1 / min(i + 1, 10 + 1 - i) for i in range(len(elements))]
         else:
             probas = None
-            
-        gen = random_list_generator(elements,probas, random_state=123)
-    
-        assert hasattr(gen,"__iter__")
-    
+
+        gen = random_list_generator(elements, probas, random_state=123)
+
+        assert hasattr(gen, "__iter__")
+
         elements_random_order = list(gen)
         assert len(elements_random_order) == len(elements)
         assert set(elements_random_order) == set(elements)
-        
-        elements_random_order2 = list(random_list_generator(elements,probas=probas, random_state=123))
-        elements_random_order3 = list(random_list_generator(elements,probas=probas, random_state=456))
-        elements_random_order4 = list(random_list_generator(elements,probas=probas, random_state=check_random_state(123)))
+
+        elements_random_order2 = list(random_list_generator(elements, probas=probas, random_state=123))
+        elements_random_order3 = list(random_list_generator(elements, probas=probas, random_state=456))
+        elements_random_order4 = list(
+            random_list_generator(elements, probas=probas, random_state=check_random_state(123))
+        )
 
         assert len(elements_random_order2) == len(elements)
         assert set(elements_random_order2) == set(elements)
-        
+
         assert len(elements_random_order3) == len(elements)
         assert set(elements_random_order3) == set(elements)
-        
+
         assert elements_random_order2 == elements_random_order
         assert elements_random_order3 != elements_random_order
         assert elements_random_order4 == elements_random_order
-    
+
     with pytest.raises(ValueError):
-        list(random_list_generator(elements,probas=[0.1], random_state=123)) # error : probas not the right length
-        
+        list(random_list_generator(elements, probas=[0.1], random_state=123))  # error : probas not the right length
+
     with pytest.raises(ValueError):
-        list(random_list_generator(elements,probas=[0] * len(elements), random_state=123)) # error : probas 0
-        
+        list(random_list_generator(elements, probas=[0] * len(elements), random_state=123))  # error : probas 0
+
+
 def test_random_list_generator_empty():
     elements_random_order = list(random_list_generator([], [], random_state=123))
     assert elements_random_order == []
-        
+
 
 def _all_same(all_gen):
     """ helper function to test if things are all the same """
@@ -325,16 +328,21 @@ def _all_same(all_gen):
 
     return True
 
-@pytest.mark.parametrize('num_only, specific_hyper, only_random_forest', [(True,False,False),(False,True,True),(False,True,False),(False,False,True),(False,False,False)])
+
+@pytest.mark.parametrize(
+    "num_only, specific_hyper, only_random_forest",
+    [(True, False, False), (False, True, True), (False, True, False), (False, False, True), (False, False, False)],
+)
 def test_RandomModelGenerator_random(num_only, specific_hyper, only_random_forest):
 
+    #num_only, specific_hyper, only_random_forest = False, True, True
     dfX, y, auto_ml_config = get_automl_config(num_only)
-    
+
     if specific_hyper:
-        auto_ml_config.specific_hyper = {('Model', 'RandomForestClassifier') : {"n_estimators":[10,20]}}
-        
+        auto_ml_config.specific_hyper = {("Model", "RandomForestClassifier"): {"n_estimators": [10, 20]}}
+
     if only_random_forest:
-        auto_ml_config.filter_models(Model='RandomForestClassifier')
+        auto_ml_config.filter_models(Model="RandomForestClassifier")
 
     random_model_generator = RandomModelGenerator(auto_ml_config=auto_ml_config, random_state=123)
 
@@ -352,7 +360,7 @@ def test_RandomModelGenerator_random(num_only, specific_hyper, only_random_fores
         assert hasattr(Graph, "nodes")
 
         assert isinstance(all_models_params, dict)
-        for node in Graph.node:
+        for node in Graph.nodes:
             assert node in all_models_params
 
         assert isinstance(block_to_use, (tuple, list))
@@ -364,19 +372,37 @@ def test_RandomModelGenerator_random(num_only, specific_hyper, only_random_fores
         assert "name_mapping" in result
         assert "json_code" in result
 
-        model = sklearn_model_from_param(result["json_code"])
-        assert hasattr(model, "fit")
-        
-        rf_key = ('Model', ('Model', 'RandomForestClassifier'))
+        sk_model = sklearn_model_from_param(result["json_code"])
+        assert hasattr(sk_model, "fit")
+
+        rf_key = ("Model", ("Model", "RandomForestClassifier"))
         if only_random_forest:
             assert rf_key in all_models_params
-            
+
         if specific_hyper:
             if rf_key in all_models_params:
-                assert all_models_params[rf_key]["n_estimators"] in (10,20)
-    
+                assert all_models_params[rf_key]["n_estimators"] in (10, 20)
+                
+                
+        if ('Model', ('Model', 'RandomForestClassifier')) in Graph.nodes:
+            # in that case I'll actually do the fitting here
+            # I'll simplify the model to have 2 estimators (faster)
+            all_models_params_copy = deepcopy(all_models_params)
+            all_models_params_copy[('Model', ('Model', 'RandomForestClassifier'))]["n_estimators"] = 2
+            result = convert_graph_to_code(Graph, all_models_params_copy, also_returns_mapping=True)
+            sk_model = sklearn_model_from_param(result["json_code"])
+            
+            sub_index = np.concatenate((np.where(y==0)[0][0:100],np.where(y==1)[0][0:100]),axis=0)
+            # Needs at least 20 observations to make sure all transformers works
+            if hasattr(sk_model, "verbose"):
+                sk_model.verbose=True
+            sk_model.fit(dfX.iloc[sub_index,:] ,y[sub_index])
+
+            yhat = sk_model.predict(dfX.head(2))
+            assert yhat.shape == (2,)
+
     if not only_random_forest:
-        assert any([ rf_key not in m[1] for m in all_gen]) # Check that RandomForest wasn't drawn every time
+        assert any([rf_key not in m[1] for m in all_gen])  # Check that RandomForest wasn't drawn every time
 
     ### re-draw them thing with other seed ###
     random_model_generator = RandomModelGenerator(auto_ml_config=auto_ml_config, random_state=123)
@@ -388,7 +414,7 @@ def test_RandomModelGenerator_random(num_only, specific_hyper, only_random_fores
     assert not _all_same(all_params1)
     assert not _all_same(all_graphs1)
     if not num_only:
-        assert not _all_same(all_blocks1) # only one block
+        assert not _all_same(all_blocks1)  # only one block
 
     all_graphs1_node_edges = [(g.nodes, g.edges) for g in all_graphs1]
     all_graphs2_node_edges = [(g.nodes, g.edges) for g in all_graphs2]
@@ -428,46 +454,44 @@ def test_RandomModelGenerator_random(num_only, specific_hyper, only_random_fores
 
 
 def test__create_all_combinations():
-    
-    def _check_all_list_of_blocks(all_list_of_blocks,all_blocks_to_use):
+    def _check_all_list_of_blocks(all_list_of_blocks, all_blocks_to_use):
         assert isinstance(all_list_of_blocks, list)
         for blocks_to_use in all_list_of_blocks:
             assert isinstance(blocks_to_use, tuple)
             assert 1 <= len(blocks_to_use) <= len(all_blocks_to_use)
             for b in blocks_to_use:
                 assert b in all_blocks_to_use
-                
+
             assert len(set(blocks_to_use)) == len(blocks_to_use)
-        assert len(set(all_list_of_blocks)) == len(all_list_of_blocks) # no duplicate
-    
-    all_blocks_to_use = ("CAT","NUM","TEXT")    
-    all_list_of_blocks = _create_all_combinations(all_blocks_to_use, 1,1)    
-    
-    _check_all_list_of_blocks(all_list_of_blocks, all_blocks_to_use)
-    
-    
-    all_blocks_to_use = ("a","b","c","d")
-    all_list_of_blocks = _create_all_combinations(all_blocks_to_use, 2,2)  
+        assert len(set(all_list_of_blocks)) == len(all_list_of_blocks)  # no duplicate
+
+    all_blocks_to_use = ("CAT", "NUM", "TEXT")
+    all_list_of_blocks = _create_all_combinations(all_blocks_to_use, 1, 1)
+
     _check_all_list_of_blocks(all_list_of_blocks, all_blocks_to_use)
 
+    all_blocks_to_use = ("a", "b", "c", "d")
+    all_list_of_blocks = _create_all_combinations(all_blocks_to_use, 2, 2)
+    _check_all_list_of_blocks(all_list_of_blocks, all_blocks_to_use)
 
     with pytest.raises(ValueError):
-        all_list_of_blocks = _create_all_combinations(all_blocks_to_use, 0,2)   # 0 : not possible
+        all_list_of_blocks = _create_all_combinations(all_blocks_to_use, 0, 2)  # 0 : not possible
 
     with pytest.raises(ValueError):
-        all_list_of_blocks = _create_all_combinations(all_blocks_to_use, 2,0)   # 0 : not possible
-        
+        all_list_of_blocks = _create_all_combinations(all_blocks_to_use, 2, 0)  # 0 : not possible
+
     with pytest.raises(ValueError):
-        all_list_of_blocks = _create_all_combinations(["a","a"], 2,2)          # duplicate entry
-        
-    
-    assert _create_all_combinations(("a",), 1,1) == []
-    assert set(_create_all_combinations(("a","b"),1,1)) == set([("a",),("b",)])
-    assert set(_create_all_combinations(("a","b","c"),1,1)) == set([("a",),("b",),("c",),("a","b"),("a","c"),("b","c")])
-    
+        all_list_of_blocks = _create_all_combinations(["a", "a"], 2, 2)  # duplicate entry
+
+    assert _create_all_combinations(("a",), 1, 1) == []
+    assert set(_create_all_combinations(("a", "b"), 1, 1)) == set([("a",), ("b",)])
+    assert set(_create_all_combinations(("a", "b", "c"), 1, 1)) == set(
+        [("a",), ("b",), ("c",), ("a", "b"), ("a", "c"), ("b", "c")]
+    )
+
 
 # In[] :
-@pytest.mark.parametrize('num_only', [True,False])
+@pytest.mark.parametrize("num_only", [True, False])
 def test_create_everything_sequentially(num_only, tmpdir):
 
     # DataPersister

@@ -45,10 +45,11 @@ Here a quick summary of what is provided:
    block_manager
    model_stacking
    model_json
+   auto_ml_overview
    ml_machine_launcher
    ml_machine_launcher_advanced
-   ml_machine_details
-   ml_machine
+   ml_machine_manual
+   ml_machine_explanation
    model_register
    hyper_parameters
    adding_new_models

@@ -103,7 +103,6 @@ def test_launcher_init_persist_reload_with_group(tmpdir):
         """ modify that function to change launcher configuration """
         return launcher
 
-
     def new_loader():
         dfX, y = loader()
         groups = np.arange(len(y))
@@ -118,11 +117,10 @@ def test_launcher_init_persist_reload_with_group(tmpdir):
     assert launcher.auto_ml_config is not None
     assert launcher.data_persister is not None
     assert launcher.job_config is not None
-    
+
     assert launcher.dfX is not None
     assert launcher.y is not None
     assert launcher.groups is not None
-
 
     # auto-ml-config check
     assert launcher.auto_ml_config.type_of_problem == TypeOfProblem.CLASSIFICATION
@@ -154,7 +152,6 @@ def test_launcher_init_persist_reload_with_group(tmpdir):
     assert new_launcher.job_config.cv is not None
     assert new_launcher.job_config.scoring is not None
     assert isinstance(new_launcher.job_config.scoring, list)
-
 
 
 def test_launcher_set_configs(tmpdir):
@@ -194,4 +191,3 @@ def test_launcher_init_clustering(tmpdir):
     assert launcher.job_config.cv is not None
     assert launcher.job_config.scoring is not None
     assert isinstance(launcher.job_config.scoring, list)
-   

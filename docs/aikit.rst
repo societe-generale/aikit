@@ -63,6 +63,14 @@ aikit\.pipeline module
     :undoc-members:
     :show-inheritance:
 
+aikit\.plot module
+------------------
+
+.. automodule:: aikit.plot
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 aikit\.scorer module
 --------------------
 

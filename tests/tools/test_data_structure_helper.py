@@ -20,11 +20,12 @@ from aikit.tools.data_structure_helper import (
     convert_to_array,
     convert_to_dataframe,
     convert_to_sparsearray,
-    get_rid_of_categories
+    get_rid_of_categories,
 )
 from aikit.tools.data_structure_helper import make2dimensions, make1dimension
 from aikit.tools.data_structure_helper import generic_hstack
 from tests.helpers.testing_help import get_sample_df
+
 
 def test_get_type():
     df = pd.DataFrame({"a": np.arange(10)})
@@ -153,6 +154,7 @@ def test_generic_hstack():
 
     with pytest.raises(ValueError):
         generic_hstack((df1.head(3).values, df2.head(4).values))
+
 
 def test_get_rid_of_categories():
     df = get_sample_df()

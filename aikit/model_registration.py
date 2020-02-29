@@ -56,7 +56,7 @@ try:
     import lightgbm
 except ImportError:
     lightgbm = None
-    print('I wont be able to import LightGBM')
+    print("I wont be able to import LightGBM")
 from aikit.models import DBSCANWrapper, KMeansWrapper, AgglomerativeClusteringWrapper
 
 

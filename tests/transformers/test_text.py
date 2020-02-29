@@ -18,7 +18,7 @@ from aikit.transformers.text import (
     TextDigitAnonymizer,
     Word2VecVectorizer,
     Char2VecVectorizer,
-    Word2Vec
+    Word2Vec,
 )
 from aikit.datasets.datasets import load_dataset
 
@@ -27,11 +27,12 @@ try:
 except (ModuleNotFoundError, ImportError):
     nltk = None
 
+
 @pytest.mark.skipif(nltk is None, reason="nltk isn't installed")
 def test_load_nltk():
     stopwords = nltk.corpus.stopwords.words("english")
     assert isinstance(stopwords, list)
-    
+
     stopwords = nltk.corpus.stopwords.words("french")
     assert isinstance(stopwords, list)
 
@@ -39,7 +40,7 @@ def test_load_nltk():
     assert stemmer is not None
 
 
-@pytest.mark.parametrize('concat',[True,False])
+@pytest.mark.parametrize("concat", [True, False])
 def test_TextDefaultProcessing(concat):
     text = TextDefaultProcessing()
 
@@ -52,52 +53,52 @@ def test_TextDefaultProcessing(concat):
 
     for s, expected_result in examples:
         assert text.process_one_string(s) == expected_result
-        
+
     strings = [e[0] for e in examples]
     expected_result = [e[1] for e in examples]
-    
-    text_serie     = pd.Series(strings)
-    text_dataframe = pd.DataFrame({"text1":strings,"text2":strings})
+
+    text_serie = pd.Series(strings)
+    text_dataframe = pd.DataFrame({"text1": strings, "text2": strings})
     text_numpy = text_dataframe.values
-    
+
     ### on a list  ###
     strings_processed = TextDefaultProcessing(concat=concat).fit_transform(strings)
     assert isinstance(strings_processed, list)
     assert len(strings_processed) == len(strings_processed)
     assert strings_processed == expected_result
-    
-    
+
     ### on a serie ###
     text_serie_processed = TextDefaultProcessing(concat=concat).fit_transform(text_serie)
     assert isinstance(text_serie_processed, pd.Series)
     assert (text_serie_processed == expected_result).all()
-    
-    assert text_serie_processed.shape == text_serie.shape    
+
+    assert text_serie_processed.shape == text_serie.shape
     assert text_serie_processed.shape == text_serie.shape
     assert text_serie_processed.name == text_serie.name
-    
+
     ### on a DataFrame  ###
     text_dataframe_processed = TextDefaultProcessing(concat).fit_transform(text_dataframe)
     assert isinstance(text_dataframe_processed, pd.DataFrame)
     if concat:
-        assert text_dataframe_processed.shape == (text_dataframe.shape[0],1)
+        assert text_dataframe_processed.shape == (text_dataframe.shape[0], 1)
     else:
         assert text_dataframe_processed.shape == text_dataframe.shape
         assert list(text_dataframe_processed.columns) == list(text_dataframe.columns)
-        
+
         for c in text_dataframe_processed.columns:
             assert (text_dataframe_processed[c] == expected_result).all()
-    
+
     ###  on a numpy array  ###
-    text_numpy_processed = TextDefaultProcessing(concat).fit_transform(text_numpy) 
+    text_numpy_processed = TextDefaultProcessing(concat).fit_transform(text_numpy)
     assert isinstance(text_numpy_processed, np.ndarray)
     if concat:
-        assert text_numpy_processed .shape == (text_numpy.shape[0],1)
+        assert text_numpy_processed.shape == (text_numpy.shape[0], 1)
     else:
         assert text_numpy_processed.shape == text_numpy.shape
         for c in range(text_numpy_processed.shape[1]):
-            assert (text_numpy_processed[:,c] == expected_result).all()
-            
+            assert (text_numpy_processed[:, c] == expected_result).all()
+
+
 def test_CountVectorizerWrapper():
 
     df = get_sample_df(size=100, seed=123)
@@ -142,24 +143,35 @@ def test_CountVectorizerWrapper_on_Serie():
     assert Xres.shape[0] == X.shape[0]
     assert Xres.shape[1] == len(vect.get_feature_names())
 
+
 def test_CountVectorizerWrapper_output_type():
+
+    vect = CountVectorizerWrapper()
+    res = vect.fit_transform(pd.DataFrame({"a": ["AA", "AAA", "bb"]}))
+    assert res.dtype == "int32"
+
+    vect = CountVectorizerWrapper()
+    res = vect.fit_transform(pd.DataFrame({"a": ["AA", "AAA", "bb"], "b": ["xxx", "zzz", "xxx"]}))
+    assert res.dtype == "int32"
+
+    vect = CountVectorizerWrapper(dtype="int64")
+    res = vect.fit_transform(pd.DataFrame({"a": ["AA", "AAA", "bb"]}))
+    assert res.dtype == "int64"
+
+    vect = CountVectorizerWrapper(dtype="int64")
+    res = vect.fit_transform(pd.DataFrame({"a": ["AA", "AAA", "bb"], "b": ["xxx", "zzz", "xxx"]}))
+    assert res.dtype == "int64"
+
+def test_CountVectorizerWrapper_few_sample():
+    Xtrain = load_dataset("titanic")[0]
+
+    vect = CountVectorizerWrapper(min_df=1)
+
+    X = Xtrain.loc[0:10,["name","ticket"]]
+    Xres = vect.fit_transform(X)
     
-    vect = CountVectorizerWrapper()
-    res = vect.fit_transform(pd.DataFrame({"a":["AA","AAA","bb"]}))
-    assert res.dtype == "int32"
-
-    vect = CountVectorizerWrapper()
-    res = vect.fit_transform(pd.DataFrame({"a":["AA","AAA","bb"],"b":["xxx","zzz","xxx"]}))
-    assert res.dtype == "int32"
-
-    vect = CountVectorizerWrapper(dtype="int64")
-    res = vect.fit_transform(pd.DataFrame({"a":["AA","AAA","bb"]}))
-    assert res.dtype == "int64"
-
-    vect = CountVectorizerWrapper(dtype="int64")
-    res = vect.fit_transform(pd.DataFrame({"a":["AA","AAA","bb"],"b":["xxx","zzz","xxx"]}))
-    assert res.dtype == "int64"
-
+    assert Xres.shape[0] == 11
+    
 
 def test_text_digit_anonymizer():
     transformer = TextDigitAnonymizer()
@@ -168,11 +180,26 @@ def test_text_digit_anonymizer():
     assert df_transformed is not None
     assert df_transformed.values.tolist() == [["AAA", "A###"]]
 
-    try:
+    with pytest.raises(TypeError):
         transformer.fit_transform(pd.DataFrame(data=[[11354]]))
-        pytest.fail("transform on non text data should fail with a TypeError")
-    except TypeError:
-        pass
+
+
+
+def test_Word2VecVectorizer_few_sample():
+    Xtrain = load_dataset("titanic")[0]
+
+    vect = Word2VecVectorizer(text_preprocess="nltk", same_embedding_all_columns=False, min_count=1)
+
+    X = Xtrain.loc[0:10,["name","ticket"]]
+    Xres = vect.fit_transform(X)
+    # Fails : RunTimeError : vocab is not setted ... Too few words maybe ?
+    assert Xres.shape[0] == X.shape[0]
+    assert Xres.isnull().sum().sum() == 0
+
+    X = Xtrain.loc[:,["name","ticket"]]
+    Xres = vect.fit_transform(X)
+    assert Xres.shape[0] == X.shape[0]
+    assert Xres.isnull().sum().sum() == 0
 
 @pytest.mark.skipif(Word2Vec is None, reason="gensim isn't installed")
 def test_Word2VecVectorizer():
@@ -190,7 +217,9 @@ def test_Word2VecVectorizer():
     assert list(Xres.columns) == vect.get_feature_names()
 
     ### keep mode ###
-    vect = Word2VecVectorizer(columns_to_use=["text_col"], window=100, keep_other_columns="keep")
+    vect = Word2VecVectorizer(
+        columns_to_use=["text_col"], window=100, drop_unused_columns=False, drop_used_columns=False
+    )
     vect.fit(df)
 
     Xres = vect.transform(df)
@@ -204,7 +233,9 @@ def test_Word2VecVectorizer():
     assert (Xres.loc[:, cols] == df.loc[:, cols]).all().all()
 
     ### delta mode ###
-    vect = Word2VecVectorizer(columns_to_use=["text_col"], window=100, keep_other_columns="delta")
+    vect = Word2VecVectorizer(
+        columns_to_use=["text_col"], window=100, drop_unused_columns=False, drop_used_columns=True
+    )
     vect.fit(df)
 
     Xres = vect.transform(df)

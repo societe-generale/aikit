@@ -13,6 +13,7 @@ import numpy as np
 
 from aikit.ml_machine.ml_machine_guider import transfo_quantile
 
+
 def conditional_density_plot(df, var, explaining_var, f=None, ax=None):
     """ draw the conditional density of 'var' for all the modalities of 'explaining var' 
     
@@ -40,10 +41,10 @@ def conditional_density_plot(df, var, explaining_var, f=None, ax=None):
         ax = plt.gca()
 
     if f is None:
-        f = lambda x:x
+        f = lambda x: x
 
     if df is None:
-        df = pd.DataFrame({"var":var,"explaining_var":explaining_var})
+        df = pd.DataFrame({"var": var, "explaining_var": explaining_var})
         var = "var"
         explaining_var = "explaining_var"
 
@@ -83,19 +84,19 @@ def conditional_repartition_plot(df, var, explaining_var, ax=None, normalize=Fal
 
     if ax is None:
         ax = plt.gca()
-        
+
     if df is None:
-        df = pd.DataFrame({"var":var,"explaining_var":explaining_var})
+        df = pd.DataFrame({"var": var, "explaining_var": explaining_var})
         var = "var"
         explaining_var = "explaining_var"
 
     for m, sub_df in df.groupby(explaining_var):
         xs = np.arange(len(sub_df))
         if normalize:
-            xs = xs/len(xs) + 1/(2*len(xs))
+            xs = xs / len(xs) + 1 / (2 * len(xs))
         ax.plot(xs, sub_df[var].sort_values(ascending=False).values, ".-", label=m)
     ax.legend()
-    
+
     ax.set_ylabel(var)
     if normalize:
         ax.set_xlabel("perc of obs.")
@@ -105,11 +106,7 @@ def conditional_repartition_plot(df, var, explaining_var, ax=None, normalize=Fal
     return ax
 
 
-def conditional_boxplot(df, var, explaining_var,
-                        nb_quantiles=10,
-                        use_rank=True,
-                        marker_size=0.1,
-                        ax=None):
+def conditional_boxplot(df, var, explaining_var, nb_quantiles=10, use_rank=True, marker_size=0.1, ax=None):
     """ draw the condtional boxplot 
     Parameters
     ----------
@@ -139,59 +136,60 @@ def conditional_boxplot(df, var, explaining_var,
         ax = plt.gca()
 
     if df is None:
-        df = pd.DataFrame({"var":var,"explaining_var":explaining_var})
+        df = pd.DataFrame({"var": var, "explaining_var": explaining_var})
         var = "var"
         explaining_var = "explaining_var"
 
-    df_copy = pd.DataFrame({var:df[var], explaining_var:df[explaining_var]})
+    df_copy = pd.DataFrame({var: df[var], explaining_var: df[explaining_var]})
     if use_rank:
 
         var_bis = var + "__q"
-        explaining_var_bis = explaining_var  + "__q"
-        
+        explaining_var_bis = explaining_var + "__q"
+
         df_copy[var_bis] = transfo_quantile(df_copy[var].values)
         df_copy[explaining_var_bis] = transfo_quantile(df_copy[explaining_var].values)
     else:
         var_bis = var
         explaining_var_bis = explaining_var
-      
+
     df_copy["_quantile"] = pd.qcut(df_copy[explaining_var_bis], q=nb_quantiles)
-    
 
     positions = [np.median(sub_df[explaining_var_bis].values) for _, sub_df in df_copy.groupby("_quantile")]
     if use_rank:
         real_positions = [np.median(sub_df[explaining_var].values) for _, sub_df in df_copy.groupby("_quantile")]
     else:
-        real_positions=positions
-        
-    real_conditional_means = np.array([np.mean(sub_df[var].values) for _ , sub_df in df_copy.groupby("_quantile")])
-    quantile_means = np.array([np.mean( df[var] <= m ) for m in real_conditional_means])
-    
-    widths = np.diff(positions).min()*0.90
-    
+        real_positions = positions
+
+    real_conditional_means = np.array([np.mean(sub_df[var].values) for _, sub_df in df_copy.groupby("_quantile")])
+    quantile_means = np.array([np.mean(df[var] <= m) for m in real_conditional_means])
+
+    widths = np.diff(positions).min() * 0.90
+
     ax.scatter(df_copy[explaining_var_bis], df_copy[var_bis], s=marker_size)
-    
-    for p,q in zip(positions, quantile_means):
-        ax.plot( [p-widths/2,p+widths/2],[q,q],color="g")
-    
-    ax.boxplot([sub_df[var_bis].values for _, sub_df in df_copy.groupby("_quantile")],
-                 positions=positions,
-                 widths=widths,
-                 manage_xticks=False)
+
+    for p, q in zip(positions, quantile_means):
+        ax.plot([p - widths / 2, p + widths / 2], [q, q], color="g")
+
+    ax.boxplot(
+        [sub_df[var_bis].values for _, sub_df in df_copy.groupby("_quantile")],
+        positions=positions,
+        widths=widths,
+        manage_xticks=False,
+    )
 
     plt.xticks(positions, labels=["%2.2f" % p for p in real_positions])
 
-    percentiles = [100/(2*nb_quantiles) + i*100/nb_quantiles for i in range(nb_quantiles)]
+    percentiles = [100 / (2 * nb_quantiles) + i * 100 / nb_quantiles for i in range(nb_quantiles)]
     vper = np.percentile(df_copy[var], percentiles)
-    
+
     if use_rank:
-        plt.yticks(np.array(percentiles)/100,["%2.2f" % p for p in vper])
-    
+        plt.yticks(np.array(percentiles) / 100, ["%2.2f" % p for p in vper])
+
     if use_rank:
-        ax.set_xlim(0,1)
-        ax.set_ylim(0,1)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
     else:
-        ax.set_xlim(df_copy[explaining_var_bis].min(),df_copy[explaining_var_bis].max())
+        ax.set_xlim(df_copy[explaining_var_bis].min(), df_copy[explaining_var_bis].max())
         ax.set_ylim(df_copy[var_bis].min(), df_copy[var_bis].max())
 
     ax.set_xlabel(explaining_var)

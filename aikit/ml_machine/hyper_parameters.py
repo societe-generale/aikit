@@ -564,27 +564,4 @@ class HyperCrossProduct(AbstractHyper):
             raise TypeError("I don't know how to add this type %s" % type(other))
 
         return HyperCrossProduct(res, random_state=self.random_state)
-        # TODO : make sure the seed is setted
 
-
-# class HyperRandomVariable(AbstractHyper):
-#    """ draw along the distribution of the parameters
-#
-#    Examples
-#    --------
-#    >>> hp = HyperRandomVariable({'a': randint(1, 20)})
-#    >>> hp.get_rand()
-#    """
-#
-#    def __init__(self, list_of_hyperparameters):
-#        if not isinstance(list_of_hyperparameters, dict):
-#            raise TypeError("I don't know how to deal with that \
-#                            type of list of parameters")
-#
-#        self.list_of_hyperparameters = list_of_hyperparameters
-#
-#    def get_rand(self):
-#        return list(ParameterSampler(self.list_of_hyperparameters, 1))[0]
-#
-#    def get_size(self):
-#        return _get_size(self.list_of_hyperparameters)

@@ -62,13 +62,13 @@ def filter_model_to_keep(type_of_problem, block_search_only=False):
     # Here : we could potentially also remove models that are not possible on a given machine (not installed, no enought ressources, ...)
     models_to_keep = []
     for c, v in MODEL_REGISTER.informations.items():
-        
+
         if block_search_only:
-            use_for_block_search = v.get("use_for_block_search",False)
+            use_for_block_search = v.get("use_for_block_search", False)
             if not use_for_block_search:
                 # skip that models
                 continue
-            
+
         model_type_of_problem = v.get("type_of_model", None)
 
         if model_type_of_problem is None:

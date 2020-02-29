@@ -1,7 +1,7 @@
 .. _ml_machine_launcher_advanced:
 
-Advanced functionnalities
--------------------------
+Auto Ml Advanced functionnalities
+================================
 
 The launcher script can be used to specify lots of things in the ml machine. The auto-ml makes lots of choices by default which can be changed.
 To change those you need to modify the 'job_config' object or the 'auto_ml_config' object.

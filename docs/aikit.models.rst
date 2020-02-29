@@ -4,6 +4,14 @@ aikit\.models package
 Submodules
 ----------
 
+aikit\.models\.base module
+--------------------------
+
+.. automodule:: aikit.models.base
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 aikit\.models\.random\_forest\_addins module
 --------------------------------------------
 

@@ -72,7 +72,7 @@ variable_by_type = {
 ADDITIONAL_CONVERSIONS_FUNCTIONS = {
     DataTypes.SparseArray: (scipy.sparse.coo_matrix, scipy.sparse.csc_matrix, scipy.sparse.csr_matrix)
 }
-# TODO : peut etre faire des changements de type int,int32, ...
+# TODO : maybe try additionnal change of type : int, int32, ...
 
 
 def _array_equal(m1, m2):
@@ -163,9 +163,9 @@ def verif_conversion(df, dont_test_sparse_array=False):
 
             test_conversion4 = convert_generic(temp_conversion3, output_type=DataTypes.NumpyArray)
             assert get_type(test_conversion4) == DataTypes.NumpyArray
-            #if output_type == DataTypes.SparseDataFrame and output_type2 == DataTypes.SparseArray:
+            # if output_type == DataTypes.SparseDataFrame and output_type2 == DataTypes.SparseArray:
             #    assert _array_almost_equal(test_conversion4, df.values, tolerance=10**(-4))
-            #else:
+            # else:
             assert _array_equal(test_conversion4, df.values)
 
 
@@ -205,8 +205,8 @@ def test_to_coo_sparse_matrix_bug():
 
 def test_conversion():
     verif_conversion(X_train.loc[:, variable_by_type["NUM"]], dont_test_sparse_array=True)
-    verif_conversion(X_train_shuffled.loc[:, variable_by_type["NUM"]],dont_test_sparse_array=True)
-    verif_conversion(X_test.loc[:, variable_by_type["NUM"]],dont_test_sparse_array=True)
+    verif_conversion(X_train_shuffled.loc[:, variable_by_type["NUM"]], dont_test_sparse_array=True)
+    verif_conversion(X_test.loc[:, variable_by_type["NUM"]], dont_test_sparse_array=True)
 
     verif_conversion(X_train.loc[:, variable_by_type["CAT"]], dont_test_sparse_array=True)
     verif_conversion(X_train_shuffled.loc[:, variable_by_type["CAT"]], dont_test_sparse_array=True)
@@ -216,10 +216,12 @@ def test_conversion():
     verif_conversion(X_train_shuffled, dont_test_sparse_array=True)
     verif_conversion(X_test, dont_test_sparse_array=True)
 
+
 def test_conversion_sparse_array():
     verif_conversion(X_train.loc[:, variable_by_type["NUM"]], dont_test_sparse_array=False)
-    verif_conversion(X_train_shuffled.loc[:, variable_by_type["NUM"]],dont_test_sparse_array=False)
-    verif_conversion(X_test.loc[:, variable_by_type["NUM"]],dont_test_sparse_array=False)
+    verif_conversion(X_train_shuffled.loc[:, variable_by_type["NUM"]], dont_test_sparse_array=False)
+    verif_conversion(X_test.loc[:, variable_by_type["NUM"]], dont_test_sparse_array=False)
+
 
 # In[] : test concatenation
 
@@ -317,7 +319,7 @@ def verif_generic_hstack(df, dont_test_sparse_array=False, split_index=4):
 def test_generic_hstack():
     verif_generic_hstack(X_train.loc[:, variable_by_type["NUM"]], split_index=4, dont_test_sparse_array=True)
     verif_generic_hstack(X_train_shuffled.loc[:, variable_by_type["NUM"]], split_index=4, dont_test_sparse_array=True)
-    verif_generic_hstack(X_test.loc[:, variable_by_type["NUM"]], split_index=4,dont_test_sparse_array=True)
+    verif_generic_hstack(X_test.loc[:, variable_by_type["NUM"]], split_index=4, dont_test_sparse_array=True)
 
     verif_generic_hstack(X_train.loc[:, variable_by_type["CAT"]], dont_test_sparse_array=True, split_index=2)
     verif_generic_hstack(X_train_shuffled.loc[:, variable_by_type["CAT"]], dont_test_sparse_array=True, split_index=2)
@@ -327,10 +329,12 @@ def test_generic_hstack():
     verif_generic_hstack(X_train_shuffled, dont_test_sparse_array=True)
     verif_generic_hstack(X_test, dont_test_sparse_array=True)
 
+
 def test_generic_hstack_sparse():
     verif_generic_hstack(X_train.loc[:, variable_by_type["NUM"]], split_index=4, dont_test_sparse_array=False)
     verif_generic_hstack(X_train_shuffled.loc[:, variable_by_type["NUM"]], split_index=4, dont_test_sparse_array=False)
-    verif_generic_hstack(X_test.loc[:, variable_by_type["NUM"]], split_index=4,dont_test_sparse_array=False)
+    verif_generic_hstack(X_test.loc[:, variable_by_type["NUM"]], split_index=4, dont_test_sparse_array=False)
+
 
 # In[] : Categorical Encoder
 
@@ -777,13 +781,14 @@ def didnot_change_column_names(df_tranformed, df):
 
 def test_NumericalEncoder_onehot1():
 
+    cols = variable_by_type["NUM"] + variable_by_type["CAT"]
     # One Hot mode #
     verif_encoder(
-        df1=df1,
-        df2=df2,
+        df1=df1.loc[:, cols],
+        df2=df2.loc[:, cols],
         y1=None,
         klass=NumericalEncoder,
-        enc_kwargs={"columns_to_use": variable_by_type["NUM"] + variable_by_type["CAT"]},
+        enc_kwargs={"columns_to_use": variable_by_type["CAT"], "drop_unused_columns": False},
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),
         additional_test_functions=[check_all_numerical],
     )
@@ -807,7 +812,7 @@ def test_NumericalEncoder_onehot3():
         df2=df2.loc[:, variable_by_type["NUM"] + variable_by_type["CAT"]],
         y1=y1,
         klass=NumericalEncoder,
-        enc_kwargs={"columns_to_keep": []},
+        enc_kwargs={"drop_unused_columns": True},
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),  # DataTypes.NumpyArray),
         additional_test_functions=[check_all_numerical, check_no_null, check_between_01],
     )
@@ -815,12 +820,13 @@ def test_NumericalEncoder_onehot3():
 
 def test_NumericalEncoder_numerical1():
     # Numerical Mode #
+    cols = variable_by_type["NUM"] + variable_by_type["CAT"]
     verif_encoder(
-        df1=df1,
-        df2=df2,
+        df1=df1.loc[:, cols],
+        df2=df2.loc[:, cols],
         y1=None,
         klass=NumericalEncoder,
-        enc_kwargs={"columns_to_use": variable_by_type["NUM"] + variable_by_type["CAT"], "encoding_type": "num"},
+        enc_kwargs={"columns_to_use": variable_by_type["CAT"], "encoding_type": "num", "drop_unused_columns": False},
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),
         additional_test_functions=[check_all_numerical],
     )
@@ -844,7 +850,7 @@ def test_NumericalEncoder_numerical3():
         df2=df2.loc[:, variable_by_type["CAT"]],
         y1=y1,
         klass=NumericalEncoder,
-        enc_kwargs={"columns_to_keep": [], "encoding_type": "num"},
+        enc_kwargs={"columns_to_use": "all", "encoding_type": "num"},
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),  # DataTypes.NumpyArray),
         additional_test_functions=[check_all_numerical, check_no_null, nb_columns_verify(5)],
     )
@@ -865,6 +871,7 @@ def verif_NumericalEncoder():
 ##########################
 ### CategoricalEncoder ###
 ##########################
+
 
 @pytest.mark.skipif(category_encoders is None, reason="category_encoders is not installed")
 @pytest.mark.longtest
@@ -913,9 +920,10 @@ def verif_CategoricalEncoder():
 # import aikit.transformers_target
 # reload(aikit.transformers_target)
 
+
 @pytest.mark.parametrize("cv, noise_level, smoothing_value", list(itertools.product((None, 10), (None, 0.1), (0, 1))))
 def test_TargetEncoderClassifier_fails_no_y(cv, noise_level, smoothing_value):
-    
+
     enc_kwargs = {
         "columns_to_use": variable_by_type["NUM"] + variable_by_type["CAT"],
         "cv": cv,
@@ -924,7 +932,7 @@ def test_TargetEncoderClassifier_fails_no_y(cv, noise_level, smoothing_value):
     }
     model = TargetEncoderClassifier(**enc_kwargs)
     with pytest.raises(ValueError):
-        model.fit(df1) # raise because no target
+        model.fit(df1)  # raise because no target
 
 
 @pytest.mark.longtest
@@ -992,20 +1000,6 @@ def test_TargetEncoderClassifier3(cv, noise_level, smoothing_value):
         difference_fit_transform=(noise_level is not None) or (cv is not None)
         # Rmk : if there is noise or cv isn't not there will be difference between fit THEN transform and fit_transform
     )
-
-
-def verif_TargetEncoderClassifier():
-    for cv in (None, 10):
-
-        for noise_level in (None, 0.1):
-
-            for smoothing_value in (0, 1):
-
-                test_TargetEncoderClassifier1(cv=cv, noise_level=noise_level, smoothing_value=smoothing_value)
-
-                test_TargetEncoderClassifier2(cv=cv, noise_level=noise_level, smoothing_value=smoothing_value)
-
-                test_TargetEncoderClassifier3(cv=cv, noise_level=noise_level, smoothing_value=smoothing_value)
 
 
 @pytest.mark.longtest
@@ -1286,6 +1280,7 @@ def verif_CountVectorizerWrapper():
 
 # In[] : Test Word2vec
 
+
 @pytest.mark.skipif(Word2Vec is None, reason="gensim isn't installed")
 @pytest.mark.longtest
 @pytest.mark.parametrize(
@@ -1324,6 +1319,7 @@ def verif_Word2VecVectorizer():
 
 
 # In[] Test Char2Vec
+
 
 @pytest.mark.skipif(Word2Vec is None, reason="gensim isn't installed")
 @pytest.mark.longtest
@@ -2074,7 +2070,7 @@ def test_CdfScaler_with_params(distribution, output_distribution):
         df2=df2_nona.loc[:, variable_by_type["NUM"]],
         y1=y_train_shuffled,
         klass=CdfScaler,
-        enc_kwargs={"distribution": distribution, "output_distribution": output_distribution, "random_state":123},
+        enc_kwargs={"distribution": distribution, "output_distribution": output_distribution, "random_state": 123},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray),
         additional_test_functions=[
             check_all_numerical,
@@ -2085,32 +2081,3 @@ def test_CdfScaler_with_params(distribution, output_distribution):
         randomized_transformer=False,
     )
 
-
-def verif_CdfScaler():
-
-    test_CdfScaler1()
-    test_CdfScaler2()
-
-    for distribution, output_distribution in itertools.product(
-        ("none", "kernel", "auto-param", "auto-kernel", "rank"), ("uniform", "normal")
-    ):
-        test_CdfScaler_with_params(distribution, output_distribution)
-
-
-# In[]
-def verif_all():
-    test_conversion()
-    test_generic_hstack()
-    test_ColumnsSelector()
-
-    verif_NumericalEncoder()
-
-    verif_TargetEncoderClassifier()
-    verif_TargetEncoderClassifierEntropy()
-    verif_TargetEncoderRegressor()
-    test_CountVectorizerWrapper()
-    verif_TruncatedSVDWrapper()
-    verif_CdfScaler()
-
-    verif_FeaturesSelectorClassifier()
-    verif_KMeansTransformer()

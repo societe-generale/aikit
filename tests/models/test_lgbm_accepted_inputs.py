@@ -22,6 +22,7 @@ np.random.seed(123)
 X = 5 * np.random.randn(100, 10)
 y = 1 * (np.random.randn(100) > 0)
 
+
 @pytest.mark.skipif(LGBMClassifier is None, reason="lightgbm is not installed")
 class Test_lightgbm(object):
     def test_float(self):

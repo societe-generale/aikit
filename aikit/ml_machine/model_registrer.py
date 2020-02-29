@@ -45,11 +45,12 @@ class _MODEL_REGISTER(object):
 
     def reset(self):
         self.hyper_parameters = {}
+        self.default_hyper_parameters = {}
         self.init_parameters = {}
         self.informations = {}
         self.all_registered = []
 
-    def register_new_class(self, category, klass, hyper=None, **kwargs):
+    def register_new_class(self, category, klass, hyper=None, default_hyper=None, **kwargs):
 
         if not isinstance(klass, type):
             raise TypeError("klass should be klass")
@@ -65,6 +66,9 @@ class _MODEL_REGISTER(object):
 
         if hyper is not None:
             self.hyper_parameters[key] = hyper
+            
+        if default_hyper is not None:
+            self.default_hyper_parameters[key] = default_hyper
 
         if kwargs:
             self.informations[key] = {k: v for k, v in kwargs.items()}
@@ -116,7 +120,7 @@ def register(klass):
     other = {
         k: v
         for k, v in klass.__dict__.items()
-        if not k.startswith("_") and k not in ("name", "klass", "custom_hyper", "default_param", "category")
+        if not k.startswith("_") and k not in ("name", "klass", "custom_hyper", "default_parameters", "category")
     }
 
     if klass.category is None:
@@ -126,7 +130,11 @@ def register(klass):
         raise ValueError("I must specify a klass for this klass")
 
     MODEL_REGISTER.register_new_class(
-        category=klass.category, klass=klass.klass, hyper=klass.get_hyper_parameter(), **other
+        category=klass.category,
+        klass=klass.klass,
+        hyper=klass.get_hyper_parameter(),
+        default_hyper=klass.get_default_hyper_parameter(),
+        **other
     )
 
     return klass
@@ -140,7 +148,8 @@ class _AbstractModelRepresentation(object):
 
     custom_hyper = {}
     default_hyper = {}
-
+    default_parameters = {}
+    
     hyper = None
 
     def __init__(self):
@@ -166,7 +175,23 @@ class _AbstractModelRepresentation(object):
             elif p in cls.default_hyper:
                 all_hyper[p] = cls.default_hyper[p]
 
-        return hp.HyperCrossProduct(all_hyper)  # TODO : fix seed here
-
+        return hp.HyperCrossProduct(all_hyper)
+    
+    @classmethod
+    def get_default_hyper_parameter(cls):
+        if cls.klass is None:
+            raise ValueError("I need a klass")
+            
+        all_params = list(get_init_parameters(cls.klass).keys())
+        
+        default_hyper_parameters = {}
+        for p in all_params:
+            if p in cls.default_parameters:
+                default_hyper_parameters[p] = cls.default_parameters[p]
+            
+            elif p in cls.default_default_hyper:
+                default_hyper_parameters[p] = cls.default_default_hyper[p]
+                
+        return default_hyper_parameters    
 
 MODEL_REGISTER = _MODEL_REGISTER()

@@ -29,23 +29,24 @@ The class should have :
 
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, ExtraTreesClassifier, ExtraTreesRegressor
 from sklearn.linear_model import LogisticRegression, Ridge, Lasso
+
 try:
     import lightgbm
 except ImportError:
     lightgbm = None
-    print('I wont be able to run AutoML on LighGBM models, please import lightgbm')
+    print("I wont be able to run AutoML on LighGBM models, please import lightgbm")
 
 try:
     import nltk
 except ImportError:
     nltk = None
-    print('I wont be able to run AutoML with NLTK transformers, please install nltk')
+    print("I wont be able to run AutoML with NLTK transformers, please install nltk")
 
 try:
     import gensim
 except ImportError:
     gensim = None
-    print('I wont be able to run AutoML with Word2Vec transformer, please install gensim')
+    print("I wont be able to run AutoML with Word2Vec transformer, please install gensim")
 
 
 from scipy.stats import reciprocal
@@ -100,8 +101,26 @@ class ModelRepresentationBase(_AbstractModelRepresentation):
         "analyzer": hp.HyperChoice(["word", "char", "char_wb"]),
         "penalty": ["l1", "l2"],
         "random_state": [123],  # So that every for every model with a random_state attribute, it will be passed and fix
-        "columns_to_encode":["--object--"]
+        
+        "drop_used_columns":[True],
+        "drop_unused_columns":[True]
     }
+    # This dictionnary is used to specify the default hyper-parameters that are used during the random search phase
+    # They will be used if :
+    # * the model has a paramters among that list
+    # * the parameters is not specified within the class (within 'custom_hyper')
+    
+    
+    
+    default_default_hyper = {
+            "random_state":123,
+            "drop_used_columns":True,
+            "drop_unused_columns":True
+            }
+    # This dictionnary is used to specify the default hyper-parameters that are used during the default model phase
+    # They will be used if :
+    # * the model has a paramters among that list
+    # * the default parameters is not specified within the class (withing 'default_parameters')
 
 
 ### Linear
@@ -164,8 +183,8 @@ class RandomForestClassifier_Model(ModelRepresentationBase):
     default_parameters = {"n_estimators": 100}
 
     use_y = True
-    
-    use_for_block_search = lightgbm is None # use RandomForest only if LightGBM is not installed
+
+    use_for_block_search = lightgbm is None  # use RandomForest only if LightGBM is not installed
 
 
 @register
@@ -183,8 +202,8 @@ class RandomForestRegressor_Model(ModelRepresentationBase):
     default_parameters = {"n_estimators": 100}
 
     use_y = True
-    
-    use_for_block_search = lightgbm is None # use RandomForest only if LightGBM is not installed
+
+    use_for_block_search = lightgbm is None  # use RandomForest only if LightGBM is not installed
 
 
 ### Extra Trees
@@ -305,6 +324,7 @@ class LGBM_HyperParameter(object):
 
 
 if lightgbm is not None:
+
     @register
     class LGBMClassifier_Model(LGBM_HyperParameter, ModelRepresentationBase):
         klass = lightgbm.LGBMClassifier
@@ -316,9 +336,8 @@ if lightgbm is not None:
         type_of_model = TypeOfProblem.CLASSIFICATION
 
         use_y = True
-        
-        use_for_block_search = True
 
+        use_for_block_search = True
 
     @register
     class LGBMRegressor_Model(LGBM_HyperParameter, ModelRepresentationBase):
@@ -331,8 +350,9 @@ if lightgbm is not None:
         type_of_model = TypeOfProblem.REGRESSION
 
         use_y = True
-        
+
         use_for_block_search = True
+
 
 # In[] : Selectors
 
@@ -399,7 +419,9 @@ class CountVectorizer_TextEncoder(ModelRepresentationBase):
                     0.5,
                     hp.HyperCrossProduct(
                         {
-                            "ngram_range": hp.HyperRangeBetaInt(start=1, end=5, alpha=2, beta=1), # 1 = 1.5% ; 2 = 12% ; 3 = 25% ; 4 = 37% ; 5 = 24%
+                            "ngram_range": hp.HyperRangeBetaInt(
+                                start=1, end=5, alpha=2, beta=1
+                            ),  # 1 = 1.5% ; 2 = 12% ; 3 = 25% ; 4 = 37% ; 5 = 24%
                             "analyzer": hp.HyperChoice(("char", "char_wb")),
                             "min_df": [1, 0.001, 0.01, 0.05],
                             "max_df": [0.999, 0.99, 0.95],
@@ -411,11 +433,12 @@ class CountVectorizer_TextEncoder(ModelRepresentationBase):
         )
 
         return res
-    
+
     use_for_block_search = True
 
 
 if gensim is not None:
+
     @register
     class Word2VecVectorizer_TextEncoder(ModelRepresentationBase):
 
@@ -435,8 +458,9 @@ if gensim is not None:
 
         use_y = False
 
-        
+
 if gensim is not None:
+
     @register
     class Char2VecVectorizer_TextEncoder(ModelRepresentationBase):
 
@@ -458,6 +482,7 @@ if gensim is not None:
 
 
 if nltk is not None:
+
     @register
     class TextNltkProcessing_TextPreprocessor(ModelRepresentationBase):
         klass = TextNltkProcessing
@@ -468,7 +493,7 @@ if nltk is not None:
 
         use_y = False
 
-        
+
 @register
 class TextNltkProcessing_DefaultPreprocessor(ModelRepresentationBase):
     klass = TextDefaultProcessing
@@ -498,14 +523,15 @@ class TextNltkProcessing_DigitAnonymizer(ModelRepresentationBase):
 class NumericalEncoder_CatEncoder(ModelRepresentationBase):
     klass = NumericalEncoder
     category = StepCategories.CategoryEncoder
-    type_of_variable = (TypeOfVariables.CAT, TypeOfVariables.NUM)
+
+    type_of_variable = (TypeOfVariables.CAT, )
 
     custom_hyper = {"encoding_type": ["dummy", "num"], "min_nb_observations": hp.HyperRangeInt(2, 20)}
 
     type_of_model = None
 
     use_y = False
-    
+
     use_for_block_search = True
 
 
@@ -515,7 +541,7 @@ class TargetEncoderClassifier_CatEncoder(ModelRepresentationBase):
     klass = TargetEncoderClassifier
     category = StepCategories.CategoryEncoder
 
-    type_of_variable = (TypeOfVariables.CAT, TypeOfVariables.NUM)
+    type_of_variable = (TypeOfVariables.CAT, )
 
     custom_hyper = {
         "cv": [None, 2, 5, 10],
@@ -558,11 +584,11 @@ class TargetEncoderRegressor_CatEncoder(ModelRepresentationBase):
 class NumImputer_Inputer(ModelRepresentationBase):
     klass = NumImputer
     category = StepCategories.MissingValueImputer
-    type_of_variable = None  # Peut etre faire que sur NUM, CAT, TEXT a priori on aura jamais de valeur manquante ?
+    type_of_variable = None
 
     type_of_model = None
     use_y = False
-    
+
     use_for_block_search = True
 
 
@@ -577,7 +603,7 @@ class TruncatedSVD_DimensionReduction(ModelRepresentationBase):
     type_of_model = None
     use_y = False
 
-    custom_hyper = {"keep_other_columns": ["keep", "drop"]}
+    custom_hyper = {"drop_used_columns": [True, False]}
 
 
 @register
@@ -608,7 +634,7 @@ class Text_TruncatedSVD_DimensionReduction(ModelRepresentationBase):
     type_of_model = None
     use_y = False
 
-    custom_hyper = {"keep_other_columns": ["keep", "drop"]}
+    custom_hyper = {"drop_used_columns": [True, False]}
 
 
 @register
@@ -624,7 +650,7 @@ class KMeansTransformer_DimensionReduction(ModelRepresentationBase):
     use_y = False
     type_of_variable = None
 
-    custom_hyper = {"keep_other_columns": ["keep", "drop"]}
+    custom_hyper = {"drop_used_columns": [True, False]}
 
 
 @register

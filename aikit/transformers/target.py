@@ -29,14 +29,7 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
     """ Class to encode categorical value using the target 
     
     Parameters
-    ----------
-    
-    columns_to_encode : list of str or None, (default = None)
-        list of categorical columns that will be encode, if None will guess 
-        
-    columns_to_keep  : list of str or None, (default = None)
-        list of columns to keep 'as-is', if None will keep everything but 'columns_to_encode'
-        
+    ----------    
     max_na_percentage : float, default = 0.05
         if more than 'max_na_percentage' None within a column, None will be treated as a special modality, otherwise it will default to the global aggregat
         
@@ -61,19 +54,8 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
     is_regression = None  # should be used in inherited classes
 
     def __init__(
-        self,
-        columns_to_encode=None,
-        columns_to_keep=None,
-        max_na_percentage=0.05,
-        smoothing_min=1,
-        smoothing_value=10,
-        noise_level=None,
-        cv=10,
-        random_state=None,
+        self, max_na_percentage=0.05, smoothing_min=1, smoothing_value=10, noise_level=None, cv=10, random_state=None
     ):
-        self.columns_to_encode = columns_to_encode
-        self.columns_to_keep = columns_to_keep
-
         self.max_na_percentage = max_na_percentage
 
         self.noise_level = noise_level
@@ -84,16 +66,6 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
         self.cv = cv
 
         self.random_state = random_state
-
-    @staticmethod
-    def guess_columns_to_encode(X):
-        """ guess which columns should be encoded """
-        cols = []
-        for c in list(X.columns):
-            if guess_type_of_variable(X[c]) == TypeOfVariables.CAT:
-                cols.append(c)
-
-        return cols
 
     @classmethod
     def _get_output_column_name(cls, col, target_classes):
@@ -171,7 +143,7 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
         return result_serie
 
     def fit(self, X, y):
-        
+
         if y is None:
             raise ValueError("I need a value for 'y'")
 
@@ -188,14 +160,8 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
             sy = y
 
         # Columns to encode and to keep
-        if self.columns_to_encode is None:
-            self._columns_to_encode = self.guess_columns_to_encode(X)
-            
-        elif isinstance(self.columns_to_encode, str) and self.columns_to_encode == "--object--":
-            self._columns_to_encode = list(X.columns[X.dtypes == "object"])
 
-        else:
-            self._columns_to_encode = list(self.columns_to_encode)
+        self._columns_to_encode = list(X.columns)
 
         X = get_rid_of_categories(X)
 
@@ -207,10 +173,7 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
             if c not in Xcolumns:
                 raise ValueError("column %s isn't in the DataFrame" % c)
 
-        if self.columns_to_keep is None:
-            self._columns_to_keep = diff(Xcolumns, self._columns_to_encode)
-        else:
-            self._columns_to_keep = list(self.columns_to_keep)
+        self._columns_to_keep = []
 
         # Verif:
         if not isinstance(self._columns_to_keep, list):
@@ -254,7 +217,7 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
 
         if y is None:
             raise ValueError("I need a value for 'y'")
-        
+
         if not isinstance(y, pd.Series):
             sy = pd.Series(y)
         else:
@@ -472,28 +435,28 @@ class _TargetEncoderEntropyClassifier(_TargetEncoderBase):
 
 
 # In[]
+
+
 class TargetEncoderClassifier(ModelWrapper):
 
     __doc__ = _TargetEncoderClassifier.__doc__
+    # TODO : concat doc with wrapper
 
     def __init__(
         self,
-        columns_to_encode=None,
-        columns_to_keep=None,
+        columns_to_use=TypeOfVariables.CAT,
         max_na_percentage=0.05,
         smoothing_min=1,
         smoothing_value=10,
         noise_level=None,
         cv=10,
         random_state=None,
-        columns_to_use=None,
         regex_match=False,
         desired_output_type=DataTypes.DataFrame,
-        keep_other_columns="drop",
+        drop_used_columns=True,
+        drop_unused_columns=False,
     ):
 
-        self.columns_to_encode = columns_to_encode
-        self.columns_to_keep = columns_to_keep
         self.max_na_percentage = max_na_percentage
 
         self.smoothing_min = smoothing_min
@@ -517,13 +480,12 @@ class TargetEncoderClassifier(ModelWrapper):
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=False,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
         return _TargetEncoderClassifier(
-            columns_to_encode=self.columns_to_encode,
-            columns_to_keep=self.columns_to_keep,
             max_na_percentage=self.max_na_percentage,
             noise_level=self.noise_level,
             smoothing_min=self.smoothing_min,
@@ -556,22 +518,21 @@ class TargetEncoderEntropyClassifier(ModelWrapper):
 
     def __init__(
         self,
-        columns_to_encode=None,
-        columns_to_keep=None,
+        columns_to_use=TypeOfVariables.CAT,
         max_na_percentage=0.05,
         smoothing_min=1,
         smoothing_value=10,
         noise_level=None,
         cv=10,
         random_state=None,
-        columns_to_use=None,
         regex_match=False,
         desired_output_type=DataTypes.DataFrame,
-        keep_other_columns="drop",
+        drop_used_columns=True,
+        drop_unused_columns=False,
     ):
 
-        self.columns_to_encode = columns_to_encode
-        self.columns_to_keep = columns_to_keep
+        self.columns_to_use = columns_to_use
+
         self.max_na_percentage = max_na_percentage
 
         self.smoothing_min = smoothing_min
@@ -592,13 +553,12 @@ class TargetEncoderEntropyClassifier(ModelWrapper):
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=False,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
         return _TargetEncoderEntropyClassifier(
-            columns_to_encode=self.columns_to_encode,
-            columns_to_keep=self.columns_to_keep,
             max_na_percentage=self.max_na_percentage,
             noise_level=self.noise_level,
             smoothing_min=self.smoothing_min,
@@ -631,22 +591,20 @@ class TargetEncoderRegressor(ModelWrapper):
 
     def __init__(
         self,
-        columns_to_encode=None,
-        columns_to_keep=None,
+        columns_to_use=TypeOfVariables.CAT,
         max_na_percentage=0.05,
         smoothing_min=1,
         smoothing_value=10,
         noise_level=None,
         cv=10,
         random_state=None,
-        columns_to_use=None,
         regex_match=False,
         desired_output_type=DataTypes.DataFrame,
-        keep_other_columns="drop",
+        drop_used_columns=True,
+        drop_unused_columns=False,
     ):
 
-        self.columns_to_encode = columns_to_encode
-        self.columns_to_keep = columns_to_keep
+        self.columns_to_use = columns_to_use
         self.max_na_percentage = max_na_percentage
 
         self.smoothing_min = smoothing_min
@@ -667,13 +625,12 @@ class TargetEncoderRegressor(ModelWrapper):
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=False,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
         return _TargetEncoderRegressor(
-            columns_to_encode=self.columns_to_encode,
-            columns_to_keep=self.columns_to_keep,
             max_na_percentage=self.max_na_percentage,
             noise_level=self.noise_level,
             smoothing_min=self.smoothing_min,

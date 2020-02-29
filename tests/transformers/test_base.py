@@ -6,6 +6,8 @@ Created on Fri Sep 14 11:55:08 2018
 """
 import pytest
 
+import itertools
+
 import numpy as np
 import pandas as pd
 import scipy.sparse as sps
@@ -15,6 +17,8 @@ from sklearn.linear_model import Ridge
 from sklearn.base import is_classifier, is_regressor
 from sklearn.exceptions import NotFittedError
 from sklearn.feature_extraction.text import CountVectorizer
+
+import pickle
 
 from tests.helpers.testing_help import get_sample_data, get_sample_df
 
@@ -35,9 +39,10 @@ from aikit.transformers.base import (
     PCAWrapper,
 )
 from aikit.transformers.base import _index_with_number, PassThrough, FeaturesSelectorClassifier
-
+from aikit.datasets.datasets import load_titanic
 # In[]
 
+dfX, y , *_ = load_titanic()
 
 def test_TruncatedSVDWrapper():
 
@@ -58,7 +63,7 @@ def test_TruncatedSVDWrapper():
     assert svd.get_feature_names() == list(res1.columns)
 
     # 2) we keep the original columns as well
-    svd = TruncatedSVDWrapper(n_components=5, columns_to_use=cols, keep_other_columns="keep")
+    svd = TruncatedSVDWrapper(n_components=5, columns_to_use=cols, drop_used_columns=False, drop_unused_columns=False)
     res2 = svd.fit_transform(df)
 
     assert res2.shape == (100, 5 + df.shape[1])
@@ -70,7 +75,7 @@ def test_TruncatedSVDWrapper():
     assert (res2.loc[:, list(df.columns)] == df).all().all()
 
     # 3) we keep only untouch columns
-    svd = TruncatedSVDWrapper(n_components=5, columns_to_use=cols, keep_other_columns="delta")
+    svd = TruncatedSVDWrapper(n_components=5, columns_to_use=cols, drop_used_columns=True, drop_unused_columns=False)
     res3 = svd.fit_transform(df)
     assert res3.shape == (100, 3 + 5)
     assert list(res3.columns) == ["float_col", "int_col", "text_col"] + ["SVD__%d" % j for j in range(5)]
@@ -95,7 +100,13 @@ def test_TruncatedSVDWrapper():
     assert svd.get_feature_names() == list(res1.columns)
 
     # 2) Keep original columns
-    svd = TruncatedSVDWrapper(n_components=5, columns_to_use=["num_col_"], keep_other_columns="keep", regex_match=True)
+    svd = TruncatedSVDWrapper(
+        n_components=5,
+        columns_to_use=["num_col_"],
+        drop_used_columns=False,
+        drop_unused_columns=False,
+        regex_match=True,
+    )
     res2 = svd.fit_transform(df)
 
     assert res2.shape == (100, 5 + df.shape[1])
@@ -107,7 +118,9 @@ def test_TruncatedSVDWrapper():
     assert (res2.loc[:, list(df.columns)] == df).all().all()
 
     # 3) Keep only the un-touch column
-    svd = TruncatedSVDWrapper(n_components=5, columns_to_use=["num_col_"], keep_other_columns="delta", regex_match=True)
+    svd = TruncatedSVDWrapper(
+        n_components=5, columns_to_use=["num_col_"], drop_used_columns=True, drop_unused_columns=False, regex_match=True
+    )
     res3 = svd.fit_transform(df)
     assert res3.shape == (100, 3 + 5)
     assert list(res3.columns) == ["float_col", "int_col", "text_col"] + ["SVD__%d" % j for j in range(5)]
@@ -121,7 +134,9 @@ def test_TruncatedSVDWrapper():
     # Delta with numpy ###
     xx = df.values
     columns_to_use = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    svd = TruncatedSVDWrapper(n_components=5, columns_to_use=columns_to_use, keep_other_columns="delta")
+    svd = TruncatedSVDWrapper(
+        n_components=5, columns_to_use=columns_to_use, drop_used_columns=True, drop_unused_columns=False
+    )
     res4 = svd.fit_transform(xx)
     assert list(res4.columns) == [0, 1, 2] + ["SVD__%d" % i for i in range(5)]
     assert svd.get_feature_names() == [0, 1, 2] + ["SVD__%d" % i for i in range(5)]
@@ -130,7 +145,9 @@ def test_TruncatedSVDWrapper():
     assert svd.get_feature_names(input_features) == ["COL_0", "COL_1", "COL_2"] + ["SVD__%d" % i for i in range(5)]
 
     # Keep
-    svd = TruncatedSVDWrapper(n_components=5, columns_to_use=columns_to_use, keep_other_columns="keep")
+    svd = TruncatedSVDWrapper(
+        n_components=5, columns_to_use=columns_to_use, drop_used_columns=False, drop_unused_columns=False
+    )
     res2 = svd.fit_transform(xx)
     assert list(res2.columns) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] + ["SVD__%d" % i for i in range(5)]
     assert svd.get_feature_names() == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] + ["SVD__%d" % i for i in range(5)]
@@ -380,47 +397,10 @@ def test_NumImputer_mixtype():
     assert not (Xenc.dtypes == "O").any()
 
 
-def test_NumImputer_output_type():
+def test_NumImputer_mixtype2():
     df = get_sample_df(100, seed=123)
-    
-    # with type float64
-    df["float_col"].astype("float64")
-    imp = NumImputer()
-    Xenc = imp.fit_transform(df)
-    
-    assert Xenc.dtypes["float_col"] == df.dtypes["float_col"]
-    
-    # with type float32
-    df2 = df.copy()
-    df2["float_col"] = df2["float_col"].astype("float32")
-    imp = NumImputer()
-    Xenc = imp.fit_transform(df2)
-    
-    assert Xenc.dtypes["float_col"] == df2.dtypes["float_col"]
-    
-    
-    # with type float64
-    df["float_col"].astype("float64")
-    df.loc[0,"float_col"] = np.nan
-    
-    imp = NumImputer()
-    Xenc = imp.fit_transform(df)
-    
-    assert Xenc.dtypes["float_col"] == df.dtypes["float_col"]
-    
-    # with type float32
-    df2 = df.copy()
-    df2["float_col"] = df2["float_col"].astype("float32")
-    df2.loc[0,"float_col"] = np.nan
-    imp = NumImputer()
-    Xenc = imp.fit_transform(df2)
-    
-    assert Xenc.dtypes["float_col"] == df2.dtypes["float_col"]
+    df.loc[[2, 10, 50], "float_col"] = ["10.02", "11.25", "01.02"]
 
-def test_NumImputer_with_inf():
-    df = get_sample_df(100, seed=123)
-    df.loc[[2, 10, 50], "float_col"] = np.inf
-    
     imp = _NumImputer()
 
     Xenc = imp.fit_transform(df)
@@ -428,7 +408,75 @@ def test_NumImputer_with_inf():
     assert _index_with_number(Xenc["float_col"]).all()
     assert not (Xenc.dtypes == "O").any()
 
-    assert Xenc.isnull().sum().sum() == 0 # verif
+def test_NumImputer_output_type():
+    df = get_sample_df(100, seed=123)
+
+    # with type float64
+    df["float_col"].astype("float64")
+    imp = NumImputer()
+    Xenc = imp.fit_transform(df)
+
+    assert Xenc.dtypes["float_col"] == df.dtypes["float_col"]
+
+    # with type float32
+    df2 = df.copy()
+    df2["float_col"] = df2["float_col"].astype("float32")
+    imp = NumImputer()
+    Xenc = imp.fit_transform(df2)
+
+    assert Xenc.dtypes["float_col"] == df2.dtypes["float_col"]
+
+    # with type float64
+    df["float_col"].astype("float64")
+    df.loc[0, "float_col"] = np.nan
+
+    imp = NumImputer()
+    Xenc = imp.fit_transform(df)
+
+    assert Xenc.dtypes["float_col"] == df.dtypes["float_col"]
+
+    # with type float32
+    df2 = df.copy()
+    df2["float_col"] = df2["float_col"].astype("float32")
+    df2.loc[0, "float_col"] = np.nan
+    imp = NumImputer()
+    Xenc = imp.fit_transform(df2)
+
+    assert Xenc.dtypes["float_col"] == df2.dtypes["float_col"]
+
+
+def test_NumImputer_with_inf():
+    df = get_sample_df(100, seed=123)
+    df.loc[[2, 10, 50], "float_col"] = np.inf
+
+    imp = _NumImputer()
+
+    Xenc = imp.fit_transform(df)
+
+    assert _index_with_number(Xenc["float_col"]).all()
+    assert not (Xenc.dtypes == "O").any()
+
+    assert Xenc.isnull().sum().sum() == 0  # verif
+
+
+def test_NumImputer_is_picklable():
+    df = get_sample_df(100, seed=123)
+    df.loc[[2, 10, 50], "float_col"] = np.nan
+
+    imputer = NumImputer()
+    _ = imputer.fit_transform(df)
+
+    pickled_imputer = pickle.dumps(imputer)
+    
+    unpickled_imputer = pickle.loads(pickled_imputer)
+    
+    assert type(unpickled_imputer) == type(imputer)
+    X1 = imputer.transform(df)
+    X2 = unpickled_imputer.transform(df)
+    
+    assert X1.shape == X2.shape
+    assert (X1 == X2).all().all()
+
 
 def test_BoxCoxTargetTransformer_target_transform():
 
@@ -538,6 +586,50 @@ def test_approx_cross_validation_BoxCoxTargetTransformer():
 
         assert np.max(np.abs(yhat2 - yhat1)) <= 10 ** (-5)
 
+@pytest.mark.parametrize(
+    "distribution, output_distribution",
+    list(itertools.product(("none", "kernel", "auto-param", "auto-kernel", "rank"), ("uniform", "normal"))),
+)
+def test_CdfScaler_not_inf(distribution, output_distribution):
+    
+
+    X = dfX[["parch"]]
+
+    assert X.isnull().sum().sum() == 0
+    assert (np.abs(X) == np.inf).sum().sum() == 0
+                
+    scaler = CdfScaler(distribution=distribution, output_distribution=output_distribution)
+    
+    Xres = scaler.fit_transform(X)
+
+    assert Xres.isnull().sum().sum() == 0
+    assert (np.abs(Xres) == np.inf).sum().sum() == 0
+    assert Xres.shape == X.shape
+    assert type(Xres) == type(X)
+
+@pytest.mark.parametrize(
+    "distribution, output_distribution",
+    list(itertools.product(("none", "kernel", "auto-param", "auto-kernel", "rank"), ("uniform", "normal"))),
+)
+def test_CdfScaler_not_inf_robust_small_values(distribution, output_distribution):
+    
+    xx = np.array([ 4.5702092e-31, -6.0903665e-31,  2.7413563e-31, -3.2803444e-31,
+           -2.9336169e-30, -3.6792298e-31, -4.9223109e-30, -4.6057624e-24,
+            2.6456667e-30,  4.6057632e-24, -5.8942418e-31,  5.8861331e-26,
+            8.8220447e-26, -8.8221803e-26, -9.8870148e-27, -4.8974121e-26,
+            6.2404621e-31,  6.2404621e-31,  1.7739178e-30,  3.4181638e-30],
+          dtype=np.float32)
+
+    X = pd.DataFrame(xx)
+  
+    scaler = _CdfScaler(distribution=distribution, output_distribution=output_distribution)
+    
+    Xres = scaler.fit_transform(X)
+    assert Xres.isnull().sum().sum() == 0
+    assert (np.abs(Xres) == np.inf).sum().sum() == 0
+    assert Xres.shape == X.shape
+    assert type(Xres) == type(X)
+
 
 @pytest.mark.longtest
 def test_CdfScaler():
@@ -633,19 +725,19 @@ def test_CdfScaler():
 
     assert scaler._model.distributions == ["normal", "gamma", "beta", "none"]
 
+
 def test_CdfScaler_fit_vs_fit_transform():
     np.random.seed(123)
-    X = np.random.randn(2000,10)
-    
+    X = np.random.randn(2000, 10)
+
     encoder = CdfScaler(distribution="kernel", output_distribution="uniform", random_state=123)
     X1 = encoder.fit_transform(X)
 
     encoder_b = CdfScaler(distribution="kernel", output_distribution="uniform", random_state=123)
     encoder_b.fit(X)
     X2 = encoder_b.transform(X)
-    
-    assert np.abs(X1 - X2).max() <= 10**(-5)
 
+    assert np.abs(X1 - X2).max() <= 10 ** (-5)
 
 
 def test_PassThrough():
@@ -712,7 +804,7 @@ def test_PCAWrapper():
     assert pca.get_feature_names() == list(res1.columns)
 
     # 2) we keep the original columns as well
-    pca = PCAWrapper(n_components=5, columns_to_use=cols, keep_other_columns="keep")
+    pca = PCAWrapper(n_components=5, columns_to_use=cols, drop_used_columns=False, drop_unused_columns=False)
     res2 = pca.fit_transform(df)
 
     assert res2.shape == (100, 5 + df.shape[1])
@@ -724,7 +816,9 @@ def test_PCAWrapper():
     assert (res2.loc[:, list(df.columns)] == df).all().all()
 
     # 3) Keep only the un-touch column
-    pca = PCAWrapper(n_components=5, columns_to_use=["num_col_"], keep_other_columns="delta", regex_match=True)
+    pca = PCAWrapper(
+        n_components=5, columns_to_use=["num_col_"], drop_used_columns=True, drop_unused_columns=False, regex_match=True
+    )
     res3 = pca.fit_transform(df)
     assert res3.shape == (100, 3 + 5)
     assert list(res3.columns) == ["float_col", "int_col", "text_col"] + ["PCA__%d" % j for j in range(5)]
@@ -738,7 +832,7 @@ def test_PCAWrapper():
     # Delta with numpy ###
     xx = df.values
     columns_to_use = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    pca = PCAWrapper(n_components=5, columns_to_use=columns_to_use, keep_other_columns="delta")
+    pca = PCAWrapper(n_components=5, columns_to_use=columns_to_use, drop_used_columns=True, drop_unused_columns=False)
     res4 = pca.fit_transform(xx)
     assert list(res4.columns) == [0, 1, 2] + ["PCA__%d" % i for i in range(5)]
     assert pca.get_feature_names() == [0, 1, 2] + ["PCA__%d" % i for i in range(5)]
@@ -747,9 +841,8 @@ def test_PCAWrapper():
     assert pca.get_feature_names(input_features) == ["COL_0", "COL_1", "COL_2"] + ["PCA__%d" % i for i in range(5)]
 
     # Keep
-    pca = PCAWrapper(n_components=5, columns_to_use=columns_to_use, keep_other_columns="keep")
+    pca = PCAWrapper(n_components=5, columns_to_use=columns_to_use, drop_used_columns=False, drop_unused_columns=False)
     res2 = pca.fit_transform(xx)
     assert list(res2.columns) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] + ["PCA__%d" % i for i in range(5)]
     assert pca.get_feature_names() == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] + ["PCA__%d" % i for i in range(5)]
     assert pca.get_feature_names(input_features) == input_features + ["PCA__%d" % i for i in range(5)]
-

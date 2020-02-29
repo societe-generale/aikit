@@ -12,16 +12,14 @@ import numpy as np
 try:
     import category_encoders
 except ImportError:
-    print("I wont be able to import category_encoders")
     category_encoders = None
 
 from collections import defaultdict
 
 
 from aikit.enums import DataTypes, TypeOfVariables
-from aikit.tools.data_structure_helper import get_type, generic_hstack, get_rid_of_categories
-from aikit.tools.helper_functions import diff
-from aikit.tools.db_informations import guess_type_of_variable
+from aikit.tools.data_structure_helper import get_type, get_rid_of_categories
+
 
 from aikit.transformers.model_wrapper import ModelWrapper
 
@@ -30,13 +28,7 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
     """ Numerical Encoder of categorical variables
     
     Parameters
-    ----------
-    columns_to_encode : list of str or None, default = None
-        if not None the columns that should be encoded, if None will guess
-        
-    columns_to_keep : list of str or None, default = None
-        if not None the columns that should be kept 'as-is', if None will kept what isn't in 'columns_to_keep'
-        
+    ----------        
     min_modalities_number : int, default = 20
         if less that 'min_modalities_number' modalities no modalities will be filtered
         
@@ -60,8 +52,6 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        columns_to_encode=None,
-        columns_to_keep=None,
         min_modalities_number=20,
         max_modalities_number=100,
         max_cum_proba=0.95,
@@ -69,9 +59,6 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
         max_na_percentage=0.05,
         encoding_type="dummy",
     ):
-        self.columns_to_encode = columns_to_encode
-        self.columns_to_keep = columns_to_keep
-
         self.min_modalities_number = min_modalities_number
         self.max_modalities_number = max_modalities_number
 
@@ -80,16 +67,6 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
         self.max_na_percentage = max_na_percentage
 
         self.encoding_type = encoding_type
-
-    @staticmethod
-    def guess_columns_to_encode(X):
-        """ guess which columns should be encoded """
-        cols = []
-        for c in list(X.columns):
-            if guess_type_of_variable(X[c]) == TypeOfVariables.CAT:
-                cols.append(c)
-
-        return cols
 
     def modalities_filter(self, input_serie):
         """ take a modality and filter the modalities that will be kept """
@@ -130,7 +107,7 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
 
             ### Filter 3 => If I still have too many modalities, keep only the first one ###
             if self.max_modalities_number is not None and modalities_to_keep.shape[0] > self.max_modalities_number:
-                modalities_to_keep = modalities_to_keep.iloc[0:self.max_modalities_number]
+                modalities_to_keep = modalities_to_keep.iloc[0 : self.max_modalities_number]
 
         else:
             modalities_to_keep = value_count
@@ -151,14 +128,7 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
 
         Xcolumns = list(X.columns)
 
-        # Columns to encode and to keep
-        if self.columns_to_encode is None:
-            self._columns_to_encode = self.guess_columns_to_encode(X)
-
-        elif isinstance(self.columns_to_encode, str) and self.columns_to_encode == "--object--":
-            self._columns_to_encode = list(X.columns[X.dtypes == "object"])
-        else:
-            self._columns_to_encode = list(self.columns_to_encode)
+        self._columns_to_encode = Xcolumns  # Force to encode everything now
 
         X = get_rid_of_categories(X)
 
@@ -170,42 +140,18 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
             if c not in Xcolumns:
                 raise ValueError("column %s isn't in the DataFrame" % c)
 
-        if self.columns_to_keep is None:
-            self._columns_to_keep = diff(Xcolumns, self._columns_to_encode)
-        else:
-            self._columns_to_keep = list(self.columns_to_keep)
-
-        # Verif:
-        if not isinstance(self._columns_to_keep, list):
-            raise TypeError("_columns_to_keep should be a list")
-
-        for c in self._columns_to_keep:
-            if c not in Xcolumns:
-                raise ValueError("column %s isn't in the DataFrame" % c)
-
         self.variable_modality_mapping = {col: self.modalities_filter(X[col]) for col in self._columns_to_encode}
-        
-        self._variable_modality_dict = {}
-        for col in self._columns_to_encode:
-            #ddict = defaultdict(lambda :-1, self.variable_modality_mapping[col])
-            ddict = dict(self.variable_modality_mapping[col])
-            if "__null__" in self.variable_modality_mapping[col]:    
-                ddict[np.nan] = self.variable_modality_mapping[col]["__null__"]
-                ddict[None] = self.variable_modality_mapping[col]["__null__"]
-            
-            self._variable_modality_dict[col] = ddict
-        
 
         # Rmk : si on veut pas faire un encodage ou les variables sont par ordre croissant, on peut faire un randomization des numbre ici
 
         if self.encoding_type == "num":
-            self._feature_names = self._columns_to_keep + self._columns_to_encode
+            self._feature_names = self._columns_to_encode
 
             self.columns_mapping = {c: [c] for c in self._feature_names}
 
         elif self.encoding_type == "dummy":
 
-            self.columns_mapping = {c: [c] for c in self._columns_to_keep}
+            self.columns_mapping = {}
 
             index_column = {}
             self._variable_shift = {}
@@ -224,7 +170,7 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
 
             self._dummy_size = cum_max
             self._dummy_feature_names = [index_column[i] for i in range(cum_max)]
-            self._feature_names = self._columns_to_keep + self._dummy_feature_names
+            self._feature_names = self._dummy_feature_names
 
         else:
             raise NotImplementedError("I don't know that type of encoding %s" % self.encoding_type)
@@ -260,22 +206,25 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
 
         result = self._transform_to_encode(X)
 
-        if len(self._columns_to_keep) > 0:
-            result_other = X.loc[:, self._columns_to_keep]
-            return generic_hstack([result_other, result])
-        else:
-            return result
+        return result
 
     def _transform_to_encode(self, X):
-        all_result_series = [X[col].map( defaultdict(lambda :-1,self._variable_modality_dict[col] ))
-            for col in self._columns_to_encode]
+
+        all_result_series = []
+        for col, mapping in self.variable_modality_mapping.items():
+            default_value = -1 if "__default__" not in mapping else mapping["__default__"]
+            mapping = defaultdict(lambda: default_value, mapping)
+            if "__null__" in mapping:
+                mapping[np.nan] = mapping["__null__"]
+                mapping[None] = mapping["__null__"]
+            all_result_series.append(X[col].map(mapping))
 
         if self.encoding_type == "num":
             result = pd.concat(all_result_series, axis=1, ignore_index=True, copy=False).astype(np.int32)
             return result
 
         elif self.encoding_type == "dummy":
-            Xres = np.zeros((X.shape[0], self._dummy_size), dtype='int32')
+            Xres = np.zeros((X.shape[0], self._dummy_size), dtype="int32")
 
             nn = np.arange(X.shape[0])
             for col, result in zip(self._columns_to_encode, all_result_series):
@@ -297,11 +246,8 @@ class NumericalEncoder(ModelWrapper):
     
     Parameters
     ----------
-    columns_to_encode : list of str or None, default = None
-        if not None the columns that should be encoded, if None will guess
-        
-    columns_to_keep : list of str or None, default = None
-        if not None the columns that should be kept 'as-is', if None will kept what isn't in 'columns_to_keep'
+    columns_to_use : list of str
+        the columns to use
         
     min_modalities_number : int, default = 20
         if less that 'min_modalities_number' modalities no modalities will be filtered
@@ -321,42 +267,39 @@ class NumericalEncoder(ModelWrapper):
         
     encoding_type : 'dummy' or 'num', default = 'dummy'
         type of encoding between a numerical encoding and a dummy encoding
-
-    columns_to_use : list of str
-        the columns to use
-        
+  
     regex_match : boolean, default = False
         if True use regex to match columns
-        
-    keep_other_columns : string, default = 'drop'
-        choices : 'keep','drop','delta'.
-        If 'keep'  : the original columns are kept     => result = columns + transformed columns
-        If 'drop'  : the original columns are dropped  => result = transformed columns
-        If 'delta' : only the original columns not used in transformed are kept => result = un-touched original columns + transformed columns
         
     desired_output_type : DataType
         the type of result 
 
+    drop_used_columns : boolean, default=True
+        what to do with the ORIGINAL columns that were transformed.
+        If False, will keep them in the result (un-transformed)
+        If True, only the transformed columns are in the result
+        
+    drop_unused_columns: boolean, default=True
+        what to do with the column that were not used.
+        if False, will drop them
+        if True, will keep them in the result
 
     """
 
     def __init__(
         self,
-        columns_to_encode=None,
-        columns_to_keep=None,
+        columns_to_use=TypeOfVariables.CAT,
         min_modalities_number=20,
         max_modalities_number=100,
         max_cum_proba=0.95,
         min_nb_observations=10,
         max_na_percentage=0.05,
         encoding_type="dummy",
-        columns_to_use=None,
         regex_match=False,
         desired_output_type=DataTypes.DataFrame,
-        keep_other_columns="drop",
+        drop_used_columns=True,
+        drop_unused_columns=False,
     ):
-        self.columns_to_encode = columns_to_encode
-        self.columns_to_keep = columns_to_keep
 
         self.min_modalities_number = min_modalities_number
         self.max_modalities_number = max_modalities_number
@@ -366,10 +309,6 @@ class NumericalEncoder(ModelWrapper):
         self.max_na_percentage = max_na_percentage
 
         self.encoding_type = encoding_type
-
-        # self.columns_to_use = columns_to_use
-        # self.regex_match = regex_match
-        # self.desired_output_type = desired_output_type
 
         super(NumericalEncoder, self).__init__(
             columns_to_use=columns_to_use,
@@ -381,13 +320,12 @@ class NumericalEncoder(ModelWrapper):
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=False,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
         return _NumericalEncoder(
-            columns_to_encode=self.columns_to_encode,
-            columns_to_keep=self.columns_to_keep,
             min_modalities_number=self.min_modalities_number,
             max_modalities_number=self.max_modalities_number,
             max_cum_proba=self.max_cum_proba,
@@ -399,9 +337,6 @@ class NumericalEncoder(ModelWrapper):
     @property
     def columns_mapping(self):
         return self.model.columns_mapping
-
-
-# In[]
 
 
 # In[]
@@ -451,24 +386,34 @@ class CategoricalEncoder(ModelWrapper):
     desired_output_type : list of DataType
         the type of output wanted
 
+    drop_used_columns : boolean, default=True
+        what to do with the ORIGINAL columns that were transformed.
+        If False, will keep them in the result (un-transformed)
+        If True, only the transformed columns are in the result
+        
+    drop_unused_columns: boolean, default=True
+        what to do with the column that were not used.
+        if False, will drop them
+        if True, will keep them in the result
+
     """
 
     def __init__(
         self,
-        columns_to_encode=None,
+        columns_to_use=TypeOfVariables.CAT,
         encoding_type="dummy",
         basen_base=2,
         hashing_n_components=10,
-        columns_to_use=None,
         regex_match=False,
         desired_output_type=DataTypes.DataFrame,
-        keep_other_columns="drop",
+        drop_used_columns=True,
+        drop_unused_columns=False,
     ):
 
         if category_encoders is None:
             raise ValueError("You need to install 'categorical-encoder' to use this wrapper")
 
-        self.columns_to_encode = columns_to_encode
+        self.columns_to_use = columns_to_use
         self.encoding_type = encoding_type
 
         self.basen_base = basen_base
@@ -488,7 +433,8 @@ class CategoricalEncoder(ModelWrapper):
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=True,
             dont_change_columns=False,
-            keep_other_columns=keep_other_columns,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
         )
 
     def _get_model(self, X, y=None):
@@ -518,7 +464,7 @@ class CategoricalEncoder(ModelWrapper):
         #
         #        elif self.encoding_type == "backward_coding":
         #            return category_encoders.BackwardDifferenceEncoder(**params)
-        # Ceux la aussi ne marche pas bien => change la taille parfois...
+        # don't work well => change time sometimes
 
         # Rmk : Other categorical not included
         # * Target Encoder

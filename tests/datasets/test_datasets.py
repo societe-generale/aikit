@@ -32,8 +32,9 @@ def test_load_dataset(tmpdir, name):
 
 def test_load_public_path(tmpdir):
     path = _load_public_path(
-        'https://github.com/gfournier/aikit-datasets/releases/download/titanic-1.0.0/titanic.tar.gz',
+        "https://github.com/gfournier/aikit-datasets/releases/download/titanic-1.0.0/titanic.tar.gz",
         cache_dir=tmpdir,
-        cache_subdir='datasets')
-    assert path == os.path.join(tmpdir, 'datasets', 'titanic', 'titanic.csv')
+        cache_subdir="datasets",
+    )
+    assert path == os.path.join(tmpdir, "datasets", "titanic", "titanic.csv")
     assert os.path.exists(path)

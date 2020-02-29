@@ -1,7 +1,8 @@
 .. _ml_machine_launcher:
 
-Ml Machine Launcher
--------------------
+
+Auto ML Launcher
+================
 
 To help to launch the ml machine jobs you can use the :class:`MlMachineLauncher` object.
 
@@ -11,6 +12,7 @@ it :
  * has methods to launch a controller, a worker, ... (See after)
  * has a method to process command line arguments to quickly create a script that can be used to drive the ml-process (See after)
 
+The easiest way is to create a script like the following one.
 
 Example::
 
@@ -89,7 +91,11 @@ This folder should be accessible by all the workers and the controller.
 It will be used to save result, save the queue of jobs, the logs, ...
  
 * set_configs function : a function to modify the settings of the automl
-You can modify the cv, the base line, the scoring, ...
+You can modify the cv, the base line, the scoring, ... (See :ref:`ml_machine_launcher_advanced` for details).
+
+
+.. figure:: img/automl_diagram.bmp
+   :alt: Summary of the auto ml command
 
 run command
 ***********
