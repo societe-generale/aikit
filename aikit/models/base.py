@@ -21,10 +21,16 @@ class AgglomerativeClusteringWrapper(AgglomerativeClustering):
         connectivity=None,
         compute_full_tree="auto",
         linkage="ward",
-        pooling_func="deprecated",
+        distance_threshold=None
     ):
         super(AgglomerativeClusteringWrapper, self).__init__(
-            n_clusters, affinity, memory, connectivity, compute_full_tree, linkage, pooling_func
+            n_clusters=n_clusters,
+            affinity=affinity,
+            memory=memory,
+            connectivity=connectivity,
+            compute_full_tree=compute_full_tree,
+            linkage=linkage,
+            distance_threshold=distance_threshold
         )
 
     def fit(self, X, y=None):
