@@ -12,7 +12,11 @@ import pandas as pd
 import scipy.sparse as sps
 
 from sklearn.exceptions import NotFittedError
-from sklearn.model_selection._validation import safe_indexing
+try:
+    from sklearn.model_selection._validation import safe_indexing
+except ImportError:
+    from sklearn.model_selection._validation import _safe_indexing
+    safe_indexing = _safe_indexing
 
 from aikit.transformers.block_selector import BlockManager, BlockSelector
 
