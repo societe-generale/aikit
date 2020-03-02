@@ -93,7 +93,7 @@ class ModelRepresentationBase(_AbstractModelRepresentation):
             [(0.25, ["sqrt", "auto"]), (0.75, hp.HyperRangeBetaFloat(start=0, end=1, alpha=3, beta=1))]
         ),
         "max_depth": hp.HyperChoice([None, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 25, 30, 50, 100]),
-        "min_samples_split": hp.HyperRangeBetaInt(start=1, end=100, alpha=1, beta=5),
+        "min_samples_split": hp.HyperRangeBetaInt(start=2, end=100, alpha=1, beta=5),
         # Linear model
         "C": hp.HyperLogRangeFloat(start=0.00001, end=10, n=50),
         "alpha": hp.HyperLogRangeFloat(start=0.00001, end=10, n=50),

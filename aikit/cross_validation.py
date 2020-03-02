@@ -18,7 +18,14 @@ from joblib import Parallel, delayed
 
 import sklearn.model_selection
 from sklearn.model_selection._split import BaseCrossValidator, _num_samples, train_test_split
-from sklearn.model_selection._validation import _index_param_value
+try:
+        from sklearn.utils.validation import _check_fit_params # In sklearn 0.22
+except ImportError:
+    from sklearn.model_selection._validation import _index_param_value
+    def _check_fit_params(X, fit_params, indices=None):
+        return {k: _index_param_value(X, v, indices) for k,v in fit_params.items()}
+
+
 
 import sklearn.base
 
@@ -270,8 +277,7 @@ def _compute_one_fold(
         index_test = test
         
     fit_params = fit_params if fit_params is not None else {}
-    fit_params = {k: _index_param_value(X, v, train)
-                  for k, v in fit_params.items()}
+    fit_params = _check_fit_params(X, fit_params, train)
     # Try to subset the fit_params if that is possible, Ex : 'sample_weight=np.array(....)' should be subsetted but not 'epochs=10'
     start_fit = time()
 
@@ -377,7 +383,6 @@ def cross_validation(
 
     Modification of sklearn cross-validation, The main differences from sklearn function are
 
-    * remove paralelle capabilities
     * allow more than one scoring
     * allow return scores and probas or predictions
     * return score on test and train set for each fold
@@ -421,7 +426,7 @@ def cross_validation(
         Refer :ref:`User Guide <cross_validation>` for the various
         cross-validation strategies that can be used here.
 
-    fit_parameters : dict or None
+    fit_params : dict or None
         Parameters to pass to the fit method of the estimator.
 
     verbose : integer, optional
@@ -451,6 +456,8 @@ def cross_validation(
         ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
         for more details.
 
+    parallel_kwargs : kwargs to pass to drive parallelization
+
     **kwargs : keywords arguments to be passed to method call
 
     Returns
@@ -479,7 +486,7 @@ def cross_validation(
     scorers = None
     if not no_scoring:
         scorers = create_scoring(estimator, scoring)
-    # Here : scorers is a dictionnary of scorers objects
+    # Here : scorers is a dictionary of scorers objects
 
     estimator_is_classifier = sklearn.base.is_classifier(estimator)
     estimator_is_regressor = sklearn.base.is_regressor(estimator)
@@ -820,7 +827,7 @@ def score_from_params_clustering(
     ### Scoring ###
     if not no_scoring:
         scorers = create_scoring(estimator, scoring)
-    # Here : scorers is a dictionnary of scorers objects
+    # Here : scorers is a dictionary of scorers objects
 
     ### Handle fit params ###
     if fit_params is None:
@@ -851,9 +858,9 @@ def score_from_params_clustering(
     if not no_scoring:
         start_score = time()
         scores_dictionnary = sklearn.model_selection._validation._score(
-            cloned_estimator, X, None, scorer=scorers, is_multimetric=True
-        )
-        # Here : scorers is a dicttionnary of scorers, hence is_multimetric = True
+            cloned_estimator, X, None, scorer=scorers)#, is_multimetric=True #TODO : fix here
+
+        # Here : scorers is a dictionary of scorers, hence is_multimetric = True
         score_time = time() - start_score
 
     ### Put everything into a dictionnary ###
