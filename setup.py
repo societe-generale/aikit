@@ -37,6 +37,7 @@ def setup_package():
                     download_url=DOWNLOAD_URL,
                     version=VERSION,
                     long_description=LONG_DESCRIPTION,
+                    long_description_content_type="text/markdown",
                     classifiers=META.__classifiers__,
                     install_requires=INSTALL_REQUIRES,
                     setup_requires=SETUP_REQUIRES,
