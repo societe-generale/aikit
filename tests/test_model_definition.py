@@ -28,13 +28,13 @@ class Test_sklearn_model_from_param:
         ### Random Forest ###
         #####################
 
-        param = ("RandomForestClassifier", {"n_estimators": 100, "criterion": "entropy"})
+        param = ("RandomForestClassifier", {"n_estimators": 150, "criterion": "entropy"})
         param_c = copy.deepcopy(param)
 
         model = sklearn_model_from_param(param)
 
         assert isinstance(model, RandomForestClassifier)
-        assert model.n_estimators == 100
+        assert model.n_estimators == 150
 
         assert param == param_c  # verif that param was not modified inside function
         
