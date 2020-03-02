@@ -184,7 +184,7 @@ def test_text_digit_anonymizer():
         transformer.fit_transform(pd.DataFrame(data=[[11354]]))
 
 
-
+@pytest.mark.skipif(Word2Vec is None or nltk is None, reason="gensim or nltk isn't installed")
 def test_Word2VecVectorizer_few_sample():
     Xtrain = load_dataset("titanic")[0]
 

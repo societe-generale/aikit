@@ -4,6 +4,8 @@ Created on Wed May  9 13:56:11 2018
 
 @author: Lionel Massoulard
 """
+import logging
+logger = logging.getLogger(__name__)
 
 import sklearn.metrics
 from sklearn.metrics.regression import _check_reg_targets, r2_score
@@ -11,16 +13,11 @@ from sklearn.metrics import silhouette_score, calinski_harabaz_score, davies_bou
 
 from sklearn.metrics.scorer import SCORERS, _BaseScorer, type_of_target
 
-import logging
-
-logger = logging.getLogger(__name__)
-
 
 import numpy as np
 import pandas as pd
 
-from aikit.pipeline import GraphPipeline
-
+from functools import partial
 
 class log_loss_scorer_patched(object):
     """ Log Loss scorer, correcting a small issue in sklearn (labels not used) """
@@ -165,38 +162,62 @@ def log_r2_score(y_true, y_pred, sample_weight=None, multioutput="uniform_averag
     return r2_score(np.log(y_true + 1), np.log(y_pred + 1), sample_weight, multioutput)
 
 
+def _cached_call(cache, estimator, method, *args, **kwargs):
+    """Call estimator with method and args and kwargs."""
+    # Remark : copy of sk22 code
+    if cache is None:
+        return getattr(estimator, method)(*args, **kwargs)
+
+    try:
+        return cache[method]
+    except KeyError:
+        result = getattr(estimator, method)(*args, **kwargs)
+        cache[method] = result
+        return result
+
+
 class _CustomPredictScorer(_BaseScorer):
     def __init__(self, score_func, sign, kwargs):
         super().__init__(score_func, sign, kwargs)
 
-    def __call__(self, estimator, X):
-        """
-        Unsupervised evaluation metric for cluster analysis results which
-        mesures the quality of the model itself.
+
+    def __call__(self, estimator, X, y_true=None, sample_weight=None):
+        """Evaluate predicted target values for X relative to y_true.
+
         Parameters
         ----------
         estimator : object
-            Trained estimator to use for scoring.
-            Must have a labels_ attribute
+            Trained estimator to use for scoring. Must have a predict_proba
+            method; the output of that is used to compute the score.
+
         X : array-like or sparse matrix
-            data that will be fed to score function
+            Test data that will be fed to estimator.predict.
+
+        y_true : array-like
+            Gold standard target values for X.
+
+        sample_weight : array-like, optional (default=None)
+            Sample weights.
+
         Returns
         -------
         score : float
-            Score function applied to labels cluster from
-            the estimator fitted on X.
+            Score function applied to prediction of estimator on X.
         """
-        if isinstance(estimator, GraphPipeline):
-            terminal_node = estimator._terminal_node
-            y_pred = estimator.models[terminal_node].labels_
-        else:
-            y_pred = estimator.labels_
+        # Remark : copy of sk22 code TODO
+        return self._score(partial(_cached_call, None), estimator, X, y_true,
+                           sample_weight=sample_weight)
 
+    def _score(self, method_caller, estimator, X, y_true=None, sample_weight=None):
+        
+        y_pred = method_caller(estimator, "predict", X)
+        
         try:
             return self._sign * self._score_func(X, y_pred, **self._kwargs)
         except Exception as e:
             logger.warning(str(e) + ": NaN will be return")
             return np.nan
+
 
 
 def make_scorer_clustering(score_func, greater_is_better, **kwargs):

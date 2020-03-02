@@ -21,11 +21,12 @@ from sklearn.model_selection._split import BaseCrossValidator, _num_samples, tra
 try:
     from sklearn.utils.validation import _check_fit_params # In sklearn 0.22
 except ImportError:
+    _check_fit_params = None
+    
+if _check_fit_params is None:
     from sklearn.model_selection._validation import _index_param_value
     def _check_fit_params(X, fit_params, indices=None):
         return {k: _index_param_value(X, v, indices) for k,v in fit_params.items()}
-
-
 
 import sklearn.base
 
@@ -143,6 +144,7 @@ def create_scoring(estimator, scoring):
                     raise ValueError("duplicate scorer %s" % s)
 
             scorers[k] = sklearn.model_selection._validation.check_scoring(estimator, scoring=s)
+
 
     return scorers
 
@@ -857,9 +859,9 @@ def score_from_params_clustering(
     ### Score ###
     if not no_scoring:
         start_score = time()
-        scores_dictionnary = sklearn.model_selection._validation._score(
-            cloned_estimator, X, None, scorer=scorers)#, is_multimetric=True #TODO : fix here
-
+        scores_dictionnary = _score_with_group(cloned_estimator, X, None, None, scorer=scorers, is_multimetric=True)
+            # Remark : the predict is actually done twice...
+            
         # Here : scorers is a dictionary of scorers, hence is_multimetric = True
         score_time = time() - start_score
 
