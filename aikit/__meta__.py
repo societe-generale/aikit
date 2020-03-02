@@ -2,7 +2,7 @@
 Automatic Tool Kit for Machine Learning and Datascience
 """
 
-__version__ = "0.2.1-dev"
+__version__ = "0.2.2-dev"
 
 __author__ = "Lionel Massoulard"
 
