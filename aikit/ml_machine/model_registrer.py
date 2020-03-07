@@ -12,7 +12,7 @@ import networkx as nx
 from aikit.enums import StepCategories
 from aikit.ml_machine import hyper_parameters as hp
 from aikit.model_definition import DICO_NAME_KLASS
-from aikit.tools.graph_helper import has_cycle
+from aikit.tools.graph_helper import has_cycle, iter_graph
 
 # In[] : test generic model definition
 def get_init_parameters(klass):
@@ -55,6 +55,7 @@ class _MODEL_REGISTER(object):
         self.all_registered = []
         
         self.step_dependencies = nx.DiGraph()
+        self._drawing_order = {}
 
     def register_new_class(self,
                            category,
@@ -107,6 +108,7 @@ class _MODEL_REGISTER(object):
                 if has_cycle(self.step_dependencies):
                     raise ValueError(f"adding this dependency {depending_step} -> {category} create a cycle")
 
+                self._drawing_order = {step:n for n, step in iter_graph(self.step_dependencies)}
 
         return self
 
