@@ -108,7 +108,7 @@ class _MODEL_REGISTER(object):
                 if has_cycle(self.step_dependencies):
                     raise ValueError(f"adding this dependency {depending_step} -> {category} create a cycle")
 
-                self._drawing_order = {step:n for n, step in iter_graph(self.step_dependencies)}
+                self._drawing_order = {step:n for n, step in enumerate(iter_graph(self.step_dependencies))}
 
         return self
 
