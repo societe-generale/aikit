@@ -26,7 +26,6 @@ def get_needed_steps(df_information, type_of_problem):
 
     needed_steps = []
 
-    # Rmk : pour l'instant il faut positionner ces noeuds au debut
     if is_regression:
         needed_steps.append({"step": en.StepCategories.TargetTransformer, "optional": True})
 
