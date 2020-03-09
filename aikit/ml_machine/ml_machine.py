@@ -1086,14 +1086,14 @@ class RandomModelGenerator(object):
 
         Parameters
         ----------
-        * needed_steps : list of dictionnary representing each step, each one with a 'step' key and an 'optional' key
+        * needed_steps : list of dictionaries representing each step, each one with a 'step' key and an 'optional' key
 
         * models_to_keep : list of models that we want to draw within
 
         * log_unif : bool, default = True
             if True (and random_probas is not None), will draw a model with probability proportionnal to 'log(1 + hyperparameter.size)'
 
-        * random_probas : dictionnary of proba array for each step or None
+        * random_probas : dictionary of proba array for each step or None
             if None will use uniform (or log_uniform) otherwise will draw according to that probability
 
 
