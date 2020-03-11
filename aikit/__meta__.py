@@ -10,7 +10,7 @@ __website__ = "https://github.com/societe-generale/aikit"
 
 __copyright__ = "Societe Generale"
 
-__license__ = "BSD-2-Clause"
+__license__ = "BSD License"
 
 __keywords__ = ["machine learning", "data science"]
 
@@ -18,7 +18,7 @@ __classifiers__ = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
-    "License :: " + __license__,
+    "License :: OSI Approved :: " + __license__,
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX",
     "Operating System :: Unix",
