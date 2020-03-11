@@ -122,6 +122,7 @@ class ModelRepresentationBase(_AbstractModelRepresentation):
     # * the model has a paramters among that list
     # * the default parameters is not specified within the class (withing 'default_parameters')
 
+    depends_on = ()
 
 ### Linear
 @register
