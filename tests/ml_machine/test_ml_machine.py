@@ -14,7 +14,7 @@ from copy import deepcopy
 from sklearn.utils import check_random_state
 
 from aikit.datasets.datasets import load_dataset, DatasetEnum
-from aikit.enums import TypeOfProblem, TypeOfVariables
+from aikit.enums import TypeOfProblem, TypeOfVariables, StepCategories
 from aikit.ml_machine.ml_machine import (
     AutoMlConfig,
     JobConfig,
@@ -30,7 +30,7 @@ from aikit.model_definition import sklearn_model_from_param
 
 from aikit.ml_machine.ml_machine_guider import AutoMlModelGuider
 from aikit.ml_machine.data_persister import FolderDataPersister
-
+from aikit.tools.graph_helper import get_terminal_nodes
 
 def loader(num_only=False):
     if num_only:
@@ -230,10 +230,14 @@ def test_RandomModelGenerator_iterator(type_of_iterator, num_only):
 
     # verif iterator
     for model in iterator:
-        
+
         assert isinstance(model, tuple)
         assert len(model) == 3
         Graph, all_models_params, block_to_use = model
+
+        terminal_nodes = get_terminal_nodes(Graph)
+        assert len(terminal_nodes) == 1
+        assert terminal_nodes[0][0] == StepCategories.Model
         
         #graphviz_graph(Graph)
 

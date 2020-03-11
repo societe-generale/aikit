@@ -7,9 +7,12 @@ Created on Fri Apr 27 08:38:10 2018
 
 from inspect import signature
 
+import networkx as nx
+
+from aikit.enums import StepCategories
 from aikit.ml_machine import hyper_parameters as hp
 from aikit.model_definition import DICO_NAME_KLASS
-
+from aikit.tools.graph_helper import has_cycle, iter_graph
 
 # In[] : test generic model definition
 def get_init_parameters(klass):
@@ -48,9 +51,19 @@ class _MODEL_REGISTER(object):
         self.default_hyper_parameters = {}
         self.init_parameters = {}
         self.informations = {}
+        self.is_allowed = {}
         self.all_registered = []
+        
+        self.step_dependencies = nx.DiGraph()
+        self._drawing_order = {}
 
-    def register_new_class(self, category, klass, hyper=None, default_hyper=None, **kwargs):
+    def register_new_class(self,
+                           category,
+                           klass, hyper=None,
+                           default_hyper=None,
+                           is_allowed=None,
+                           depends_on=None,
+                           **kwargs):
 
         if not isinstance(klass, type):
             raise TypeError("klass should be klass")
@@ -70,6 +83,9 @@ class _MODEL_REGISTER(object):
         if default_hyper is not None:
             self.default_hyper_parameters[key] = default_hyper
 
+        if is_allowed is not None:
+            self.is_allowed[key] = is_allowed
+
         if kwargs:
             self.informations[key] = {k: v for k, v in kwargs.items()}
 
@@ -77,6 +93,22 @@ class _MODEL_REGISTER(object):
             raise ValueError(
                 "You should also register that klass : %s within the 'simple register' file" % klass.__name__
             )
+
+        self.step_dependencies.add_node(category)            
+        if depends_on is not None:
+            if not isinstance(depends_on, (list, tuple, set)):
+                depends_on = (depends_on, )
+                
+            for depending_step in depends_on:
+                if depending_step not in StepCategories.alls:
+                    raise ValueError(f"{depending_step} is not a know step")
+
+                self.step_dependencies.add_edge(depending_step, category)
+                
+                if has_cycle(self.step_dependencies):
+                    raise ValueError(f"adding this dependency {depending_step} -> {category} create a cycle")
+
+                self._drawing_order = {step:n for n, step in enumerate(iter_graph(self.step_dependencies))}
 
         return self
 
@@ -120,7 +152,14 @@ def register(klass):
     other = {
         k: v
         for k, v in klass.__dict__.items()
-        if not k.startswith("_") and k not in ("name", "klass", "custom_hyper", "default_parameters", "category")
+        if not k.startswith("_") and k not in ("name",
+                                               "klass",
+                                               "custom_hyper",
+                                               "default_parameters",
+                                               "category",
+                                               "is_allowed",
+                                               "depends_on"
+                                               )
     }
 
     if klass.category is None:
@@ -134,6 +173,8 @@ def register(klass):
         klass=klass.klass,
         hyper=klass.get_hyper_parameter(),
         default_hyper=klass.get_default_hyper_parameter(),
+        is_allowed=klass.is_allowed,
+        depends_on=klass.depends_on,
         **other
     )
 
@@ -192,6 +233,36 @@ class _AbstractModelRepresentation(object):
             elif p in cls.default_default_hyper:
                 default_hyper_parameters[p] = cls.default_default_hyper[p]
                 
-        return default_hyper_parameters    
+        return default_hyper_parameters
+    
+    @classmethod
+    def is_allowed(cls, models_by_steps):
+        return True
 
 MODEL_REGISTER = _MODEL_REGISTER()
+
+
+def allow_conditional(model, models_by_steps):
+    """ is a given model allowed to be drawn based on what was already drawn in previous steps
+    
+    Parameters
+    ----------
+    model : 2-uple (name, step)
+        the model that we want to draw
+        
+    models_by_steps : dictionnary of keys = steps, and values = Model
+        the models already included
+
+    Returns
+    -------
+    boolean
+    """
+
+    model_is_allowed_fun = MODEL_REGISTER.is_allowed.get(model, None)
+
+    if model_is_allowed_fun is None:
+        return True
+    
+    return model_is_allowed_fun(models_by_steps)    
+    
+

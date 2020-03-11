@@ -211,7 +211,11 @@ class AbstractJobRunner(object):
             do_print = True
             while True:
 
-                job_id = self.job_queue.remove()
+                try:
+                    job_id = self.job_queue.remove()
+                except Exception as e:
+                    logger.fatal(e, exc_info=True)
+                    raise e
 
                 # Ici : on peut peut etre verifier si on a pas deja fait le job
                 # ce qui peut arriver, si on a mal synchroniser en entree ? => Ex : on a relancer le controller avec ces models par default ?
@@ -280,6 +284,10 @@ class AbstractJobRunner(object):
 
                 return_time = time.time()
                 _success = True
+                
+            except Exception as e:
+                logger.fatal(e, exc_info=True)
+                raise e
 
             finally:
 

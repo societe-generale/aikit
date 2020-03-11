@@ -50,6 +50,7 @@ from aikit.ml_machine.steps_handling import (
 from aikit.ml_machine.hyper_parameters import HyperMultipleChoice, HyperCrossProduct, HyperComposition
 
 from aikit.ml_machine.ml_machine_registration import MODEL_REGISTER
+from aikit.ml_machine.model_registrer import allow_conditional
 from aikit.ml_machine.data_persister import SavingType
 from aikit.ml_machine.jobs import AbstractJobRunner
 from aikit.ml_machine.model_graph import convert_graph_to_code
@@ -1086,24 +1087,28 @@ class RandomModelGenerator(object):
 
         Parameters
         ----------
-        * needed_steps : list of dictionnary representing each step, each one with a 'step' key and an 'optional' key
+        * needed_steps : list of dictionaries representing each step, each one with a 'step' key and an 'optional' key
 
         * models_to_keep : list of models that we want to draw within
 
         * log_unif : bool, default = True
             if True (and random_probas is not None), will draw a model with probability proportionnal to 'log(1 + hyperparameter.size)'
 
-        * random_probas : dictionnary of proba array for each step or None
+        * random_probas : dictionary of proba array for each step or None
             if None will use uniform (or log_uniform) otherwise will draw according to that probability
 
 
         """
+        
+        needed_steps_reordered = sorted(needed_steps, key=lambda step:MODEL_REGISTER._drawing_order.get(step["step"], -1))
+        
+        
         # TODO : specify a random_state + save random state ?
         # TODO : allow conditionnal probas to draw steps  => create a Graphical Proba Model to handle implication
-        models_by_steps = OrderedDict()
-        for step in needed_steps:
+        models_by_steps_reordered = OrderedDict()
+        for step in needed_steps_reordered:
 
-            all_choices = [n for n in models_to_keep if n[0] == step["step"]]
+            all_choices = [n for n in models_to_keep if n[0] == step["step"] and allow_conditional(model=n, models_by_steps=models_by_steps_reordered)]
             if step["optional"]:
                 all_choices.append((None, None))
                 # TODO : put that into a Constant
@@ -1135,8 +1140,13 @@ class RandomModelGenerator(object):
             ii = np.arange(len(all_choices))
             chosen_class = all_choices[ii[self.random_state.choice(ii, size=1, p=p)[0]]]
 
-            models_by_steps[step["step"]] = chosen_class
+            models_by_steps_reordered[step["step"]] = chosen_class
             # all_current_steps[chosen_class] = var_type
+
+        # Put everything into the corrected order
+        models_by_steps = OrderedDict()
+        for step in needed_steps:
+            models_by_steps[step["step"]] = models_by_steps_reordered[step["step"]]
 
         return models_by_steps
 
@@ -1683,36 +1693,6 @@ class JobManagerQueue(object):
 
         else:
             raise NotImplementedError("I don't know this job_type %s, please check the code" % job_type)
-
-            ########
-            # Test #
-            ########
-
-        #            temp_df = self.auto_ml_guider.result_reader.params_to_df(all_params1)
-        #            temp_df["metric_prediction"] = metric_prediction
-        #            temp_df["metric_std_prediction"] = np.sqrt(metric_variance_prediction)
-        #            temp_df["benchmark"] = benchmark
-        #
-        #            condboxplot("Model","metric_prediction",data = temp_df)
-        #            conddistplot("Model","metric_prediction",data = temp_df)
-        #            condboxplot("Model","metric_std_prediction",data = temp_df)
-        #
-        #            condboxplot("DimensionReduction","metric_std_prediction",data = temp_df.loc[temp_df["Model"] == "RandomForestClassifier",:])
-        #
-        #            condboxplot("DimensionReduction","metric_prediction",data = temp_df.loc[temp_df["Model"] == "RandomForestClassifier",:])
-        #            plt.cla()
-        #            condboxplot("DimensionReduction","metric_prediction",data = temp_df.loc[temp_df["Model"] == "LogisticRegression",:])
-        #
-        #            condboxplot("DimensionReduction","metric_prediction",data = temp_df.loc[temp_df["Model"] == "RandomForestClassifier",:])
-        #            conddistplot("DimensionReduction","metric_prediction",data = temp_df.loc[temp_df["Model"] == "RandomForestClassifier",:])
-        #
-        #            condboxplot("hasblock_TEXT","metric_prediction",data = temp_df.loc[temp_df["Model"] == "RandomForestClassifier",:])
-        ##            temp_df = pd.DataFrame({"model":models,"benchmark":benchmark})
-        ##            temp_df.groupby("model")["benchmark"].max()
-        ##            temp_df.groupby("model")["benchmark"].mean()
-        #
-        #            ii = temp_df["metric_prediction"] >= 0.85
-        ########
 
         #########################
         ### Approx or Full CV ###
