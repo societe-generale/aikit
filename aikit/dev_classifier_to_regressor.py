@@ -210,6 +210,13 @@ y_enc = enc.fit_transform(y[:, np.newaxis])
 assert (enc.inverse_transform(y_enc)[:,0] == y).all()
 enc.categories_
 
+y = np.array(["z","a","b"]*3)
+enc = OrdinalEncoder(dtype=np.int32, categories=[["z","a","b"]])
+y_enc = enc.fit_transform(y[:, np.newaxis].astype(np.object))
+assert (enc.inverse_transform(y_enc)[:,0] == y).all()
+enc.categories_
+
+
 
 # In[]
 
@@ -233,7 +240,7 @@ class ClassifierFromRegressor(BaseEstimator, ClassifierMixin):
         self._mono_target = y.ndim == 1
 
         ## Conversion of target into integer      
-        if self.classes is None:
+        if isinstance(self.classes, str) and self.classes == "auto":
             categories = "auto"
         else:
             if self._mono_target:
@@ -244,8 +251,11 @@ class ClassifierFromRegressor(BaseEstimator, ClassifierMixin):
                 
                 categories = self.classes
             
-        self._target_encoder = OrdinalEncoderV2(dtype=np.int32, categories=categories) # ca ne marche pas si les classes sont pas ordonnées !
-        yd2 = make2dimensions(y)
+        self._target_encoder = OrdinalEncoder(dtype=np.int32, categories=categories) # ca ne marche pas si les classes sont pas ordonnées !
+        
+        yd2 = convert_generic(make2dimensions(y), output_type=DataTypes.NumpyArray)
+        if yd2.dtype.kind == 'U':
+            yd2 = yd2.astype(np.object, copy=False)
         
         yd2_int = self._target_encoder.fit_transform(yd2)
         
@@ -258,9 +268,8 @@ class ClassifierFromRegressor(BaseEstimator, ClassifierMixin):
         
         self.regressor_model.fit(X, y_int)
         
-
-        
         return self
+
     
     @property
     def classes_(self):
@@ -269,6 +278,7 @@ class ClassifierFromRegressor(BaseEstimator, ClassifierMixin):
         else:
             return self._target_encoder.categories_
     
+
     def predict(self, X):
         
         y_hat = self.regressor_model.predict(X)     # call regressor
@@ -280,7 +290,8 @@ class ClassifierFromRegressor(BaseEstimator, ClassifierMixin):
             y_hat = y_hat[:, 0]
             
         return y_hat
-    
+
+
     def predict_proba(self, X):
         y_hat = self.regressor_model.predict(X)     # call regressor
         if self._mono_target:
@@ -312,45 +323,117 @@ class ClassifierFromRegressor(BaseEstimator, ClassifierMixin):
 # In[]    
 
 from sklearn.linear_model import Ridge
+from sklearn.tree import DecisionTreeRegressor
 
-X = np.random.randn(9, 2)
-y = np.array(["c","a","b"]*3)
+import itertools
 
-self = ClassifierFromRegressor(regressor_model=Ridge())
-self.fit(X, y)
+import pytest
 
-proba = self.predict_proba(X)
+  
 
-yhat = self.predict(X)
+@pytest.mark.parametrize("string_classes, change_order, multi_target", list(itertools((True, False), (True, False), (True, False))))
+def test_ClassifierFromRegressor(string_classes, change_order, multi_target):
+    
+    if change_order and not string_classes:
+        return # this is not a valid test
+    
+    np.random.seed(123)
+    
+    X = np.random.randn(9, 2)
+    y_int = np.array([2,0,1]*3)
+    
+    if string_classes:
+        y = np.array(["a","b","c"])[y_int]
+    else:
+        y = y_int
+                
+    if change_order:
+        if string_classes:
+            classes = ["c", "a", "b"]
+            expected_classes = classes
+    else:
+        if string_classes:
+            classes = "auto"
+            expected_classes = ["a", "b", "c"]
+        else:
+            classes = "auto"
+            expected_classes = [0, 1, 2]
 
-assert list(self.classes_) == ["a","b","c"]
-assert proba.shape == (y.shape[0] , 3)
-assert yhat.shape == y.shape
-assert (self.classes_[proba.argmax(axis=1)] == yhat).all()
-assert proba.min() >= 0
-assert proba.max() <= 1
-assert not pd.isnull(proba).any()
-assert np.abs(proba.sum(axis=1) - 1).max() <= 0.0001
+    if multi_target:
+        y = np.repeat(y[:,np.newaxis], 2, axis=1)
+        expected_classes = [expected_classes, expected_classes]
 
+        if classes != "auto":
+            classes = [classes, classes]
+            
 
-X = np.random.randn(9, 2)
-y = np.array(["c","a","b"]*3)
+    classifier = ClassifierFromRegressor(regressor_model=DecisionTreeRegressor(random_state=123), classes=classes)
+    classifier.fit(X, y)
+    
+    proba = classifier.predict_proba(X)
+    
+    yhat = classifier.predict(X)
+    
+    assert (yhat == y).all() # DecisionTree should be able to overfit easily : so that I can check that 
+    assert type(yhat) == type(y)
+    assert yhat.dtype == yhat.dtype
+    assert yhat.shape == y.shape
 
-self = ClassifierFromRegressor(regressor_model=Ridge(), classes=["c","a","b"])
-self.fit(X, y)
+    if multi_target:
 
-proba = self.predict_proba(X)
+        assert isinstance(classifier.classes_, list)
+        assert len(classifier.classes_) == 2
+        for c, e in zip(classifier.classes_, expected_classes):
+            assert list(c) == list(e)
+        
+        assert isinstance(proba, list)
+        assert len(proba) == 2
+        for j, p in enumerate(proba):
+            assert p.shape == (y.shape[0] , 3)
+            
+            assert (classifier.classes_[j][p.argmax(axis=1)] == yhat[:,j]).all()
 
-yhat = self.predict(X)
+            assert p.min() >= 0
+            assert p.max() <= 1
+            
+            assert not pd.isnull(p).any()
+            assert np.abs(p.sum(axis=1) - 1).max() <= 0.0001
 
-assert list(self.classes_) == ["c","a","b"]
-assert proba.shape == (y.shape[0] , 3)
-assert yhat.shape == y.shape
-assert (self.classes_[proba.argmax(axis=1)] == yhat).all()
-assert proba.min() >= 0
-assert proba.max() <= 1
-assert not pd.isnull(proba).any()
-assert np.abs(proba.sum(axis=1) - 1).max() <= 0.0001
+    else:
+        assert list(classifier.classes_) == expected_classes
+        assert proba.shape == (y.shape[0] , 3)
+        assert (classifier.classes_[proba.argmax(axis=1)] == yhat).all()
+        assert proba.min() >= 0
+        assert proba.max() <= 1
+        
+
+        assert not pd.isnull(proba).any()
+        assert np.abs(proba.sum(axis=1) - 1).max() <= 0.0001
+
+# In[]
+
+for string_classes, change_order, multi_target in itertools.product((True, False), (True, False), (True, False)):
+    print("a")
+    test_ClassifierFromRegressor(string_classes, change_order, multi_target)
+
+#X = np.random.randn(9, 2)
+#y = np.array(["c","a","b"]*3)
+#
+#self = ClassifierFromRegressor(regressor_model=Ridge(), classes=["c","a","b"])
+#self.fit(X, y)
+#
+#proba = self.predict_proba(X)
+#
+#yhat = self.predict(X)
+#
+#assert list(self.classes_) == ["c","a","b"]
+#assert proba.shape == (y.shape[0] , 3)
+#assert yhat.shape == y.shape
+#assert (self.classes_[proba.argmax(axis=1)] == yhat).all()
+#assert proba.min() >= 0
+#assert proba.max() <= 1
+#assert not pd.isnull(proba).any()
+#assert np.abs(proba.sum(axis=1) - 1).max() <= 0.0001
 
 
 
