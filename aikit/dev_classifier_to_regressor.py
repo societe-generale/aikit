@@ -172,12 +172,12 @@ class OrdinalEncoderV2(BaseEstimator, TransformerMixin):
     
     def inverse_transform(self, X):
         check_is_fitted(self)
-        
+
         X = convert_generic(X, output_type=DataTypes.NumpyArray)
 
         if X.ndim != 2:
             raise TypeError("This transformer expect a two dimensional array")
-            
+
         if X.shape[1] != self._nb_columns:
             raise ValueError("X doesn't have the correct number of columns")
         
@@ -188,6 +188,7 @@ class OrdinalEncoderV2(BaseEstimator, TransformerMixin):
         return np.concatenate(Xres, axis=1)
             
 # In[]
+
 OrdinalEncoderV2(dtype=np.int32).fit_transform(y_ord[:,np.newaxis])
 OrdinalEncoderV2(dtype=np.int32).fit_transform(y_ord[:,np.newaxis].astype(str))
 
@@ -233,10 +234,10 @@ class ClassifierFromRegressor(BaseEstimator, ClassifierMixin):
         self.regressor_model=regressor_model
         self.classes=classes
         self.kernel_windows=kernel_windows
-        
-        
+
+
     def fit(self, X, y):
-        
+
         self._mono_target = y.ndim == 1
 
         ## Conversion of target into integer      
@@ -254,6 +255,7 @@ class ClassifierFromRegressor(BaseEstimator, ClassifierMixin):
         self._target_encoder = OrdinalEncoder(dtype=np.int32, categories=categories) # ca ne marche pas si les classes sont pas ordonnées !
         
         yd2 = convert_generic(make2dimensions(y), output_type=DataTypes.NumpyArray)
+
         if yd2.dtype.kind == 'U':
             yd2 = yd2.astype(np.object, copy=False)
         
@@ -270,17 +272,16 @@ class ClassifierFromRegressor(BaseEstimator, ClassifierMixin):
         
         return self
 
-    
+
     @property
     def classes_(self):
         if self._mono_target:        
             return self._target_encoder.categories_[0]
         else:
             return self._target_encoder.categories_
-    
+
 
     def predict(self, X):
-        
         y_hat = self.regressor_model.predict(X)     # call regressor
         y_int_hat = (y_hat + 0.5).astype(np.int32)  # conversion to closest int
         
@@ -314,7 +315,9 @@ class ClassifierFromRegressor(BaseEstimator, ClassifierMixin):
         else:
             return probas
 
+
     def distance_to_proba(self, d):
+        """ convert a distance to a probability """
         e = np.exp(-d/self.kernel_windows) # TODO : find a good heuristic for that kernel_windows
         
         return e / e.sum(axis=1, keepdims=True)
@@ -329,11 +332,11 @@ import itertools
 
 import pytest
 
-  
 
-@pytest.mark.parametrize("string_classes, change_order, multi_target", list(itertools((True, False), (True, False), (True, False))))
+
+@pytest.mark.parametrize("string_classes, change_order, multi_target", list(itertools.product((True, False), (True, False), (True, False))))
 def test_ClassifierFromRegressor(string_classes, change_order, multi_target):
-    
+
     if change_order and not string_classes:
         return # this is not a valid test
     
@@ -410,6 +413,7 @@ def test_ClassifierFromRegressor(string_classes, change_order, multi_target):
         assert not pd.isnull(proba).any()
         assert np.abs(proba.sum(axis=1) - 1).max() <= 0.0001
 
+
 # In[]
 
 for string_classes, change_order, multi_target in itertools.product((True, False), (True, False), (True, False)):
@@ -418,14 +422,14 @@ for string_classes, change_order, multi_target in itertools.product((True, False
 
 #X = np.random.randn(9, 2)
 #y = np.array(["c","a","b"]*3)
-#
+
 #self = ClassifierFromRegressor(regressor_model=Ridge(), classes=["c","a","b"])
 #self.fit(X, y)
-#
+
 #proba = self.predict_proba(X)
-#
+
 #yhat = self.predict(X)
-#
+
 #assert list(self.classes_) == ["c","a","b"]
 #assert proba.shape == (y.shape[0] , 3)
 #assert yhat.shape == y.shape
@@ -440,7 +444,9 @@ for string_classes, change_order, multi_target in itertools.product((True, False
 
 
 # In[]
-        
+import matplotlib.pylab as plt
+
+
 self = RegressorFromClassifier(LogisticRegression())
 self.fit(X, y)
 
@@ -448,8 +454,21 @@ yhat = self.predict(X)
 yhat
 y
 
-import matplotlib.pylab as plt
+assert y.shape == yhat.shape
 
-plt.cla()
-plt.plot(y, yhat, ".")
+# In[] 
+y = np.array(["z","a","b"]*3)[:, np.newaxis]
+enc = OrdinalEncoder(dtype=np.int32)
 
+y_int = enc.fit_transform(y)[:,0]
+
+y_int = np.array([0,1,2,3])
+
+y_one_hot = np.zeros(shape=(y_int.shape[0], len(y_int)), dtype=np.int32)
+
+line = np.arange(y_one_hot.shape[0])
+y_one_hot[line, y_int] = 1
+y_one_hot[line, np.maximum(y_int-1,0)] = 1
+y_one_hot[line, np.maximum(y_int-2,0)] = 1
+y_one_hot[line, np.maximum(y_int-3,0)] = 1
+y_one_hot[:, 1:]
