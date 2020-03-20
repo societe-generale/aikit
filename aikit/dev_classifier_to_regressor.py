@@ -18,6 +18,7 @@ import pandas as pd
 
 X = np.random.randn(100,10)
 y = np.random.randn(100)
+y_ord = np.random.randint(0,3, size=100)
 
 
 class RegressorFromClassifier(BaseEstimator, RegressorMixin):
@@ -88,7 +89,134 @@ class RegressorFromClassifier(BaseEstimator, RegressorMixin):
         y_hat = np.dot(y_hat_proba, self._y_mean_mapping_matrix)
         
         return make1dimension(y_hat)
+
+
+from sklearn.preprocessing import OrdinalEncoder
+
+OrdinalEncoder(dtype=np.int32).fit_transform(y_ord[:,np.newaxis])
+OrdinalEncoder(dtype=np.int32).fit_transform(y_ord[:,np.newaxis].astype(str))
+
+y = np.array(["z","a","b"]*3)
+enc = OrdinalEncoder(dtype=np.int32)
+enc.fit_transform(y[:, np.newaxis])[:, 0]
+enc.categories_
+
+y = np.array(["z","a","b"]*3)
+enc = OrdinalEncoder(dtype=np.int32, categories=[["a","b","c","z"]])
+enc.fit_transform(y[:, np.newaxis])[:, 0]
+enc.categories_
+
+# In[]
+
+class ClassifierFromRegressor(BaseEstimator, ClassifierMixin):
+    """ this class transform a regressor into a classifier
+    it can be used for ordinal classification
+    """
+
+    def __init__(self,
+                 regressor_model,
+                 classes="auto",
+                 kernel_windows=0.2
+                 ):
+        self.regressor_model=regressor_model
+        self.classes=classes
+        self.kernel_windows=kernel_windows
+        
+        
+    def fit(self, X, y):
+
+        ## Conversion of target into integer      
+        self._target_encoder = OrdinalEncoder(dtype=np.int32) # TODO add classes here
+        yd2 = make2dimensions(y)
+        
+        yd2_int = self._target_encoder.fit_transform(yd2)
+        
+        if y.ndim == 1:
+            self._mono_target = True
+            y_int = yd2_int[:,0]
+            
+            assert len(self._target_encoder.categories_) == 1
+        else:
+            self._mono_target = False
+            y_int = yd2_int # I keep the multi-dimension
+            
+            assert len(self._target_encoder.categories_) == y.shape[1]
+        
+        self.regressor_model.fit(X, y_int)
+        
+
+        
+        return self
     
+    @property
+    def classes_(self):
+        if self._mono_target:        
+            return self._target_encoder.categories_[0]
+        else:
+            return self._target_encoder.categories_
+    
+    def predict(self, X):
+        
+        y_hat = self.regressor_model.predict(X)     # call regressor
+        y_int_hat = (y_hat + 0.5).astype(np.int32)  # conversion to closest int
+        
+        y_hat = self._target_encoder.inverse_transform(make2dimensions(y_int_hat))        
+        
+        if self._mono_target:
+            y_hat = y_hat[:, 0]
+            
+        return y_hat
+    
+    def predict_proba(self, X):
+        y_hat = self.regressor_model.predict(X)     # call regressor
+        if self._mono_target:
+            y_hat_2d = y_hat[:, np.newaxis]
+            assert y_hat.ndim == 1
+        else:
+            y_hat_2d = y_hat
+            assert y_hat.ndim == 2
+            
+
+        pivot_integers = [np.arange(len(category))[np.newaxis, :] for category in self._target_encoder.categories_]
+        
+        distances_to_pivot = [np.abs(y_hat_2d[:, j:(j+1)] - pivot_integers[j]) for j in range(y_hat_2d.shape[1])] # Rmk [:, j:(j+1)]  so that I keep the dimension
+        
+        probas = [self.distance_to_proba(distance_to_pivot) for distance_to_pivot in distances_to_pivot]
+
+        if self._mono_target:
+            return probas[0]
+    
+        else:
+            return probas
+
+    def distance_to_proba(self, d):
+        e = np.exp(-d/self.kernel_windows)
+        
+        return e / e.sum(axis=1, keepdims=True)
+
+
+# In[]    
+
+from sklearn.linear_model import Ridge
+
+X = np.random.randn(9, 2)
+y = np.array(["c","a","b"]*3)
+
+self = ClassifierFromRegressor(regressor_model=Ridge())
+self.fit(X, y)
+
+proba = self.predict_proba(X)
+
+yhat = self.predict(X)
+
+assert list(self.classes_) == ["a","b","c"]
+assert proba.shape == (y.shape[0] , 3)
+assert yhat.shape == y.shape
+assert (self.classes_[proba.argmax(axis=1)] == yhat).all()
+assert proba.min() >= 0
+assert proba.max() <= 1
+assert not pd.isnull(proba).any()
+assert np.abs(proba.sum(axis=1) - 1).max() <= 0.0001
 
 # In[]
         
