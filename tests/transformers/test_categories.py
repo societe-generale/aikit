@@ -11,7 +11,7 @@ import itertools
 import numpy as np
 import pandas as pd
 
-from aikit.transformers import NumericalEncoder
+from aikit.transformers import NumericalEncoder, OrdinalOneHotEncoder
 
 # from aikit.transformers.categories import NumericalEncoder
 from tests.helpers.testing_help import get_sample_df
@@ -483,3 +483,64 @@ def test_bug_CategoryEncoder():
         df2_enc = enc.transform(df2)
 
         assert df_enc.shape[1] == df2_enc.shape[1]
+
+
+
+# In[]
+
+def test_OrdinalOneHotEncoder():
+
+    np.random.seed(123)
+    
+    X = pd.DataFrame({"ord1":np.random.randint(0,3, size=100),
+                      "ord2":np.array(["A","B","C","D"])[np.random.randint(0,4, size=100)]
+                          })
+            
+
+    # Test 1 :
+    model = OrdinalOneHotEncoder()
+    model.fit(X)
+    assert model.get_feature_names() == ['ord1_g_0', 'ord1_g_1', 'ord2_g_A', 'ord2_g_B', 'ord2_g_C']
+    X_enc = model.transform(X)
+    assert isinstance(X_enc, pd.DataFrame)
+    assert X_enc.shape[0] == X.shape[0]
+    assert list(X_enc.columns) == model.get_feature_names()
+    
+    assert (X_enc["ord1_g_0"] == (X["ord1"] > 0)).all()
+    assert (X_enc["ord1_g_1"] == (X["ord1"] > 1)).all()
+    
+    assert (X_enc["ord2_g_A"] == (X["ord2"] > "A")).all()
+    assert (X_enc["ord2_g_B"] == (X["ord2"] > "B")).all()
+    assert (X_enc["ord2_g_C"] == (X["ord2"] > "C")).all()
+    
+    X_orig = model.inverse_transform(X_enc)
+    assert X_orig.shape == X.shape
+    assert X_orig.columns.tolist() == X.columns.tolist()
+    assert (X_orig == X).all().all()
+
+    
+    # Test 2 : change order
+    model = OrdinalOneHotEncoder(categories={"ord1":[0,1,2], "ord2":["D","C","B","A"]})
+    model.fit(X)
+    
+    assert model.get_feature_names() == ['ord1_g_0', 'ord1_g_1', 'ord2_g_D', 'ord2_g_C', 'ord2_g_B']
+    X_enc = model.transform(X)
+    assert (X_enc.dtypes == model.dtype).all()
+    
+    assert isinstance(X_enc, pd.DataFrame)
+    assert X_enc.shape[0] == X.shape[0]
+    assert list(X_enc.columns) == model.get_feature_names()
+    
+    assert (X_enc["ord1_g_0"] == (X["ord1"] > 0)).all()
+    assert (X_enc["ord1_g_1"] == (X["ord1"] > 1)).all()
+    
+    assert (X_enc["ord2_g_D"] == (X["ord2"] < "D")).all() # reverse order this time
+    assert (X_enc["ord2_g_C"] == (X["ord2"] < "C")).all()
+    assert (X_enc["ord2_g_B"] == (X["ord2"] < "B")).all() 
+    
+    
+    X_orig = model.inverse_transform(X_enc)
+    assert X_orig.shape == X.shape
+    assert X_orig.columns.tolist() == X.columns.tolist()
+    assert (X_orig == X).all().all()
+
