@@ -1237,7 +1237,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
 def AutoWrapper(model, wrapping_kwargs=None):
     """ returns sklearn-learn like class that 
     
-    * works the same way has model
+    * works the same way has a model
     * but implements the functionnalities from ModelWrapper
     
     Parameters
@@ -1255,16 +1255,16 @@ def AutoWrapper(model, wrapping_kwargs=None):
     Example
     -------
 
-    from sklearn.decomposition import TruncatedSVD
-    import numpy as np
-    import pandas as pd
+    >>> from sklearn.decomposition import TruncatedSVD
+    >>> import numpy as np
+    >>> import pandas as pd
 
-    X = np.random.randn(100,10)
-    df = pd.DataFrame(X, columns=[f"NUMBER_{j}" for j in range(X.shape[1])])
-    df["not_a_number"] = "a"
+    >>> X = np.random.randn(100,10)
+    >>> df = pd.DataFrame(X, columns=[f"NUMBER_{j}" for j in range(X.shape[1])])
+    >>> df["not_a_number"] = "a"
     
-    model = AutoWrapper_from_model(TruncatedSVD(n_components=2))(columns_to_use=["NUMBER_"], regex_match=True)
-    model.fit_transform(df)
+    >>> model = AutoWrapper_from_model(TruncatedSVD(n_components=2))(columns_to_use=["NUMBER_"], regex_match=True)
+    >>> model.fit_transform(df)
     
     """
     
