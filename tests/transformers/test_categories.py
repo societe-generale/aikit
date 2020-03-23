@@ -498,7 +498,7 @@ def test_OrdinalOneHotEncoder():
             
 
     # Test 1 :
-    model = OrdinalOneHotEncoder()
+    model = OrdinalOneHotEncoder(columns_to_use="all")
     model.fit(X)
     assert model.get_feature_names() == ['ord1_g_0', 'ord1_g_1', 'ord2_g_A', 'ord2_g_B', 'ord2_g_C']
     X_enc = model.transform(X)
@@ -520,7 +520,7 @@ def test_OrdinalOneHotEncoder():
 
     
     # Test 2 : change order
-    model = OrdinalOneHotEncoder(categories={"ord1":[0,1,2], "ord2":["D","C","B","A"]})
+    model = OrdinalOneHotEncoder(columns_to_use="all", categories={"ord1":[0,1,2], "ord2":["D","C","B","A"]})
     model.fit(X)
     
     assert model.get_feature_names() == ['ord1_g_0', 'ord1_g_1', 'ord2_g_D', 'ord2_g_C', 'ord2_g_B']
