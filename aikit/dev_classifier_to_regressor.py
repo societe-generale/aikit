@@ -97,7 +97,7 @@ from sklearn.preprocessing import OrdinalEncoder
 
 
 # In[]
-from sklearn.base import TransformerMixin
+from sklearn.base import TransformerMixin, BaseEstimator
 
 from sklearn.utils.validation import check_is_fitted
 from aikit.tools.data_structure_helper import convert_generic, DataTypes
@@ -186,7 +186,72 @@ class OrdinalEncoderV2(BaseEstimator, TransformerMixin):
             Xres.append(  self._all_inv_mapping[j].loc[ X[:, j]].values[:, np.newaxis] )
             
         return np.concatenate(Xres, axis=1)
+
+class OrdinalOneHotEncoder(OrdinalEncoderV2):
+
+    def transform(self, X):
+
+        check_is_fitted(self)
+        X = convert_generic(X, output_type=DataTypes.NumpyArray)
+
+        if X.ndim != 2:
+            raise TypeError("This transformer expect a two dimensional array")
             
+        if X.shape[1] != self._nb_columns:
+            raise ValueError("X doesn't have the correct number of columns")
+
+        all_res = []            
+        for j in range(X.shape[1]):
+            
+            index_line = self._all_mapping[j].loc[X[:, j]].values
+            index_col  = np.arange(len(self._all_mapping[j]) - 1, dtype=np.int32)
+            
+            assert index_col.ndim == 1
+            assert index_col.ndim == 1
+            
+            res_j = (index_line[:,np.newaxis] > index_col[np.newaxis,:]).astype(self.dtype)
+            
+            all_res.append(res_j)
+            
+        result = np.concatenate(all_res, axis=1)
+        
+        return result
+    
+    
+            
+            
+
+
+self = OrdinalOneHotEncoder()
+self.fit(X)
+
+Xres = self.transform(X)
+Xres.shape
+
+assert (Xres[X[:,0] == 0,0] == 0).all()
+assert (Xres[X[:,0] == 0,1] == 0).all()
+
+assert (Xres[X[:,0] == 0,0] == 0).all()
+assert (Xres[X[:,0] == 0,1] == 0).all()
+
+
+
+
+# In[] : def Transform:
+        
+m = pd.Series([0,1,2], index=["a","b","c"])
+
+index_i =  np.arange(len(m))
+index_j =  np.arange(len(m)-1)
+
+
+res = (index_i[:,np.newaxis] > index_j[np.newaxis,:]).astype(np.int32)
+res
+
+
+
+
+
 # In[]
 
 OrdinalEncoderV2(dtype=np.int32).fit_transform(y_ord[:,np.newaxis])
@@ -220,6 +285,13 @@ enc.categories_
 
 
 # In[]
+
+class ClassifierOrdinal(BaseEstimator, ClassifierMixin):
+    
+    def __init__(self, model):
+        pass
+    
+    
 
 class ClassifierFromRegressor(BaseEstimator, ClassifierMixin):
     """ this class transform a regressor into a classifier
@@ -457,11 +529,9 @@ y
 assert y.shape == yhat.shape
 
 # In[] 
-y = np.array(["z","a","b"]*3)[:, np.newaxis]
-enc = OrdinalEncoder(dtype=np.int32)
+import numpy as np
 
-y_int = enc.fit_transform(y)[:,0]
-
+# TEST => Ordinal One Hot Encoder
 y_int = np.array([0,1,2,3])
 
 y_one_hot = np.zeros(shape=(y_int.shape[0], len(y_int)), dtype=np.int32)
@@ -471,4 +541,26 @@ y_one_hot[line, y_int] = 1
 y_one_hot[line, np.maximum(y_int-1,0)] = 1
 y_one_hot[line, np.maximum(y_int-2,0)] = 1
 y_one_hot[line, np.maximum(y_int-3,0)] = 1
-y_one_hot[:, 1:]
+y_one_hot = y_one_hot[:, 1:]
+
+# In[] : OrdinalOneHotEncoder
+from sklearn.preprocessing._encoders import _BaseEncoder
+
+class OneHotOrdinalEncoder(_BaseEncoder):
+
+    def __init__(self, categories='auto', drop=None, sparse=True,
+                 dtype=np.float64, handle_unknown='error'):
+        self.categories = categories
+        self.sparse = sparse
+        self.dtype = dtype
+        self.handle_unknown = handle_unknown
+        self.drop = drop
+        
+    
+X = y_int[:,np.newaxis]
+
+self = OneHotOrdinalEncoder()
+
+self._fit(X)
+
+X_int, X_mask = self._transform(X)
