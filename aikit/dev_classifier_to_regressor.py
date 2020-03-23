@@ -102,7 +102,7 @@ from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.utils.validation import check_is_fitted
 from aikit.tools.data_structure_helper import convert_generic, DataTypes
 
-class OrdinalEncoderV2(BaseEstimator, TransformerMixin):
+class _BaseEncoderV2(BaseEstimator, TransformerMixin):
     
     def __init__(self,
                  categories="auto",
@@ -111,11 +111,11 @@ class OrdinalEncoderV2(BaseEstimator, TransformerMixin):
         self.categories=categories
         self.dtype=dtype
                 
-    def fit(self, X, y=None):
+    def _fit(self, X, y=None):
 
         X = convert_generic(X, output_type=DataTypes.NumpyArray)
         if X.ndim != 2:
-            raise TypeError("This transformer expect a two dimensional array")
+            raise TypeError("This transformer expects a two dimensional array")
             
         self._nb_columns = X.shape[1]
             
@@ -150,9 +150,15 @@ class OrdinalEncoderV2(BaseEstimator, TransformerMixin):
         self._all_mapping = all_mappings
         self._all_inv_mapping = all_inv_mappings
         
-        return self
-    
+        return X
 
+class OrdinalEncoderV2(_BaseEncoderV2):
+    
+    def fit(self, X, y=None):
+        self._fit(X)
+        return self
+   
+    
     def transform(self, X):
         check_is_fitted(self)
         
@@ -187,35 +193,8 @@ class OrdinalEncoderV2(BaseEstimator, TransformerMixin):
             
         return np.concatenate(Xres, axis=1)
 
-class OrdinalOneHotEncoder(OrdinalEncoderV2):
 
-    def transform(self, X):
-
-        check_is_fitted(self)
-        X = convert_generic(X, output_type=DataTypes.NumpyArray)
-
-        if X.ndim != 2:
-            raise TypeError("This transformer expect a two dimensional array")
             
-        if X.shape[1] != self._nb_columns:
-            raise ValueError("X doesn't have the correct number of columns")
-
-        all_res = []            
-        for j in range(X.shape[1]):
-            
-            index_line = self._all_mapping[j].loc[X[:, j]].values
-            index_col  = np.arange(len(self._all_mapping[j]) - 1, dtype=np.int32)
-            
-            assert index_col.ndim == 1
-            assert index_col.ndim == 1
-            
-            res_j = (index_line[:,np.newaxis] > index_col[np.newaxis,:]).astype(self.dtype)
-            
-            all_res.append(res_j)
-            
-        result = np.concatenate(all_res, axis=1)
-        
-        return result
     
     
             
@@ -231,8 +210,11 @@ Xres.shape
 assert (Xres[X[:,0] == 0,0] == 0).all()
 assert (Xres[X[:,0] == 0,1] == 0).all()
 
-assert (Xres[X[:,0] == 0,0] == 0).all()
-assert (Xres[X[:,0] == 0,1] == 0).all()
+assert (Xres[X[:,0] == 1,0] == 0).all()
+assert (Xres[X[:,0] == 1,1] == 1).all()
+
+assert (Xres[X[:,0] == 2,0] == 1).all()
+assert (Xres[X[:,0] == 2,1] == 1).all()
 
 
 
