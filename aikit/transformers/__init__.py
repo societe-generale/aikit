@@ -17,7 +17,7 @@ from .base import (
     CdfScaler,
     PCAWrapper,
 )
-from .categories import NumericalEncoder, CategoricalEncoder
+from .categories import NumericalEncoder, CategoricalEncoder, OrdinalOneHotEncoder
 from .text import (
     TextDigitAnonymizer,
     TextNltkProcessing,
@@ -41,6 +41,7 @@ __all__ = [
     "CdfScaler",
     "NumericalEncoder",
     "CategoricalEncoder",
+    "OrdinalOneHotEncoder",
     "NumericalEncoder",
     "CategoricalEncoder",
     "TextDigitAnonymizer",
