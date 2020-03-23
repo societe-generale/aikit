@@ -6,6 +6,8 @@ Created on Wed Jun  6 14:13:56 2018
 """
 
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.utils.validation import check_is_fitted
+
 import pandas as pd
 import numpy as np
 
@@ -476,3 +478,223 @@ class CategoricalEncoder(ModelWrapper):
 
 
 # In[]
+
+class _OrdinalOneHotEncoder(BaseEstimator, TransformerMixin):
+
+    def __init__(self,
+                 categories="auto",
+                 dtype=np.int32
+                 ):
+        self.categories=categories
+        self.dtype=dtype
+        
+        
+    def get_feature_names(self, input_features=None):
+        
+        if input_features is None:
+            input_features = self._input_features
+            
+        if len(input_features) != self._nb_columns:
+            raise ValueError("input_features (length = (%d)) should have the same length has the number of columns (%d)" % (len(input_features), self._nb_columns))
+
+        features = []
+        for j, f in enumerate(input_features):
+            features += [str(f) + "_g_" + str(m) for m in self._all_inv_mapping[j].values[:-1]]
+            
+        return features
+
+    def fit(self, X, y=None):
+        
+        if get_type(X) != DataTypes.DataFrame:
+            raise TypeError("This transformer only works for DataFrame")
+            
+        self._nb_columns = X.shape[1]
+            
+        is_auto = isinstance(self.categories, str) and self.categories == "auto"
+        
+        if not is_auto:
+            if len(self.categories) != X.shape[1]:
+                raise TypeError("categories should be 'auto' or a list the same size as 'X.shape[1]'")
+
+        all_mappings = []
+        all_inv_mappings = []
+        categories = []
+        for j in range(X.shape[1]):
+
+            current_category = None
+            if not is_auto: # not automatic
+                try:
+                    current_category = self.categories[j] # try to find the names
+                except KeyError:
+                    pass
+
+                if current_category is None:
+                    try:
+                        current_category = self.categories[X.columns[j]] # try again with name of column
+                    except KeyError:
+                        pass
+                    
+            if current_category is None or is_auto or (isinstance(current_category, str) and current_category == "auto"):
+                target_classes_j = np.sort(np.unique(X.iloc[:, j].values))
+            else:
+
+                target_classes_j = np.array(current_category)
+                uy_j = set(list(X.iloc[:, j].values))
+                if len(set(list(uy_j)).difference(target_classes_j)) > 0:
+                    raise ValueError("I have a categories that doesn't exist, please check")
+
+            integers = np.arange(len(target_classes_j)).astype(self.dtype)
+            mapping = pd.Series(integers, index = target_classes_j)
+            inv_mapping = pd.Series(target_classes_j, index = integers)
+            
+            all_mappings.append(mapping)
+            all_inv_mappings.append(inv_mapping)
+            categories.append(target_classes_j)
+
+
+        self.categories_ = categories
+        self._all_mapping = all_mappings
+        self._all_inv_mapping = all_inv_mappings
+        
+        self._input_features = list(X.columns)
+        
+        return self
+        
+
+    def transform(self, X):
+
+        check_is_fitted(self)
+
+        if get_type(X) != DataTypes.DataFrame:
+            raise TypeError("This transformer only works for DataFrame")
+
+        if X.shape[1] != self._nb_columns:
+            raise ValueError("X doesn't have the correct number of columns")
+
+        all_res = []            
+        for j in range(X.shape[1]):
+            
+            index_line = self._all_mapping[j].loc[X.iloc[:, j]].values
+            index_col  = np.arange(len(self._all_mapping[j]) - 1, dtype=np.int32)
+            
+            assert index_col.ndim == 1
+            assert index_col.ndim == 1
+            
+            res_j = (index_line[:,np.newaxis] > index_col[np.newaxis,:]).astype(self.dtype)
+            
+            all_res.append(res_j)
+            
+
+        result = np.concatenate(all_res, axis=1)
+        
+        return pd.DataFrame(result, columns = self.get_feature_names(), index=X.index)
+
+    def inverse_transform(self, X):
+        
+        check_is_fitted(self)
+
+        if X.ndim != 2:
+            raise TypeError("This transformer expect a two dimensional array")
+            
+        Xres = []
+        start_slice = 0
+        for j in range(self._nb_columns):
+            end_slice = start_slice + len(self._all_mapping[j]) -1
+            
+            Xint = X.values[:, start_slice:end_slice].sum(axis=1)
+            
+            temp = self._all_inv_mapping[j][Xint]
+            temp.index = X.index
+            Xres.append(temp)
+            
+            start_slice = end_slice
+            
+        result = pd.DataFrame({col: serie for col, serie in zip(self._input_features, Xres)}, index=X.index)
+        
+        return result
+
+
+class OrdinalOneHotEncoder(ModelWrapper):
+    """ Ordinal One Hot Encoder of categorical variables
+    
+    This encoder create an encoding of variable that respect the natural order of the modalities
+    
+    For example if the columns 'X' has 3 modalities are present : 'A' < 'B' < 'C' 
+    the encoding result will have 2 (= 3 - 1) columns:
+        
+    'X_g_A' : is X strictly greater than A
+    'X_g_B' : is X strictly greater than B
+    'X_g_C' : is X strictly greater than C
+    
+    So the modalities are encoded as follow :
+        * 'A' => (0, 0, 0)
+        * 'B' => (1, 0, 0)
+        * 'C' => (1, 1, 0)
+        * 'D' => (1, 1, 1)
+    
+    Parameters
+    ----------
+    columns_to_use : list of str
+        the columns to use
+        
+    regex_match : boolean, default = False
+        if True use regex to match columns
+        
+    desired_output_type : DataType
+        the type of result 
+
+    drop_used_columns : boolean, default=True
+        what to do with the ORIGINAL columns that were transformed.
+        If False, will keep them in the result (un-transformed)
+        If True, only the transformed columns are in the result
+        
+    drop_unused_columns: boolean, default=True
+        what to do with the column that were not used.
+        if False, will drop them
+        if True, will keep them in the result
+        
+    categories : list, dict or "auto"
+        the order of the categories for each columns
+        
+    dtype : numpy type
+        the output desired
+
+    """
+
+    def __init__(
+        self,
+        columns_to_use=TypeOfVariables.CAT,
+        regex_match=False,
+        desired_output_type=DataTypes.DataFrame,
+        drop_used_columns=True,
+        drop_unused_columns=False,
+        categories="auto",
+        dtype=np.int32
+    ):
+        self.dtype = dtype
+        self.categories=categories
+
+        super(OrdinalOneHotEncoder, self).__init__(
+            columns_to_use=columns_to_use,
+            regex_match=regex_match,
+            work_on_one_column_only=False,
+            all_columns_at_once=True,
+            accepted_input_types=(DataTypes.DataFrame,),
+            column_prefix=None,
+            desired_output_type=desired_output_type,
+            must_transform_to_get_features_name=False,
+            dont_change_columns=False,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
+        )
+
+    def _get_model(self, X, y=None):
+        return _OrdinalOneHotEncoder(categories=self.categories,
+                                     dtype=self.dtype
+        )
+
+    @property
+    def columns_mapping(self):
+        return self.model.columns_mapping
+
+
