@@ -566,7 +566,7 @@ class _OrdinalOneHotEncoder(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
 
-        check_is_fitted(self)
+        check_is_fitted(self, "_all_mapping")
 
         if get_type(X) != DataTypes.DataFrame:
             raise TypeError("This transformer only works for DataFrame")
@@ -594,7 +594,7 @@ class _OrdinalOneHotEncoder(BaseEstimator, TransformerMixin):
 
     def inverse_transform(self, X):
         
-        check_is_fitted(self)
+        check_is_fitted(self, "_all_mapping")
 
         if X.ndim != 2:
             raise TypeError("This transformer expect a two dimensional array")
