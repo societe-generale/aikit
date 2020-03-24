@@ -544,3 +544,15 @@ def test_OrdinalOneHotEncoder():
     assert X_orig.columns.tolist() == X.columns.tolist()
     assert (X_orig == X).all().all()
 
+
+
+    df = pd.DataFrame({"sex":["male","female"]*6, "embarked":["a","b","c"] * 4})
+    model = OrdinalOneHotEncoder()
+    res = model.fit_transform(df)
+    
+    assert df.shape[0] == res.shape[0]
+    assert isinstance(res, pd.DataFrame)
+    assert list(res.columns) == ["sex_g_female", "embarked_g_a", "embarked_g_b"]
+
+    
+    
