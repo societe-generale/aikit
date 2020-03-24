@@ -13,8 +13,8 @@ import pandas as pd
 import scipy.sparse as sps
 
 from sklearn.base import TransformerMixin, BaseEstimator, clone
+from sklearn.utils.metaestimators import if_delegate_has_method
 from sklearn.exceptions import NotFittedError
-
 
 from aikit.enums import DataTypes
 from aikit.tools.helper_functions import intersect, diff, exception_improved_logging
@@ -22,6 +22,7 @@ from aikit.tools.helper_functions import intersect, diff, exception_improved_log
 import aikit.tools.data_structure_helper as dsh
 from aikit.tools.helper_functions import function_has_named_argument
 from aikit.tools.db_informations import guess_type_of_variable, TypeOfVariables
+
 
 
 class ColumnsSelector(TransformerMixin, BaseEstimator):
@@ -806,6 +807,22 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
 
         self._already_fitted = True
         return self
+    
+    
+    @if_delegate_has_method(delegate="_model")
+    @exception_improved_logging
+    def inverse_transform(self, X):
+        self._check_is_fitted()
+        
+        if self.all_columns_at_once:
+            return self._model.inverse_transform(X)
+        else:
+            all_Xres = []
+            for model in self._model:
+                all_Xres.append( model.inverse_transform(X) )
+            
+            return dsh.generic_hstack(all_Xres)
+
 
     @exception_improved_logging
     def transform(self, X):
@@ -815,6 +832,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         transformed_part = self._fit_transform(X, y=None, is_fit=False, is_transform=True)
 
         return self._fit_transform_rest(X, transformed_part=transformed_part, is_fit=False, is_transform=True)
+
 
     @exception_improved_logging
     def fit_transform(self, X, y=None, **fit_params):
@@ -1024,6 +1042,9 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
                     all_Xres.append(Xres_j)
 
             if is_fit:
+                
+                if len(self._models) > 0:
+                    self._model = self._models[0] # to have something in '_model' no matter what case I'm in
 
                 self._columns_informations = {
                     "all_output_columns": None
