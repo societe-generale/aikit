@@ -645,9 +645,6 @@ class _DummyToWrapWithInputFeaturesNames(_DummyToWrap):
             return ["c_%s_%d" % (str(input_features[i]), i) for i in range(self.n)]
 
 
-# def _DummyToWrapWithFeaturesNa
-
-
 class DummyWrapped(ModelWrapper):
     def __init__(self, n, columns_to_use="all", column_prefix=None, drop_used_columns=True, drop_unused_columns=True):
 
@@ -997,4 +994,66 @@ def test_AutoWrapper_fails_if_not_instance():
     model = 10
     with pytest.raises(TypeError):
         AutoWrapper(model)
+        
+        
+class _DummyWithInverseTransform(BaseEstimator, TransformerMixin):
+    def __init__(self):
+        pass
+    
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X):
+        return np.exp(X)
+    
+    def inverse_transform(self, X):
+        return np.log(X)
+    
+class DummyWrappedWithInverseTransform(ModelWrapper):
+    
+    def __init__(self, columns_to_use="all", column_prefix=None, drop_used_columns=True, drop_unused_columns=True):
 
+        self.column_prefix = column_prefix
+        self.columns_to_use = columns_to_use
+    
+        super(DummyWrappedWithInverseTransform, self).__init__(
+            columns_to_use=columns_to_use,
+            regex_match=False,
+            work_on_one_column_only=False,
+            all_columns_at_once=True,
+            accepted_input_types=None,
+            column_prefix=column_prefix,
+            desired_output_type=DataTypes.DataFrame,
+            must_transform_to_get_features_name=True,
+            dont_change_columns=False,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
+        )
+
+    def _get_model(self, X, y=None):
+        return _DummyWithInverseTransform()
+
+
+def test_dummy_wrapper_inverse_transform():
+    
+    np.random.seed(123)
+    xx = np.random.randn(10, 5)
+    input_features = ["COL_%d" % i for i in range(xx.shape[1])]
+    df = pd.DataFrame(xx, columns=input_features)
+
+    dummy = DummyWrapped(n=1)
+    dummy.fit(df)
+
+    with pytest.raises(AttributeError):    
+        dummy.inverse_transform(df)
+
+    dummy = DummyWrappedWithInverseTransform()
+
+    df_exp = dummy.fit_transform(df)
+    df_org = dummy.inverse_transform(df_exp)
+
+    assert (df_exp.values == np.exp(df.values)).all()
+    assert (df_exp.values == np.exp(df.values)).all()
+    
+    assert np.abs(df_org.values - df.values).max() <= 10**(-5)
+            
