@@ -962,7 +962,7 @@ def test_AutoWrapper():
     assert Xres.shape[0] == df.shape[0]
     
     
-    model = AutoWrapper(TruncatedSVD(n_components=2))(columns_to_use=["NUMBER_"], regex_match=True, column_prefix="SVD")
+    model = AutoWrapper(TruncatedSVD(n_components=2, random_state=123))(columns_to_use=["NUMBER_"], regex_match=True, column_prefix="SVD")
     Xres = model.fit_transform(df)
     assert isinstance(Xres, pd.DataFrame)
     assert list(Xres.columns) == ["not_a_number", "SVD__0", "SVD__1"]
