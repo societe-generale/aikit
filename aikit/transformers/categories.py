@@ -508,6 +508,9 @@ class _OrdinalOneHotEncoder(BaseEstimator, TransformerMixin):
         if get_type(X) != DataTypes.DataFrame:
             raise TypeError("This transformer only works for DataFrame")
             
+        if X.isnull().sum().sum() > 0:
+            raise ValueError("This transformer doesn't handle null")
+
         self._nb_columns = X.shape[1]
             
         is_auto = isinstance(self.categories, str) and self.categories == "auto"
@@ -663,7 +666,7 @@ class OrdinalOneHotEncoder(ModelWrapper):
 
     def __init__(
         self,
-        columns_to_use=TypeOfVariables.CAT,
+        columns_to_use="all",
         regex_match=False,
         desired_output_type=DataTypes.DataFrame,
         drop_used_columns=True,
@@ -688,6 +691,7 @@ class OrdinalOneHotEncoder(ModelWrapper):
             drop_unused_columns=drop_unused_columns,
         )
 
+
     def _get_model(self, X, y=None):
         return _OrdinalOneHotEncoder(categories=self.categories,
                                      dtype=self.dtype
@@ -696,5 +700,9 @@ class OrdinalOneHotEncoder(ModelWrapper):
     @property
     def columns_mapping(self):
         return self.model.columns_mapping
+    
+    @property
+    def categories_(self):
+        return self.model.categories_
 
 
