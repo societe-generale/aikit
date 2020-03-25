@@ -11,7 +11,7 @@ import itertools
 import pandas as pd
 import numpy as np
 
-from aikit.models.ordinal import ClassifierFromRegressor, OrdinalClassifier
+from aikit.models.ordinal import ClassifierFromRegressor, OrdinalClassifier, RegressorFromClassifier
 
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 
@@ -120,4 +120,34 @@ def generic_classifier_testing(klass,
 
         assert not pd.isnull(proba).any()
         assert np.abs(proba.sum(axis=1) - 1).max() <= 0.0001
+
+
+def test_RegressorFromClassifier(multi_target):
+    np.random.seed(123)
+    X = np.random.randn(100, 10)
+    y = np.random.randn(100)
+    
+    if multi_target:
+        y = np.concatenate((y[:, np.newaxis],y[:, np.newaxis]),axis=1)
+    
+    regressor = RegressorFromClassifier(DecisionTreeClassifier())
+    regressor.fit(X, y)
+
+    yhat = regressor.predict(X)
+    
+    assert y.shape == yhat.shape
+    assert type(y) == type(yhat)
+    assert y.dtype == yhat.dtype
+    
+    from sklearn.cluster import KMeans
+
+    
+    regressor = RegressorFromClassifier(DecisionTreeClassifier(), y_clusterer=KMeans(10, random_state=123))
+    regressor.fit(X, y)
+
+    yhat = regressor.predict(X)
+
+    assert y.shape == yhat.shape
+    assert type(y) == type(yhat)
+    assert y.dtype == yhat.dtype
 
