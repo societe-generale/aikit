@@ -121,7 +121,7 @@ def generic_classifier_testing(klass,
         assert not pd.isnull(proba).any()
         assert np.abs(proba.sum(axis=1) - 1).max() <= 0.0001
 
-
+@pytest.mark.parametrize('multi_target', [True, False])
 def test_RegressorFromClassifier(multi_target):
     np.random.seed(123)
     X = np.random.randn(100, 10)
