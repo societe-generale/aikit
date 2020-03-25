@@ -134,7 +134,18 @@ class ClassifierFromRegressor(_BaseOrdinalClassifier):
 
 
 class OrdinalClassifier(_BaseOrdinalClassifier):
+    """ This class transform a classifier to make it more suited to ordinal classification.
+    It does so by changing the Target using the OrdinalOneHotEncoder transformer
     
+    Concretely if we have 4 ordered classes 'y=A', 'y=B', 'y=C', 'y=D' with ('A' < 'B' < 'C' < 'D') 
+    It creates 3 targets :
+        'y > A' , 'y>B' and 'y>C'
+        
+    The classifier is then fitted on those target.
+    
+    At the end to make a prediction we call the underlying classifier and recreates the proba
+    
+    """
     def __init__(self, classifier, classes="auto"):
         self.classifier = classifier
         self.classes=classes
@@ -246,12 +257,12 @@ class RegressorFromClassifier(BaseEstimator, RegressorMixin):
     """
     
     def __init__(self,
-                 classifier_model,
+                 classifier,
                  strategy="kmeans",
                  n_bins=10,
                  y_clusterer=None
                  ):
-        self.classifier_model=classifier_model
+        self.classifier=classifier
         self.strategy=strategy
         self.n_bins=n_bins
         self.y_clusterer=y_clusterer
@@ -263,14 +274,16 @@ class RegressorFromClassifier(BaseEstimator, RegressorMixin):
     
     def fit(self, X, y):
         
+        self._mono_target = y.ndim == 1
+        
         if self.y_clusterer is None:
             y_clusterer = self.get_default_y_cluster(y)
         else:
             y_clusterer = self.y_clusterer
             # TODO : check that it is a clusterer
             
-        if not is_classifier(self.classifier_model):
-            raise TypeError("classifier_model should be a classifer")
+        if not is_classifier(self.classifier):
+            raise TypeError("classifier should be a classifer")
             
         yd2 = make2dimensions(y)
         
@@ -279,34 +292,73 @@ class RegressorFromClassifier(BaseEstimator, RegressorMixin):
         else:
             y_cl = y_clusterer.fit_transform(yd2).astype('int32')
         
-        if y_cl.ndim > 1 and y_cl.shape[1] > 1:
+        if y_cl.ndim == 1:
+            y_cl = y_cl[:, np.newaxis]
+
+        if self._mono_target and y_cl.shape[1] > 1:
             raise ValueError("The cluster should return only 1 dimensional clusters")
-        elif y_cl.ndim > 1:
-            y_cl = y_cl[:,0]
+ 
+        self._mono_cluster = y_cl.shape[1] == 1
+#        if self._mono_cluster != self._mono_target:
+#            raise NotImplementedError("TODO")
+#        
+        self.classifier.fit(X, y_cl) # fit classifier on result of cluster
+        
+        if self._mono_cluster:
+            classes = [self.classifier.classes_]
+        else:
+            classes = self.classifier.classes_
             
-        self.classifier_model.fit(X, y_cl) # fit classifier on result of cluster
+        all_mean_mapping = self.compute_y_mean(yd2, y_cl)
         
-        y_mean_mapping = self.compute_y_mean(yd2, y_cl)
-        
-        
-        self._y_mean_mapping_matrix = np.concatenate([y_mean_mapping[cl] for cl in self.classifier_model.classes_], axis=0)
+        all_y_mean_mapping_matrix = []
+        for classe, y_mean_mapping in zip(classes, all_mean_mapping):
+            mat = np.concatenate([y_mean_mapping[cl] for cl in classe], axis=0)
+            all_y_mean_mapping_matrix.append(mat)
+            
+        self._all_y_mean_matrix = all_y_mean_mapping_matrix
         
         return self
     
-    @staticmethod
-    def compute_y_mean(yd2, y_cl):
-        index_dico = {cl : g.index for cl, g in pd.DataFrame({"y":y_cl}).groupby("y")}
-        mean_mapping = {cl:yd2[index.values,:].mean(axis=0, keepdims=True) for cl, index in index_dico.items()}
+    
+    def compute_y_mean(self, yd2, y_cl):
+        assert y_cl.ndim == 2
         
-        return mean_mapping
+        all_mean_mapping = []
+        for j in range(y_cl.shape[1]):      
+            index_dico = {cl : g.index for cl, g in pd.DataFrame({"y":y_cl[:, j]}).groupby("y")}
+            if self._mono_cluster and not self._mono_target:
+                # it means that 
+                # 1. I have more than one target ...
+                # 2. ... but the cluster returns one dimension only
+                mean_mapping = {cl:yd2[index.values,:].mean(axis=0, keepdims=True) for cl, index in index_dico.items()}
+            else:
+                mean_mapping = {cl:yd2[index.values,j:(j+1)].mean(axis=0, keepdims=True) for cl, index in index_dico.items()}
+        
+            all_mean_mapping.append(mean_mapping)
+            
+        return all_mean_mapping # for each cluster, mean of each target
     
     
     def predict(self, X):
-        y_hat_proba = self.classifier_model.predict_proba(X)
         
-        y_hat = np.dot(y_hat_proba, self._y_mean_mapping_matrix)
+        y_hat_probas = self.classifier.predict_proba(X)
         
-        return make1dimension(y_hat)
+        if self._mono_cluster:
+            y_hat_probas = [y_hat_probas]
+
+        y_hats = [ np.dot(y_hat_proba, y_mean_mapping_matrix) for y_hat_proba, y_mean_mapping_matrix in zip(y_hat_probas, self._all_y_mean_matrix) ]
+        
+        if len(y_hats) > 1:
+            y_hat = np.concatenate(y_hats, axis=1)
+        else:
+            y_hat = y_hats[0]
+        
+        if self._mono_target:
+            return y_hat[:, 0]
+        else:
+            return y_hat
+
 
 
 
