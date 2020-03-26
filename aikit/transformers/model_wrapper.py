@@ -17,10 +17,9 @@ from sklearn.utils.metaestimators import if_delegate_has_method
 from sklearn.exceptions import NotFittedError
 
 from aikit.enums import DataTypes
-from aikit.tools.helper_functions import intersect, diff, exception_improved_logging
 
 import aikit.tools.data_structure_helper as dsh
-from aikit.tools.helper_functions import function_has_named_argument
+from aikit.tools.helper_functions import intersect, diff, exception_improved_logging, function_has_named_argument
 from aikit.tools.db_informations import guess_type_of_variable, TypeOfVariables
 
 
