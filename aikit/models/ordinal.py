@@ -139,13 +139,15 @@ class ClassifierFromRegressor(_BaseOrdinalClassifier):
         else:
             y_hat_2d = y_hat
             assert y_hat.ndim == 2
-            
 
-        pivot_integers = [np.arange(len(category))[np.newaxis, :] for category in self._target_encoder.categories_]
-        
-        distances_to_pivot = [np.abs(y_hat_2d[:, j:(j+1)] - pivot_integers[j]) for j in range(y_hat_2d.shape[1])] # Rmk [:, j:(j+1)]  so that I keep the dimension
-        
-        probas = [self.distance_to_proba(distance_to_pivot) for distance_to_pivot in distances_to_pivot]
+        probas = []
+        for j, category in enumerate(self._target_encoder.categories_):
+            pivot_integer = np.arange(len(category))[np.newaxis, :]
+            distance_to_pivot = np.abs(y_hat_2d[:, j:(j+1)] - pivot_integer)
+            proba = self.distance_to_proba(distance_to_pivot)
+
+            probas.append(proba)
+
 
         if self._mono_target:
             return probas[0]
