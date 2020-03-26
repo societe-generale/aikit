@@ -19,8 +19,36 @@ from aikit.transformers.categories import _OrdinalOneHotEncoder
 
 
 class _BaseOrdinalClassifier(BaseEstimator, ClassifierMixin):
+    """ this class is the base class for Ordinal classifier,
+    it contains methods to convert the target into another format that will be used to fit the underlying classifier
     
+    """
     def _prepare_target(self, y, klass, conversion_type):
+        """ prepare the target so that it can be given to the underlying model to use
+        
+        Parameters
+        ----------
+        
+        y : array
+            the original target 
+            
+        klass : type
+            the encoder to use for the target
+            
+        conversion_type : DataType
+            the output type desired by the target
+            
+        Set
+        ---
+        self._mono_target : bool 
+            does the original problem as one target or not
+        self._target_encoded : the encoder used on the target
+        
+        Returns
+        --------
+        y_encoded : array
+            the modified target
+        """
         self._mono_target = y.ndim == 1
         self._target_dtype = y.dtype
         
@@ -144,6 +172,10 @@ class OrdinalClassifier(_BaseOrdinalClassifier):
     The classifier is then fitted on those target.
     
     At the end to make a prediction we call the underlying classifier and recreates the proba
+    
+    See the paper 
+    https://www.cs.waikato.ac.nz/~eibe/pubs/ordinal_tech_report.pdf
+    for more detailed explanation
     
     """
     def __init__(self, classifier, classes="auto"):
@@ -269,6 +301,7 @@ class RegressorFromClassifier(BaseEstimator, RegressorMixin):
         
         
     def get_default_y_cluster(self, y=None):
+        """ this methods returns the default clusterer to use, if y_clusterer is None """
         return KBinsDiscretizer(n_bins=self.n_bins, strategy=self.strategy, encode="ordinal")
   
     
@@ -299,9 +332,7 @@ class RegressorFromClassifier(BaseEstimator, RegressorMixin):
             raise ValueError("The cluster should return only 1 dimensional clusters")
  
         self._mono_cluster = y_cl.shape[1] == 1
-#        if self._mono_cluster != self._mono_target:
-#            raise NotImplementedError("TODO")
-#        
+ 
         self.classifier.fit(X, y_cl) # fit classifier on result of cluster
         
         if self._mono_cluster:
@@ -309,7 +340,7 @@ class RegressorFromClassifier(BaseEstimator, RegressorMixin):
         else:
             classes = self.classifier.classes_
             
-        all_mean_mapping = self.compute_y_mean(yd2, y_cl)
+        all_mean_mapping = self._compute_y_mean(yd2, y_cl)
         
         all_y_mean_mapping_matrix = []
         for classe, y_mean_mapping in zip(classes, all_mean_mapping):
@@ -321,7 +352,10 @@ class RegressorFromClassifier(BaseEstimator, RegressorMixin):
         return self
     
     
-    def compute_y_mean(self, yd2, y_cl):
+    def _compute_y_mean(self, yd2, y_cl):
+        """ compute the mean of each target within each cluster
+        Those value will be needed in order to make the final predictions
+        """
         assert y_cl.ndim == 2
         
         all_mean_mapping = []
