@@ -12,7 +12,9 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sps
 
-from sklearn.base import TransformerMixin, BaseEstimator
+from sklearn.base import TransformerMixin, BaseEstimator, clone
+from sklearn.exceptions import NotFittedError
+
 
 from aikit.enums import DataTypes
 from aikit.tools.helper_functions import intersect, diff, exception_improved_logging
@@ -20,8 +22,6 @@ from aikit.tools.helper_functions import intersect, diff, exception_improved_log
 import aikit.tools.data_structure_helper as dsh
 from aikit.tools.helper_functions import function_has_named_argument
 from aikit.tools.db_informations import guess_type_of_variable, TypeOfVariables
-
-from sklearn.exceptions import NotFittedError
 
 
 class ColumnsSelector(TransformerMixin, BaseEstimator):
@@ -1234,4 +1234,123 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         return final_features
 
 
-# In[]
+def AutoWrapper(model, wrapping_kwargs=None):
+    """ returns sklearn-learn like class that 
+    
+    * works the same way has a model
+    * but implements the functionnalities from ModelWrapper
+    
+    Parameters
+    ----------
+    model : object
+        a sklearn instance
+        
+    wrapping_kwargs : None or dict
+        additionnal parameters to pass to the wrapping function
+    
+    Returns
+    -------
+    sklearn class
+    
+    Example
+    -------
+
+    >>> from sklearn.decomposition import TruncatedSVD
+    >>> import numpy as np
+    >>> import pandas as pd
+
+    >>> X = np.random.randn(100,10)
+    >>> df = pd.DataFrame(X, columns=[f"NUMBER_{j}" for j in range(X.shape[1])])
+    >>> df["not_a_number"] = "a"
+    
+    >>> model = AutoWrapper_from_model(TruncatedSVD(n_components=2))(columns_to_use=["NUMBER_"], regex_match=True)
+    >>> model.fit_transform(df)
+    
+    """
+    
+    wrapping_parameters = {
+                 "work_on_one_column_only":False,
+                 "all_columns_at_once":True,
+                 "accepted_input_types":(DataTypes.DataFrame,),
+                 "must_transform_to_get_features_name":False,
+                 "dont_change_columns":False
+    }
+    
+    if wrapping_kwargs is not None:
+        wrapping_parameters.update(wrapping_kwargs)
+        
+    if isinstance(model, type):
+        model_instance = model() # instanciate the klass with default parameters
+    else:
+        model_instance = model
+        
+    if not hasattr(model_instance, "fit"):
+        raise TypeError("model should be a sklearn-object with a 'fit'")
+        
+    # Remark : if we have a type maybe we can create the model with default
+    
+
+    class WrappedKlass(ModelWrapper):
+        """ This is a generic class to help wrapping existing transformer and make them more robust 
+        
+        Parameters
+        ----------
+        
+        columns_to_use : None or list of string
+            this parameters will allow the wrapped transformer to select its columns
+
+        column_prefix : str or None
+            if we want the features_names to be prefixed by something like 'SVD_' or 'BAG_' (for TruncatedSVD or CountVectorizer)
+                
+        dont_change_columns : boolean
+            indicate that the transformer doesn't change the column (for example a StandardScaler)
+            if that is the case you know that the resulting feature are the input feature
+    
+        drop_used_columns : boolean, default=True
+            what to do with the ORIGINAL columns that were transformed.
+            If False, will keep them in the result (un-transformed)
+            If True, only the transformed columns are in the result
+            
+        drop_unused_columns: boolean, default=True
+            what to do with the column that were not used.
+            if False, will drop them
+            if True, will keep them in the result
+            
+        regex_match : boolean, default = False
+            if True will use a regex to match columns otherwise exact match
+        
+        """
+        
+        if model_instance.__class__.__doc__ is not None:
+            __doc__ += "\n" + model.__class__.__doc__
+
+        def __init__(self,
+                     columns_to_use="all",
+                     column_prefix=None,
+                     regex_match=False,
+                     desired_output_type=DataTypes.DataFrame,
+                     drop_used_columns=True,
+                     drop_unused_columns=False,
+                     ):
+            
+            self.columns_to_use=columns_to_use
+            self.column_prefix=column_prefix
+            self.regex_match=regex_match
+            self.desired_output_type=desired_output_type
+            self.drop_used_columns=drop_used_columns
+            self.drop_unused_columns=drop_unused_columns
+                 
+            super(WrappedKlass, self).__init__(
+                 columns_to_use=columns_to_use,
+                 regex_match=regex_match,
+                 column_prefix=column_prefix,
+                 desired_output_type=desired_output_type,
+                 drop_used_columns=drop_used_columns,
+                 drop_unused_columns=drop_unused_columns,
+                 **wrapping_parameters
+                 )
+            
+        def _get_model(self, X, y=None):
+            return clone(model_instance)
+        
+    return WrappedKlass

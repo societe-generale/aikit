@@ -4,6 +4,8 @@ Created on Fri Sep 14 11:46:59 2018
 
 @author: Lionel Massoulard
 """
+import pytest
+
 
 import pandas as pd
 import numpy as np
@@ -17,6 +19,7 @@ import itertools
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.base import TransformerMixin, BaseEstimator
+from sklearn.decomposition import TruncatedSVD
 
 from aikit.transformers.model_wrapper import (
     ModelWrapper,
@@ -24,12 +27,11 @@ from aikit.transformers.model_wrapper import (
     _concat,
     DebugPassThrough,
     try_to_find_features_names,
+    AutoWrapper
 )
 
 from aikit.tools.db_informations import guess_type_of_variable, TypeOfVariables
 from aikit.enums import DataTypes
-
-import pytest
 
 
 def test_ColumnsSelector__get_list_of_columns():
@@ -911,3 +913,86 @@ def test_dummy_wrapper_fails():
     input_features_wrong_order = input_features[1:] + [input_features[0]]
     with pytest.raises(ValueError):
         dummy.transform(df.loc[:, input_features_wrong_order])  # fail because wront number of columns
+
+
+class DummyOnlyDataFrame(BaseEstimator, TransformerMixin):
+    def __init__(self):
+        pass
+    
+    def fit(self, X, y=None):
+        if not isinstance(X, pd.DataFrame):
+            raise TypeError("only works for a DataFrame")
+            
+        return self
+    
+    def transform(self, X):
+        if not isinstance(X, pd.DataFrame):
+            raise TypeError("only works for a DataFrame")
+            
+        return X
+    
+
+class DummyNoDataFrame(BaseEstimator, TransformerMixin):
+    def __init__(self):
+        pass
+    
+    def fit(self, X, y=None):
+        if isinstance(X, pd.DataFrame):
+            raise TypeError("doesn't work on DatraFrame")
+            
+        return self
+    
+    def transform(self, X):
+        if isinstance(X, pd.DataFrame):
+            raise TypeError("doesn't work on DatraFrame")
+            
+        return X
+
+
+def test_AutoWrapper():
+    np.random.seed(123)
+    X = np.random.randn(100,10)
+    df = pd.DataFrame(X, columns=[f"NUMBER_{j}" for j in range(X.shape[1])])
+    df["not_a_number"] = "a"
+
+    model = AutoWrapper(TruncatedSVD(n_components=2, random_state=123))(columns_to_use=["NUMBER_"], regex_match=True)
+    Xres = model.fit_transform(df)
+    
+    assert isinstance(Xres, pd.DataFrame)
+    assert Xres.shape[0] == df.shape[0]
+    
+    
+    model = AutoWrapper(TruncatedSVD(n_components=2, random_state=123))(columns_to_use=["NUMBER_"], regex_match=True, column_prefix="SVD")
+    Xres = model.fit_transform(df)
+    assert isinstance(Xres, pd.DataFrame)
+    assert list(Xres.columns) == ["not_a_number", "SVD__0", "SVD__1"]
+    assert Xres.shape[0] == df.shape[0]
+
+    dummy_not_wrapped = DummyOnlyDataFrame()
+    with pytest.raises(TypeError):
+        dummy_not_wrapped.fit_transform(X)
+
+    dummy_auto_wrapped = AutoWrapper(DummyOnlyDataFrame())()
+    Xres = dummy_auto_wrapped.fit_transform(X)
+    assert isinstance(Xres, pd.DataFrame)
+    assert (Xres.values == X).all()
+
+    dummy_auto_wrapped = AutoWrapper(DummyOnlyDataFrame)()
+    Xres = dummy_auto_wrapped.fit_transform(X)
+    assert isinstance(Xres, pd.DataFrame)
+    assert (Xres.values == X).all()
+    
+    dummy_not_wrapped = DummyNoDataFrame()
+    with pytest.raises(TypeError):
+        dummy_not_wrapped.fit_transform(df)
+    
+    dummy_auto_wrapped = AutoWrapper(DummyNoDataFrame, wrapping_kwargs={"accepted_input_types":(DataTypes.NumpyArray,)})()
+    Xres = dummy_auto_wrapped.fit_transform(df)
+    assert isinstance(Xres, pd.DataFrame)
+
+        
+def test_AutoWrapper_fails_if_not_instance():
+    model = 10
+    with pytest.raises(TypeError):
+        AutoWrapper(model)
+
