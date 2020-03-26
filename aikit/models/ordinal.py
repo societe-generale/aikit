@@ -12,7 +12,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin, is_clas
 from sklearn.preprocessing import OrdinalEncoder, KBinsDiscretizer
 
 
-from aikit.tools.data_structure_helper import make2dimensions, make1dimension, convert_generic
+from aikit.tools.data_structure_helper import make2dimensions, convert_generic
 from aikit.enums import DataTypes
 from aikit.transformers.categories import _OrdinalOneHotEncoder
 
