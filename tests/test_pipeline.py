@@ -18,6 +18,8 @@ from sklearn.base import is_classifier, is_regressor
 from sklearn.base import clone
 
 from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted
+
 from sklearn.datasets import make_classification
 
 from sklearn.linear_model import LogisticRegression, Ridge
@@ -25,6 +27,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.cluster import KMeans
+from sklearn.pipeline import Pipeline
 
 from tests.helpers.testing_help import get_sample_df, get_random_strings
 
@@ -1105,3 +1108,51 @@ def test_get_subpipeline():
     pipeline = get_pipeline()
     sub_pipeline = pipeline.get_subpipeline("pt1")
     assert isinstance(sub_pipeline, type(pipeline._models["pt1"]))
+
+
+
+def test_GraphPipeline_from_sklearn():
+    
+    np.random.seed(123)
+    X = np.random.randn(100,10)
+    y = 1*(np.random.randn(100)>0)
+    
+    sk_pipeline = Pipeline(steps=[("pt", PassThrough()),
+                                  ("dt", DecisionTreeClassifier(random_state=123))
+                                  ])
+
+
+    # Case 1 
+    # from a non fitted sklearn Pipeline
+
+    gpipeline = GraphPipeline.from_sklearn(sk_pipeline)
+    
+    assert isinstance(gpipeline, GraphPipeline)
+    with pytest.raises(NotFittedError):
+        check_is_fitted(gpipeline)
+        
+    gpipeline.fit(X, y)
+    yhat = gpipeline.predict(X)
+    yhat_proba = gpipeline.predict_proba(X)
+    
+    
+    yhat2 = sk_pipeline.fit(X, y).predict(X)
+    yhat_proba2 = sk_pipeline.predict_proba(X)
+
+    
+    assert (yhat == yhat2).all()
+    assert (yhat_proba == yhat_proba2).all()
+
+    # Case 2
+    # from an already fitted pipeline
+    gpipeline = GraphPipeline.from_sklearn(sk_pipeline)
+    yhat = gpipeline.predict(X)
+    yhat_proba = gpipeline.predict_proba(X)
+    
+    
+    yhat2 = sk_pipeline.predict(X)
+    yhat_proba2 = sk_pipeline.predict_proba(X)
+    
+    assert (yhat == yhat2).all()
+    assert (yhat_proba == yhat_proba2).all()
+    
