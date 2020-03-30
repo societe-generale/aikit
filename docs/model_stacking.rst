@@ -5,6 +5,15 @@ Model Stacking
 
 Here you'll find the explanation about how to fit stacking models using aikit.
 
+You can also see the notbook : 
+
+.. toctree::
+   :titlesonly:
+   
+   Stacking Notebook <../notebooks/Stacking.ipynb>
+
+- :download:`Stacking </notebooks/Stacking.ipynb>`
+
 Stacking How To
 ---------------
 
@@ -17,6 +26,7 @@ To prevent overfitting you typically want to use out-sample predictions to fit t
 To generate out-sample predictions you can do a cross-validation:
 
 for fold (i) and a given model :
+
     1. fit model on all the data from the other folds (1,...,i-1,i+1, .. N)
     2. call fitted model on data from fold (i) 
     3. store the predictions

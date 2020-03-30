@@ -13,6 +13,7 @@ A model needs to be added at two different places in order to be fully integrate
 Let's see what's need to be done to include an hypothetic new models::
 
     class ReallyCoolNewTransformer(BaseEstimator, TransformerMixin):
+        """ This is a great new  transformer """
         def __init__(self, super_choice):
             self.super_choice = super_choice
             
@@ -63,7 +64,8 @@ To do that you need to use the @register decorator::
         custom_hyper = {"super_parameters":hp.HyperChoice(("superchoice_a","superchoice_b"))}
 
     
-See _model_register for complete description of register
+See :ref:`model_register` for complete description of register.
+See :ref:`hyper_parameters` for complete description of register.
 
 Remark:
 The registers behaves like singletons so you can modify them in any part of the code.
@@ -74,5 +76,16 @@ If a model is stable and tested enough the new entry can be added to the python 
  * 'model_definition.py' : for the simple register
  * ml_machine/ml_machine_registration.py : for the full auto-ml register
 
+(See :ref:`contribution` for detailed about how to contribute to the evolution of the library)
 
 Remark : you don't need to use the wrapper for your model to be incorporated in the framework. However, it is best to do so. That way you can focus on the logic and let the wrapper make your model more generic.
+
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   model_register
+   hyper_parameters
+
+

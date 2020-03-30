@@ -16,6 +16,12 @@ The created object will behave like a regular sklearn model :
  * it can obviously be fitted and returns predictions
  * ...
  
+See full example here :
+
+ .. toctree::
+    :titlesonly:
+
+    GraphPipeline Notebook <../notebooks/GraphPipeline.ipynb>
 
 
 Example::
@@ -116,37 +122,6 @@ So code would be::
 .. figure:: img/graphpipeline_complexepipe3.png
    :alt: graphviz vizualization of a more complexe pipeline
 
-
-Other input syntaxes
---------------------
-
-To make things easier for the user, other type of inputs are accepted.
-The models arguments can also be :
- * a list of 2-tuple
- * an OrderedDict
- 
-The edges arguments can be omitted when the GraphPipeline is indeed a *regular* (linear) pipeline. In that case the models arguments can't be a dictionnary (which doesn't have any order) but should instead be a list or an OrderedDict
-
-(Remark : no matter the syntaxes used, GraphPipeline uses an internal "_models" dictionnary to store the models at each node and an internal "_edges" attribute to saved the edges. 
-So if the classical syntaxe wasn't not used you can still access the models if needed).
-
-
-Example::
-
-    gpipeline = GraphPipeline(models = [( "vect" , CountVectorizerWrapper(analyzer="char",ngram_range=(1,4)) ),
-                                        ( "svd"   , TruncatedSVDWrapper(n_components=400) ), 
-                                        ( "logit" , LogisticRegression(class_weight="balanced") )] )
-                                        
-which gives the same pipeline as the first example:
-
-.. figure:: img/graphpipeline_simplepipe.png
-   :alt: graphviz vizualization of a simple pipeline
-   
-Edges can also be specify using DOT like format: 
- * "A - B" : edge from A to B
- * "A - B - C" : edge from A to B to C
- * "A - C ; B - C" : edge from A to C and from B to C
- 
 
    
 Merging nodes

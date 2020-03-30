@@ -1,4 +1,4 @@
-.. _ml_machine_launcher_advanced:
+.. _auto_ml_launcher_advanced:
 
 Auto Ml Advanced functionnalities
 ================================
@@ -144,3 +144,7 @@ Sometime your data falls into different groups. Sklearn allow you to pass those 
 To use groups in the auto-ml the 'loader' function needs to returns three things instead of two : 'dfX, y, groups'
 
 You can then specify a special CV or a special scorer that uses the groups.
+
+
+- :download:`Getting Started </notebooks/GettingStarted.ipynb>`
+- :download:`GraphPipeline </notebooks/GraphPipeline.ipynb>`
