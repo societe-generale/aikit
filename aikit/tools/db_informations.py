@@ -113,7 +113,7 @@ def has_missing_values(s):
     if not isinstance(s, pd.Series):
         raise TypeError("s should be a Serie, not a '%s'" % type(s))
 
-    return bool(s.isnull().sum() > 0)  # to prevent np.bool_
+    return bool(np.asarray(s.isnull()).sum().sum() > 0)  # to prevent np.bool_
 
 
 def get_columns_informations(dfX):

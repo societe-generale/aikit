@@ -21,7 +21,7 @@ def test_get_default_pipeline():
     model.graphviz
     assert hasattr(model, "fit")
 
-    model = get_default_pipeline(dfX.loc[:,["sex","age","sipbsp","parch"]], y)
+    model = get_default_pipeline(dfX.loc[:,["sex","age","sibsp","parch"]], y)
     assert hasattr(model, "fit")
 
     model = get_default_pipeline(dfX, y, final_model=DecisionTreeClassifier())

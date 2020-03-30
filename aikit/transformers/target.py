@@ -131,15 +131,18 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
     @staticmethod
     def na_remplacing(serie):
         """ remplace None with '_missing_' to make it a modality """
-
+    
+        if hasattr(serie, "sparse"):
+            serie = serie.sparse.to_dense().copy()
+    
         ii_null = serie.isnull()
-
+    
         if not ii_null.any():
             return serie
-
+    
         result_serie = serie.copy()
         result_serie[ii_null] = "_missing_"
-
+    
         return result_serie
 
     def fit(self, X, y):
@@ -200,7 +203,7 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
         # Columns on which we want None to be a special modality
         self._na_to_null = dict()
         for col in self._columns_to_encode:
-            ii_null = X[col].isnull()
+            ii_null = X[col].isnull().values # for sparse column I need to call '.values' so that '.sum()' works on it
             self._na_to_null[col] = ii_null.sum() >= self.max_na_percentage * len(X)
 
         self._target_aggregat, self._target_aggregat_global = self._fit_aggregat(X, sy, noise_level=None)
@@ -317,8 +320,12 @@ class _TargetEncoderBase(TransformerMixin, BaseEstimator):
                 Xcol = self.na_remplacing(X[col])
             else:
                 Xcol = X[col]
-
-            result = Xcol.apply(lambda x: self.get_value(x, target_aggregat[col], target_aggregat_global[col]))
+            
+            if hasattr(Xcol, "sparse"):
+                result = Xcol.sparse.to_dense().apply(lambda x: self.get_value(x, target_aggregat[col], target_aggregat_global[col]))
+                # for some reason apply does't work correctly on sparse data
+            else:
+                result = Xcol.apply(lambda x: self.get_value(x, target_aggregat[col], target_aggregat_global[col]))
             # result.columns = ["%s__%s" % (col,c) for c in result.columns]
             all_results.append(result)
 

@@ -22,7 +22,7 @@ from tests.helpers.testing_help import rec_assert_equal
 
 from aikit.tools.db_informations import get_columns_informations
 from aikit.enums import TypeOfVariables, DataTypes
-from aikit.tools.data_structure_helper import convert_generic, get_type
+from aikit.tools.data_structure_helper import convert_generic, get_type, _IS_PD1
 
 from aikit.transformers.categories import NumericalEncoder, CategoricalEncoder, category_encoders
 from aikit.transformers.target import TargetEncoderClassifier, TargetEncoderEntropyClassifier, TargetEncoderRegressor
@@ -117,6 +117,12 @@ def extend_all_type(all_types):
 
     return all_types_conv
 
+def pd1_pd0_type_equivalent(f):
+    if _IS_PD1 and f in (DataTypes.DataFrame, DataTypes.SparseDataFrame):
+        return DataTypes.DataFrame
+    else:
+        return f
+
 
 def verif_conversion(df, dont_test_sparse_array=False):
 
@@ -134,7 +140,7 @@ def verif_conversion(df, dont_test_sparse_array=False):
         if additional_conversion_fun is not None:
             temp_conversion = additional_conversion_fun(temp_conversion)
 
-        assert get_type(temp_conversion) == output_type  ## Expected type
+        assert pd1_pd0_type_equivalent(get_type(temp_conversion)) == pd1_pd0_type_equivalent(output_type)  ## Expected type
         assert temp_conversion.shape == df.shape  ## Expected shape
 
         if output_type in (DataTypes.DataFrame, DataTypes.SparseDataFrame):
@@ -155,11 +161,13 @@ def verif_conversion(df, dont_test_sparse_array=False):
         for output_type2 in all_types:
 
             temp_conversion3 = convert_generic(temp_conversion, output_type=output_type2)
-            assert get_type(temp_conversion3) == output_type2  ## Expected type
+            assert pd1_pd0_type_equivalent(get_type(temp_conversion3)) == pd1_pd0_type_equivalent(output_type2)  ## Expected type
             assert temp_conversion3.shape == df.shape  ## Expected shape
 
             if output_type == output_type2 and output_type:
-                assert temp_conversion3 is temp_conversion
+                if (_IS_PD1 and output_type != DataTypes.SparseDataFrame) or (not _IS_PD1):
+                    assert temp_conversion3 is temp_conversion
+                    
 
             test_conversion4 = convert_generic(temp_conversion3, output_type=DataTypes.NumpyArray)
             assert get_type(test_conversion4) == DataTypes.NumpyArray
@@ -188,7 +196,11 @@ def test_conversion_nan_sparse():
     xx = np.array([[0, 1], [1, np.nan], [0, 0]])
     df = pd.DataFrame(xx)
     dfs = convert_generic(df, output_type=DataTypes.SparseDataFrame)
-    assert pd.isnull(dfs.to_coo().toarray()[1, 1])
+    if _IS_PD1:
+        assert pd.isnull(dfs.values[1,1])
+    else:
+        assert pd.isnull(dfs.to_coo().toarray()[1, 1])
+        
 
 
 @pytest.mark.xfail
@@ -257,7 +269,7 @@ def verif_generic_hstack(df, dont_test_sparse_array=False, split_index=4):
         ### Same type concatenation
         x_left_right = generic_hstack([x_left, x_right])
 
-        assert get_type(x_left_right) == output_type
+        assert pd1_pd0_type_equivalent(get_type(x_left_right)) == pd1_pd0_type_equivalent(output_type)
         assert x_left_right.shape == (x_left.shape[0], x_left.shape[1] + x_right.shape[1])
 
         if output_type in (DataTypes.DataFrame, DataTypes.SparseDataFrame):
@@ -281,7 +293,7 @@ def verif_generic_hstack(df, dont_test_sparse_array=False, split_index=4):
             x_left_right = generic_hstack([x_left, x_right])  # Let code guess
 
             if output_type == output_type2:
-                assert get_type(x_left_right) == output_type
+                assert pd1_pd0_type_equivalent(get_type(x_left_right)) == pd1_pd0_type_equivalent(output_type)
 
             assert x_left_right.shape == (x_left.shape[0], x_left.shape[1] + x_right.shape[1])
             test_conversion = convert_generic(x_left_right, output_type=DataTypes.NumpyArray)
@@ -292,7 +304,7 @@ def verif_generic_hstack(df, dont_test_sparse_array=False, split_index=4):
                 if additional_conversion_fun3 is not None:
                     x_left_right = additional_conversion_fun3(x_left_right)
 
-                assert get_type(x_left_right) == output_type3
+                assert pd1_pd0_type_equivalent(get_type(x_left_right)) == pd1_pd0_type_equivalent(output_type3)
 
                 assert x_left_right.shape == (x_left.shape[0], x_left.shape[1] + x_right.shape[1])
                 test_conversion = convert_generic(x_left_right, output_type=DataTypes.NumpyArray)
@@ -481,13 +493,15 @@ def verif_encoder(
 
         for fit_type2, additional_conversion_fun2 in extended_all_types:
 
-            if fit_type == fit_type2:
+            if pd1_pd0_type_equivalent(fit_type) == pd1_pd0_type_equivalent(fit_type2):
                 continue
 
             df1_conv2 = convert_generic(df1_conv, output_type=fit_type2)
 
             # Verif that is I have a different type that what was present during the fit I'll raise an error
 
+            
+            # I don't want to do this test in pandas1 IF 'fit_type2' is a SparseDataFrame  because that type doesn't exist anymore
             assert_raise_value_error(encoder_a, df1_conv2)
             assert_raise_value_error(encoder_b, df1_conv2)
             assert_raise_value_error(encoder_c, df1_conv2)
@@ -856,16 +870,6 @@ def test_NumericalEncoder_numerical3():
     )
 
 
-def verif_NumericalEncoder():
-    test_NumericalEncoder_onehot1()
-    test_NumericalEncoder_onehot2()
-    test_NumericalEncoder_onehot3()
-
-    test_NumericalEncoder_numerical1()
-    test_NumericalEncoder_numerical2()
-    test_NumericalEncoder_numerical3()
-
-
 # In[] : CategoricalEncoder
 
 ##########################
@@ -906,12 +910,6 @@ def test_CategoricalEncoder(encoding_type):
     )
 
 
-def verif_CategoricalEncoder():
-    """ to run the test manually if needed """
-    for encoding_type in ["dummy", "binary", "basen", "hashing"]:
-        test_CategoricalEncoder(encoding_type=encoding_type)
-
-
 # In[]:TargetEncoder
 
 #####################
@@ -925,7 +923,7 @@ def verif_CategoricalEncoder():
 def test_TargetEncoderClassifier_fails_no_y(cv, noise_level, smoothing_value):
 
     enc_kwargs = {
-        "columns_to_use": variable_by_type["NUM"] + variable_by_type["CAT"],
+        "columns_to_use": variable_by_type["TEXT"] + variable_by_type["CAT"],
         "cv": cv,
         "noise_level": noise_level,
         "smoothing_value": smoothing_value,
@@ -940,7 +938,7 @@ def test_TargetEncoderClassifier_fails_no_y(cv, noise_level, smoothing_value):
 def test_TargetEncoderClassifier1(cv, noise_level, smoothing_value):
 
     enc_kwargs1 = {
-        "columns_to_use": variable_by_type["NUM"] + variable_by_type["CAT"],
+        "columns_to_use": variable_by_type["TEXT"] + variable_by_type["CAT"],
         "cv": cv,
         "noise_level": noise_level,
         "smoothing_value": smoothing_value,
@@ -964,11 +962,11 @@ def test_TargetEncoderClassifier1(cv, noise_level, smoothing_value):
 @pytest.mark.parametrize("cv, noise_level, smoothing_value", list(itertools.product((None, 10), (None, 0.1), (0, 1))))
 def test_TargetEncoderClassifier2(cv, noise_level, smoothing_value):
 
-    enc_kwargs2 = {"cv": cv, "noise_level": noise_level, "smoothing_value": smoothing_value}
+    enc_kwargs2 = {"cv": cv, "noise_level": noise_level, "smoothing_value": smoothing_value, "columns_to_use":"object"}
 
     verif_encoder(
-        df1=df1.loc[:, variable_by_type["NUM"] + variable_by_type["CAT"]],
-        df2=df2.loc[:, variable_by_type["NUM"] + variable_by_type["CAT"]],
+        df1=df1.loc[:, variable_by_type["TEXT"] + variable_by_type["CAT"]],
+        df2=df2.loc[:, variable_by_type["TEXT"] + variable_by_type["CAT"]],
         y1=y1,
         klass=TargetEncoderClassifier,
         enc_kwargs=enc_kwargs2,
@@ -985,16 +983,23 @@ def test_TargetEncoderClassifier2(cv, noise_level, smoothing_value):
 @pytest.mark.parametrize("cv, noise_level, smoothing_value", list(itertools.product((None, 10), (None, 0.1), (0, 1))))
 def test_TargetEncoderClassifier3(cv, noise_level, smoothing_value):
 
-    enc_kwargs3 = {"cv": cv, "noise_level": noise_level, "smoothing_value": smoothing_value, "columns_to_keep": []}
+    enc_kwargs3 = {"cv": cv,
+                   "noise_level":noise_level,
+                   "smoothing_value": smoothing_value,
+                   "drop_unused_columns": True,
+                   "columns_to_use":"all"
+                   }
 
+
+    nb_cols = len(variable_by_type["TEXT"] + variable_by_type["CAT"])
     verif_encoder(
-        df1=df1.loc[:, variable_by_type["NUM"] + variable_by_type["CAT"]],
-        df2=df2.loc[:, variable_by_type["NUM"] + variable_by_type["CAT"]],
+        df1=df1.loc[:, variable_by_type["TEXT"] + variable_by_type["CAT"]],
+        df2=df2.loc[:, variable_by_type["TEXT"] + variable_by_type["CAT"]],
         y1=y1,
         klass=TargetEncoderClassifier,
         enc_kwargs=enc_kwargs3,
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),  # DataTypes.NumpyArray),
-        additional_test_functions=[check_all_numerical, check_no_null, check_between_01, nb_columns_verify(5)],
+        additional_test_functions=[check_all_numerical, check_no_null, check_between_01, nb_columns_verify(nb_cols)],
         randomized_transformer=noise_level is not None,
         difference_tolerence=1.0,
         difference_fit_transform=(noise_level is not None) or (cv is not None)
@@ -1007,7 +1012,7 @@ def test_TargetEncoderClassifier3(cv, noise_level, smoothing_value):
 def test_TargetEncoderClassifierEntropy1(cv, noise_level, smoothing_value):
 
     enc_kwargs1 = {
-        "columns_to_use": variable_by_type["NUM"] + variable_by_type["CAT"],
+        "columns_to_use": variable_by_type["TEXT"] + variable_by_type["CAT"],
         "cv": cv,
         "noise_level": noise_level,
         "smoothing_value": smoothing_value,
@@ -1030,10 +1035,10 @@ def test_TargetEncoderClassifierEntropy1(cv, noise_level, smoothing_value):
 @pytest.mark.longtest
 @pytest.mark.parametrize("cv, noise_level, smoothing_value", list(itertools.product((None, 10), (None, 0.1), (0, 1))))
 def test_TargetEncoderClassifierEntropy2(cv, noise_level, smoothing_value):
-    enc_kwargs2 = {"cv": cv, "noise_level": noise_level, "smoothing_value": smoothing_value}
+    enc_kwargs2 = {"cv": cv, "noise_level": noise_level, "smoothing_value": smoothing_value, "columns_to_use":"object"}
     verif_encoder(
-        df1=df1.loc[:, variable_by_type["NUM"] + variable_by_type["CAT"]],
-        df2=df2.loc[:, variable_by_type["NUM"] + variable_by_type["CAT"]],
+        df1=df1.loc[:, variable_by_type["TEXT"] + variable_by_type["CAT"]],
+        df2=df2.loc[:, variable_by_type["TEXT"] + variable_by_type["CAT"]],
         y1=y1,
         klass=TargetEncoderEntropyClassifier,
         enc_kwargs=enc_kwargs2,
@@ -1049,16 +1054,17 @@ def test_TargetEncoderClassifierEntropy2(cv, noise_level, smoothing_value):
 @pytest.mark.longtest
 @pytest.mark.parametrize("cv, noise_level, smoothing_value", list(itertools.product((None, 10), (None, 0.1), (0, 1))))
 def test_TargetEncoderClassifierEntropy3(cv, noise_level, smoothing_value):
-    enc_kwargs3 = {"cv": cv, "noise_level": noise_level, "smoothing_value": smoothing_value, "columns_to_keep": []}
+    enc_kwargs3 = {"cv": cv, "noise_level": noise_level, "smoothing_value": smoothing_value, "columns_to_use":"all", "drop_unused_columns":True}
 
+    nb_cols = len(variable_by_type["TEXT"] + variable_by_type["CAT"])
     verif_encoder(
-        df1=df1.loc[:, variable_by_type["NUM"] + variable_by_type["CAT"]],
-        df2=df2.loc[:, variable_by_type["NUM"] + variable_by_type["CAT"]],
+        df1=df1.loc[:, variable_by_type["TEXT"] + variable_by_type["CAT"]],
+        df2=df2.loc[:, variable_by_type["TEXT"] + variable_by_type["CAT"]],
         y1=y1,
         klass=TargetEncoderEntropyClassifier,
         enc_kwargs=enc_kwargs3,
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),  # DataTypes.NumpyArray),
-        additional_test_functions=[check_all_numerical, check_no_null, check_positive, nb_columns_verify(5)],
+        additional_test_functions=[check_all_numerical, check_no_null, check_positive, nb_columns_verify(nb_cols)],
         randomized_transformer=noise_level is not None,
         difference_tolerence=1.0,
         difference_fit_transform=(noise_level is not None) or (cv is not None)
@@ -1089,7 +1095,7 @@ def test_TargetEncoderRegressor1(cv, noise_level, smoothing_value):
     y1_num = y1 + np.random.randn(len(y1))
 
     enc_kwargs1 = {
-        "columns_to_use": variable_by_type["NUM"] + variable_by_type["CAT"],
+        "columns_to_use": variable_by_type["TEXT"] + variable_by_type["CAT"],
         "cv": cv,
         "noise_level": noise_level,
         "smoothing_value": smoothing_value,
@@ -1154,7 +1160,7 @@ def test_TargetEncoderRegressor3(cv, noise_level, smoothing_value):
     np.random.seed(123)
     y1_num = y1 + np.random.randn(len(y1))
 
-    enc_kwargs3 = {"cv": cv, "noise_level": noise_level, "smoothing_value": smoothing_value, "columns_to_keep": []}
+    enc_kwargs3 = {"cv": cv, "noise_level": noise_level, "smoothing_value": smoothing_value, "drop_unused_columns": True}
 
     randomized_transformer = True  # small numerical difference ...
     if noise_level is not None:
@@ -1169,27 +1175,12 @@ def test_TargetEncoderRegressor3(cv, noise_level, smoothing_value):
         klass=TargetEncoderRegressor,
         enc_kwargs=enc_kwargs3,
         all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),  # DataTypes.NumpyArray),
-        additional_test_functions=[check_all_numerical, check_no_null, nb_columns_verify(5)],
+        additional_test_functions=[check_all_numerical, check_no_null, nb_columns_verify(len(variable_by_type["CAT"]))],
         randomized_transformer=randomized_transformer,  # noise_level is not None ,
         difference_tolerence=difference_tolerence,  # 0.5,
         difference_fit_transform=(noise_level is not None) or (cv is not None)
         # Rmk : if there is noise or cv isn't not there will be difference between fit THEN transform and fit_transform
     )
-
-
-def verif_TargetEncoderRegressor():
-    """ to manually run the tests if needed """
-    for cv in (None, 10):
-
-        for noise_level in (None, 0.1):
-
-            for smoothing_value in (0, 1):
-
-                test_TargetEncoderRegressor1(cv=cv, noise_level=noise_level, smoothing_value=smoothing_value)
-
-                test_TargetEncoderRegressor2(cv=cv, noise_level=noise_level, smoothing_value=smoothing_value)
-
-                test_TargetEncoderRegressor3(cv=cv, noise_level=noise_level, smoothing_value=smoothing_value)
 
 
 # In[] CountVetorizer
@@ -1211,10 +1202,16 @@ def test_CountVectorizerWrapper():
     )
 
 
+if _IS_PD1:
+    OUTPUT_TO_TEST = [None, DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray]
+else:
+    OUTPUT_TO_TEST = [None, DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray,
+                      DataTypes.SparseDataFrame],
+
 @pytest.mark.longtest
 @pytest.mark.parametrize(
     "desired_output_type",
-    [None, DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray, DataTypes.SparseDataFrame],
+    OUTPUT_TO_TEST
 )
 def test_CountVectorizerWrapper1(desired_output_type):
     enc_kwargs = {"columns_to_use": variable_by_type["TEXT"]}
@@ -1235,7 +1232,7 @@ def test_CountVectorizerWrapper1(desired_output_type):
 @pytest.mark.longtest
 @pytest.mark.parametrize(
     "desired_output_type",
-    [None, DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray, DataTypes.SparseDataFrame],
+    OUTPUT_TO_TEST
 )
 def test_CountVectorizerWrapper1_tfidf(desired_output_type):
     enc_kwargs = {"columns_to_use": variable_by_type["TEXT"]}
@@ -1310,14 +1307,6 @@ def test_Word2VecVectorizer(text_preprocess, same_embedding_all_columns, size, w
     )
 
 
-def verif_Word2VecVectorizer():
-
-    for text_preprocess, same_embedding_all_columns, size, window in itertools.product(
-        (None, "default", "nltk", "digit", "default"), (True, False), (50, 100), (3, 5)
-    ):
-        test_Word2VecVectorizer(text_preprocess, same_embedding_all_columns, size, window)
-
-
 # In[] Test Char2Vec
 
 
@@ -1350,14 +1339,6 @@ def test_Char2VecVectorizer(text_preprocess, same_embedding_all_columns, size, w
         randomized_transformer=True,
         difference_tolerence=0.1,
     )
-
-
-def verif_Char2VecVectorizer():
-
-    for text_preprocess, same_embedding_all_columns, size, window in itertools.product(
-        (None, "default", "digit", "default"), (True, False), (50, 100), (3, 5)
-    ):
-        test_Char2VecVectorizer(text_preprocess, same_embedding_all_columns, size, window)
 
 
 # In[] : TruncatedSVD
@@ -1820,19 +1801,6 @@ def test_FeaturesSelectorClassifier_verify_columns(selector_type):
         additional_test_functions=[check_all_numerical, check_no_null, nb_columns_verify(20), verify_columns],
         randomized_transformer=False,
     )
-
-
-def verif_FeaturesSelectorClassifier():
-    """ to manually run the tests """
-    test_FeaturesSelectorClassifier1()
-    test_FeaturesSelectorClassifier1()
-    test_FeaturesSelectorClassifier3()
-
-    for selector_type in ("forest", "linear", "default"):
-        test_FeaturesSelectorClassifier4(selector_type=selector_type)
-        test_FeaturesSelectorClassifier5(selector_type=selector_type)
-
-    test_FeaturesSelectorClassifier_verify_columns(selector_type="forest")
 
 
 # In[]:

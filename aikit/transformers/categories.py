@@ -74,8 +74,7 @@ class _NumericalEncoder(BaseEstimator, TransformerMixin):
             raise TypeError("input_serie should be a pd.Series")
 
         value_count = input_serie.value_counts()
-        nb_null = input_serie.isnull().sum()
-
+        nb_null = np.asarray(input_serie.isnull().values).sum() # Remark : input_serie.isnull().sum() doesn't work if sparse Serie
         if nb_null > self.max_na_percentage * len(input_serie):
             value_count["__null__"] = nb_null
             value_count.sort_values(ascending=False, inplace=True)

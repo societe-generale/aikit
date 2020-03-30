@@ -993,6 +993,6 @@ class SpecialGroupCV(BaseCrossValidator):
 
             groups_test = np.sort(np.unique(ugroups[index_test]))  # groups to keep in test
 
-            boolean_test_index = pd.core.algorithms.match(groups, groups_test) != -1
+            boolean_test_index = pd.Series(groups).isin(groups_test).values
 
             yield boolean_test_index

@@ -14,7 +14,7 @@ import pickle
 import itertools
 
 from tests.helpers.testing_help import get_sample_df
-from aikit.transformers.target import TargetEncoderClassifier, TargetEncoderEntropyClassifier, TargetEncoderRegressor
+from aikit.transformers.target import _TargetEncoderBase, TargetEncoderClassifier, TargetEncoderEntropyClassifier, TargetEncoderRegressor
 
 
 def test_loc_align():
@@ -27,6 +27,24 @@ def test_loc_align():
     s2.loc[inter] = s1.loc[inter]
 
     assert list(s2.values) == [0, 10, 11]
+
+
+def test__TargetEncoderBase_na_replacing():
+    s = pd.Series([None]+["a","b","c"])
+    sm = _TargetEncoderBase.na_remplacing(s)
+    assert sm.iloc[0] == "_missing_"
+    
+    s = pd.Series([None]+["a","b","c"])
+    sm = _TargetEncoderBase.na_remplacing(s)
+    assert sm.iloc[0] == "_missing_"
+    assert pd.isnull(s.iloc[0])
+    
+    
+    ss = pd.Series([np.nan]+[0,1,2], dtype=pd.SparseDtype(np.float32))
+    ss.dtype
+    sm = _TargetEncoderBase.na_remplacing(ss)
+    assert sm.iloc[0] == "_missing_"
+    assert pd.isnull(s.iloc[0])
 
 
 def test_TargetEncoderRegressor_columns_to_use_object():
