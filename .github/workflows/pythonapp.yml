@@ -62,8 +62,7 @@ jobs:
         pytest tests -v -m "not longtest"
 
   lib_versions:
-    name: Tests scikit-learn+pandas N/N-1
-
+    name: Scikit-learn+Pandas
     runs-on: ubuntu-latest
     strategy:
       matrix:
