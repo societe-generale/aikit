@@ -1225,9 +1225,9 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
             raise TypeError(f"this function is for sklearn pipeline only not {type(sk_pipeline)}")
             
         estimator = sk_pipeline.steps[-1][1]
-        attrs = [v for v in vars(estimator) if v.endswith("_") and not v.startswith("__")]
+        attributes = [v for v in vars(estimator) if v.endswith("_") and not v.startswith("__")]
         try:
-            check_is_fitted(estimator, attrs=attrs)
+            check_is_fitted(estimator, attributes=attributes)
             is_fitted=True
         except NotFittedError:
             is_fitted=False
