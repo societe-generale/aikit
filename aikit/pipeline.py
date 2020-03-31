@@ -14,7 +14,6 @@ from sklearn.pipeline import Pipeline
 
 from sklearn.exceptions import NotFittedError
 import sklearn.model_selection
-from sklearn.utils.validation import check_is_fitted
 
 import networkx as nx
 
@@ -1226,12 +1225,8 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
             
         estimator = sk_pipeline.steps[-1][1]
         attributes = [v for v in vars(estimator) if v.endswith("_") and not v.startswith("__")]
-        try:
-            check_is_fitted(estimator, attributes=attributes)
-            is_fitted=True
-        except NotFittedError:
-            is_fitted=False
-            
+        is_fitted = len(attributes) > 0
+
         # simple case : when sklearn Pipeline est not fitted
     
         models = {}
