@@ -1128,8 +1128,7 @@ def test_GraphPipeline_from_sklearn():
     gpipeline = GraphPipeline.from_sklearn(sk_pipeline)
     
     assert isinstance(gpipeline, GraphPipeline)
-    with pytest.raises(NotFittedError):
-        check_is_fitted(gpipeline)
+    assert not gpipeline._already_fitted
         
     gpipeline.fit(X, y)
     yhat = gpipeline.predict(X)
