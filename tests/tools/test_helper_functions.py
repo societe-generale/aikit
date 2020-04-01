@@ -29,7 +29,29 @@ from aikit.tools.helper_functions import (
     dico_value_filter,
     dico_key_map,
     dico_value_map,
+    _increase_name,
+    _find_name_not_present
 )
+
+
+def test__increase_name():
+    assert _increase_name('a') == 'a__1'
+    assert _increase_name('a__1') == 'a__2'
+    assert _increase_name('a__2') == 'a__3'
+    assert _increase_name('a__10') == 'a__11'
+    
+    assert _increase_name('a__b') == 'a__b__1'
+    assert _increase_name('a__b__1') == 'a__b__2'
+    assert _increase_name('a__b__2') == 'a__b__3'
+    assert _increase_name('a__b__10') == 'a__b__11'
+
+
+def test__find_name_not_present():
+    assert _find_name_not_present('not_present', {}) == 'not_present'
+    assert _find_name_not_present('not__present', {}) == 'not__present'
+    assert _find_name_not_present('a', {'a','b'}) == 'a__1'
+    assert _find_name_not_present('a', {'a','a__1', 'b'}) == 'a__2'
+    assert _find_name_not_present('a__1', {'a','a__1', 'b'}) == 'a__2'
 
 
 def test_function_has_named_argument():
