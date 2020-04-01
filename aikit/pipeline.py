@@ -1211,8 +1211,8 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
         
         Parameters
         ----------
-            sk_pipeline : sklearn Pipeline
-                the pipeline to convert
+        sk_pipeline : sklearn Pipeline
+            the pipeline to convert
                 
         Returns
         -------
