@@ -742,19 +742,5 @@ def _set_index(x, index):
 
     return x
 
-def _align_predict(predictions, classes, cloned_estimator_classes_, method):
-    """ method to align prediction made by 'predict_proba', 'predict_log_proba', and 'decision_function
-    To deal with the fact that predictions might not have the same classes
-    
-    """
-    float_min = np.finfo(predictions.dtype).min
-    default_values = {"decision_function": float_min, "predict_log_proba": float_min, "predict_proba": 0}
-
-    predictions_for_all_classes = pd.DataFrame(default_values[method], index=index_test, columns=classes)
-
-    for j, c in enumerate(cloned_estimator_classes_):
-        predictions_for_all_classes[c] = predictions[:, j]
-
-    return predictions_for_all_classes
             
 # In[]
