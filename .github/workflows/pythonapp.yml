@@ -43,20 +43,24 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: [3.6, 3.7, 3.8]
         scikitlearn-version: [0.21.3, 0.22.1]
-        pandas-version: [0.25.3]
+        pandas-version: [0.25.3, 1.0.1]
         exclude:
           - os: macos-latest
             python-version: 3.8
           - os: macos-latest
             python-version: 3.6
-          - os: macos-latest
-            python-version: 0.21.3
           - os: windows-latest
             python-version: 3.6
           - os: windows-latest
             python-version: 3.8
-          - os: windows-latest
-            python-version: 0.21.3
+          - python-version: 3.6
+            scikitlearn-version: 0.21.3
+          - python-version: 3.8
+            scikitlearn-version: 0.21.3
+          - python-version: 3.6
+            pandas-version: 1.0.1
+          - python-version: 3.8
+            pandas-version: 1.0.1
 
     steps:
     - uses: actions/checkout@v2
