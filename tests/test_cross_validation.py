@@ -17,6 +17,7 @@ import numbers
 import sklearn
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.tree import DecisionTreeRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.pipeline import Pipeline
@@ -1318,6 +1319,7 @@ def test_RandomTrainTestCv():
 
     cv = RandomTrainTestCv(test_size=0.1, random_state=123)
     splits = list(cv.split(X))
+    assert len(splits) == 1
     train2, test2 = splits[0]
 
     assert (test2 == test).all()
@@ -1325,11 +1327,28 @@ def test_RandomTrainTestCv():
 
     cv = RandomTrainTestCv(test_size=0.1, random_state=456)
     splits = list(cv.split(X))
+    assert len(splits) == 1
     train3, test3 = splits[0]
 
     assert not (test3 == test).all()
     assert not (train3 == train).all()  # different result when seed is the the same
 
+
+def test_RandomTrainTestCv_fail_with_cross_val_predict():
+    np.random.seed(123)
+    X = np.random.randn(100, 10)
+    y = np.random.randn(100)
+    
+    cv = RandomTrainTestCv(test_size=0.1, random_state=123)
+    
+    estimator = DecisionTreeRegressor(max_depth=2, random_state=123)
+    
+    with pytest.raises(ValueError):
+        cross_val_predict(estimator, X, y, cv=cv)
+        
+    res = cross_validation(estimator, X, y, cv=cv, no_scoring=True, return_predict=True)
+    assert res == (None, None)
+    
 
 def test_SpecialGroupCV():
     np.random.seed(123)

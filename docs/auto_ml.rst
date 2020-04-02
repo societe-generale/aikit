@@ -1,12 +1,21 @@
 
-.. _auto_ml_overview:
+.. _auto_ml:
 
 Auto ML Overview
 ================
 
+.. toctree::
+   :maxdepth: 1
+   
+   See Details of Launcher<auto_ml_launcher_detail>
+   Advanced Functionnalities <auto_ml_launcher_advanced>
+   Manual Launch <auto_ml_manual>
+
+   
+
 aikit proposes a tool to automatically search among machine learning models and preprocessings to find the best one(s).
 
-To do that the algorithm needs an 'X' DataFrame and a target 'y' and that is it. The algorithm starts to guess everything that is needed:
+To do that the algorithm needs an 'X' DataFrame and a target 'y' and that is to be predicted. The algorithm starts to guess everything that is needed:
 
  * the type of problem (regression, classification)
  * the type of each variable (categorical, text or numerical)
@@ -16,7 +25,7 @@ To do that the algorithm needs an 'X' DataFrame and a target 'y' and that is it.
  * ...
  
 Everything can be overrided by the the user if needed.
-(See detailed doc after).
+(See :ref:`auto_ml_launcher_advanced`)
 
 A folder also needs to be set because everything will transit on disk and be saved in that folder.
 
@@ -35,8 +44,6 @@ The process is more or less the following (see after for detailed)
  
 Everything can be driven via a script.
 
-Launcher
---------
 
 The easiest way to start the auto ml is to create a script like the following one (and save it as 'automl_launcher.py' for example)
 
@@ -83,7 +90,20 @@ Once that is done, just run the following command ::
 It will starts the process using 4 workers (you can change that number if you have more or less processes available).
 
 Here is a diagram that summarize what is going and explained the different functionnalities.
-For a complete explanation of all the command please look at the :ref:`ml_machine_launcher` page.
+For a complete explanation of all the command please look at the :ref:`auto_ml_launcher_detail` page.
 
 .. figure:: img/automl_diagram.bmp
    :alt: Summary of the auto ml command
+
+For a detailed explanation about how the auto-ml is working you can go here:
+
+.. toctree::
+   :maxdepth: 1
+
+   auto_ml_explanation
+   
+   
+You can download and adapt the scripts here 
+
+- :download:`Auto Ml Default (Titanic) </scripts/run_auto_ml_titanic.py>`
+- :download:`Auto Ml Advanced (Titanic) </scripts/run_auto_ml_titanic_advanced.py>`

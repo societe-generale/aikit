@@ -14,7 +14,6 @@ except ImportError:
     print("This test won't run, please install lightgbm")
     LGBMClassifier = None
 
-import pytest
 
 from aikit.tools.data_structure_helper import convert_generic, DataTypes
 

@@ -120,6 +120,4 @@ venv.bak/
 pytest_report.html
 pytest_report_not_long.html
 .DS_Store
-/docs/make.bat
-/docs/make_auto.bat
-/docs/make_html.bat
+/docs/*.bat

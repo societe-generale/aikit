@@ -107,8 +107,10 @@ def test_ColumnsSelector():
     with pytest.raises(ValueError):
         selector.transform(dfX2.loc[:, ["text2", "text1"]])  # Error because not correct number of columns
 
+    dfX2_cp = dfX2.copy()
+    dfX2_cp["text3"] = "new_text_column"
     with pytest.raises(ValueError):
-        selector.transform(dfX2.loc[:, ["text3", "text1"]])  # Error because text2 not in df
+        selector.transform(dfX2_cp.loc[:, ["text3", "text1"]])  # Error because text2 not in df
 
     with pytest.raises(ValueError):
         selector.transform(dfX2.values)  # Error because type changes
@@ -129,7 +131,7 @@ def test_ColumnsSelector():
     assert (r3 == r2).all(axis=None)
 
     with pytest.raises(ValueError):
-        r3 = selector.transform(dfX2.loc[:, ["text3", "text1"]])  # Still raise an error : because text2 isn't present
+        r3 = selector.transform(dfX2_cp.loc[:, ["text3", "text1"]])  # Still raise an error : because text2 isn't present
 
     with pytest.raises(ValueError):
         selector.transform(dfX2.values)  # Error because type changes

@@ -1,46 +1,9 @@
 
-.. _model_wrapper:
+.. _model_wrapper_howto:
 
-ModelWrapper
-============
-
-This is a more detailed explanation about the :class:`aikit.transformers.model_wrapper.ModelWrapper` class. It will explain what the wrapper is doing and how to wrap new models.
-
-Wrapper Goal
-------------
-The aim of the wrapper is to provide a generic class to handle most of the redondant operations that we might want to apply in a transformer.
-In particular it aims at making regular 'sklearn like' model more generic and more 'user friendly'.
-
-Here are a few reasons wrapping a transfomer might be useful :
-
- * automatic conversion of input/output into a given format (which is useful when chaining models and some on them accepts DataFrame, some don't, ...)
- * verification of type, shape of new data
- * shape conversion for model that only accept '1-dimensional' input 
- * automatic splits and concatenation of result for models that only work one column at a time (See : :ref:`CountVectorizerWrapper`)
- * generation of features_names and usage of those names when the output is a DataFrame
- * delay the creation of underlying model until the :func:`fit` is called. This allow to customize hyper-parameters based on the data (Ex : 'n_components' can be a float, corresponding to the fraction of columns to keep)
-
-Let's take sklearn :class:`sklearn.feature_extraction.text.CountVectorizer` as an example.
-The transformer has the logic implemented however it can sometimes be a little difficult to use :
-
- * if your data has more than one text column you need more than once CountVectorizer and you need to concatened the result
-Indeed CountVectorizer work only on 1 dimensional input (corresponding to a text Serie or a text list)
-
- * if your data is relatively small you might want to retrieve a regular pandas DataFrame and not a scipy.sparse matrix which might not work with your following steps
- * you might want to have feature_names that not only correspond to the 'word/char' but also tells from which column it comes from. Example of such column name : 'text1_BAG_dog'
- 
- * you might want to tell the CountVectorizer to work on specific columns (so that you don't have to take care of manually splitting your data)
-
-As a consequence it also make the creation of a "sklearn compliant" model (ie : a model that works well within the sklearn infrastructure easy : clone, set_params, hyper-parameters search, ...)
- 
-Wrapping the model makes the creation of complexe pipleline like the in :ref:`graph_pipeline` a lot easier.
-
-To sum up the aim of the wrapper is to separate :
- 1. the logic of the transformer
- 2. the *mechanical* data transformation, checks, ... needed to make the transformer robust and easy to use
 
 How to Wrap a transformer
--------------------------
+=========================
 
 To wrap a new model you should 
  1. Create a new class that inherit from ModelWrapper
@@ -67,6 +30,7 @@ Here is an example of how to wrap sklearn CountVectorizer::
 
         """
         def __init__(self,
+                     columns_to_use = "all",
                      analyzer = "word",
                      max_df = 1.0,
                      min_df = 1,
@@ -127,7 +91,7 @@ And here is an example of how to wrap TruncatedSVD to make it work with DataFram
         """
         def __init__(self,
                      n_components = 2,
-                     columns_to_use = None,
+                     columns_to_use = "all",
                      regex_match  = False
                      ):
             self.n_components = n_components
@@ -156,7 +120,8 @@ And here is an example of how to wrap TruncatedSVD to make it work with DataFram
 
             
 What append during the fit
---------------------------
+==========================
+
 To help understand a little more what goes on, here is a brief summary the fit method
 
  #. if 'columns_to_use' is set, creation and fit of a :class:`aikit.transformers.model_wrapper.ColumnsSelector` to subset the column

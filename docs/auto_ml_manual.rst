@@ -1,4 +1,4 @@
-.. _ml_machine_manual:
+.. _auto_ml_manual:
 
 
 Auto ML Manual Launch

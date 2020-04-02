@@ -11,6 +11,8 @@ from scipy import sparse
 
 from aikit.enums import DataTypes
 
+_IS_PD1 = int(pd.__version__.split(".")[0]) >= 1
+
 
 def get_type(data):
     """Retrieve the type of a data 
@@ -45,8 +47,8 @@ def get_type(data):
     elif type_of_data == np.ndarray:
         return DataTypes.NumpyArray
 
-    elif type_of_data == pd.SparseDataFrame:
-        return DataTypes.SparseDataFrame
+    elif not _IS_PD1 and type_of_data == pd.SparseDataFrame:
+        return DataTypes.SparseDataFrame # Won't exist in pandas 1.*.*
 
     elif sparse.issparse(data):
         return DataTypes.SparseArray
@@ -56,6 +58,7 @@ def get_type(data):
 
 
 def get_rid_of_categories(df):
+    """ helper function to remove pd.categories in a DataFrame """
     did_copy = False
     for col in df.columns:
         if str(df[col].dtype) == "category":
@@ -63,9 +66,28 @@ def get_rid_of_categories(df):
                 df = df.copy()
                 did_copy = True
 
-            df[col] = df[col].get_values()
+            df[col] = df[col].astype(df[col].cat.categories.dtype)
 
     return df
+
+def get_rid_of_sparse_columns(xx):
+    """ helper function to remove sparse column in a DataFrame """
+
+    if not isinstance(xx, pd.DataFrame):
+        raise TypeError("This function is for DataFrames only")
+
+    did_copy = False
+    for col in xx.columns:
+        if hasattr(xx[col], "sparse"):
+            if not did_copy:
+                result = xx.copy()
+                did_copy = True
+            result[col] = result[col].sparse.to_dense()
+            
+    if not did_copy:
+        result = xx # nothing was done
+
+    return result
 
 
 def convert_to_dataframe(xx, mapped_type=None):
@@ -105,7 +127,7 @@ def convert_to_array(xx, mapped_type=None):
         return convert_to_array(convert_to_dataframe(xx))
 
     if mapped_type == DataTypes.DataFrame:
-        return xx.values
+        return get_rid_of_categories(xx).values
 
     elif mapped_type == DataTypes.Serie:
         return xx.values.reshape((xx.shape[0], 1))
@@ -139,7 +161,10 @@ def convert_to_sparsearray(xx, mapped_type=None):
         return convert_to_sparsearray(convert_to_dataframe(xx))
 
     if mapped_type == DataTypes.DataFrame:
-        return sparse.csr_matrix(xx.values)
+        casting_dtype = np.concatenate([np.zeros(1, dtype=s.type) for s in get_rid_of_categories(xx).dtypes]).dtype
+        return sparse.csr_matrix(xx.values.astype(casting_dtype))
+        # look at the dtype in the DataFrame
+        # concat will create for me the "smallest" type holding all that
 
     elif mapped_type == DataTypes.Serie:
         sparse.csr_matrix(xx.values[:, np.newaxis])  # np.newaxis to make sure I have 2 dimensio
@@ -160,6 +185,13 @@ def convert_to_sparsearray(xx, mapped_type=None):
         raise TypeError("I don't know how to convert that %s" % type(xx))
 
 
+def convert_to_sparseserie(xx):
+    """ helper to convert a serie to its sparse equivalent """
+    if hasattr(xx, "sparse"):
+        return xx # nothing to do
+    
+    return xx.astype(pd.SparseDtype(xx.dtype))
+
 def convert_to_sparsedataframe(xx, mapped_type=None):
     """ convert something to a Sparse DataFrame """
 
@@ -170,19 +202,39 @@ def convert_to_sparsedataframe(xx, mapped_type=None):
         return convert_to_sparsedataframe(convert_to_dataframe(xx))
 
     if mapped_type == DataTypes.DataFrame:
-        return pd.SparseDataFrame(xx, default_fill_value=0)
-
-    elif mapped_type == DataTypes.Serie:
-        return pd.SparseDataFrame(pd.DataFrame(xx), default_fill_value=0)
-
-    elif mapped_type == DataTypes.NumpyArray:
-        if xx.ndim == 1:
-            return pd.SparseDataFrame(xx.reshape((xx.shape[0], 1)), default_fill_value=0)
+        if _IS_PD1:
+            result = xx.copy()
+            for col in xx.columns:
+                result[col] = xx[col].astype(pd.SparseDtype(xx.dtypes[col]))
+            return result
         else:
             return pd.SparseDataFrame(xx, default_fill_value=0)
 
+    elif mapped_type == DataTypes.Serie:
+        if _IS_PD1:
+            return pd.DataFrame(xx, dtype=pd.SparseDtype(xx.dtype), index=xx.index)
+        else:
+            return pd.SparseDataFrame(pd.DataFrame(xx), default_fill_value=0)
+
+
+    elif mapped_type == DataTypes.NumpyArray:
+
+        if xx.ndim == 1:
+            if _IS_PD1:
+                return pd.DataFrame({0: pd.arrays.SparseArray(xx)})
+            else:
+                return pd.SparseDataFrame(xx.reshape((xx.shape[0], 1)), default_fill_value=0)
+        else:
+            if _IS_PD1:
+                return pd.DataFrame({j:pd.arrays.SparseArray(xx[:,j]) for j in range(xx.shape[1])})
+            else:
+                return pd.SparseDataFrame(xx, default_fill_value=0)
+
     elif mapped_type == DataTypes.SparseArray:
-        return pd.SparseDataFrame(xx, default_fill_value=0)
+        if _IS_PD1:
+            return pd.DataFrame.sparse.from_spmatrix(xx)
+        else:
+            return pd.SparseDataFrame(xx, default_fill_value=0)
 
     elif mapped_type == DataTypes.SparseDataFrame:
         return xx
@@ -204,6 +256,9 @@ def convert_tononsparse(xx, mapped_type=None):
 
     elif mapped_type == DataTypes.SparseDataFrame:
         return convert_to_dataframe(xx)
+    
+    elif _IS_PD1 and mapped_type == DataTypes.DataFrame:
+        return get_rid_of_sparse_columns(xx)
 
     else:
         return xx
@@ -307,10 +362,10 @@ def _nbrows(data):
         return s[0]
 
 
-def guess_output_type(all_datas):
+def guess_output_type(all_datas, max_number_of_cells_for_non_sparse=10000000):
     """ try to guess which output type should be better based on size of the data """
 
-    MAX_NUMBER_OF_CELLS = 10000000  #  1000 * 10000 # 1000 columns and 10 000 rows
+    # 1000 * 10000 # 1000 columns and 10 000 rows
     all_types = [get_type(data) for data in all_datas]
     all_types = list(np.unique([t for t in all_types if t is not None]))
 
@@ -337,7 +392,7 @@ def guess_output_type(all_datas):
         # carefull np.sum result should be cast at int : otherwise it can be np.int32 and generate overflow which can make the product
 
         # Lots of data point
-        if expected_number_of_columns * _nbrows(all_datas[0]) >= MAX_NUMBER_OF_CELLS:
+        if expected_number_of_columns * _nbrows(all_datas[0]) >= max_number_of_cells_for_non_sparse:
             return DataTypes.SparseArray
         else:
             return DataTypes.NumpyArray
@@ -345,7 +400,7 @@ def guess_output_type(all_datas):
     else:
         expected_number_of_columns = int(np.sum([_nbcols(data) for data in all_datas]))
         # careful np.sum result should be cast at int : otherwise it can be np.int32 and generate overflow
-        if expected_number_of_columns * _nbrows(all_datas[0]) >= MAX_NUMBER_OF_CELLS:
+        if expected_number_of_columns * _nbrows(all_datas[0]) >= max_number_of_cells_for_non_sparse:
             return DataTypes.SparseArray
             # return DataTypes.SparseDataFrame
         else:
@@ -464,7 +519,7 @@ def guess_hstack_index(all_datas, raise_if_different=False):
     return all_indexes[0]
 
 
-def generic_hstack(all_datas, output_type=None, all_columns_names=None):
+def generic_hstack(all_datas, output_type=None, all_columns_names=None, max_number_of_cells_for_non_sparse=10000000):
     """ generic function to concatenate horizontaly some datas objects
     
     All datas should have the same number of rows
@@ -487,7 +542,7 @@ def generic_hstack(all_datas, output_type=None, all_columns_names=None):
     """
 
     if output_type is None:
-        output_type = guess_output_type(all_datas)
+        output_type = guess_output_type(all_datas, max_number_of_cells_for_non_sparse=max_number_of_cells_for_non_sparse)
 
     all_datas = [data for data in all_datas if _nbcols(data) > 0]
     nb_of_datas = len(all_datas)

@@ -1,4 +1,4 @@
-.. _ml_machine_explanation:
+.. _auto_ml_explanation:
 
 Auto ML Inner Workings
 ======================

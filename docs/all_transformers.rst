@@ -1,28 +1,9 @@
-.. _transformers:
+.. _all_transformers:
 
-Transformers
-============
+All Transformers
+================
 
-aikit offers some transformers to help process the data. Here is a brief description of them.
-
-Wrapped Transfomers
--------------------
-
-Those transformers are just relatively thin wrappers around what already exists within sklearn, the aim is to facilitate integration and facilitate the automatic search amongst those transformers (See :ref:`ml_machine`)
-
-The idea of those wrappers is to offer a little more than what is done by plain sklearn models:
-
- - automatic conversion of input/output into a given format (which is useful when chaining models, because some models accept DataFrames, some don't, some accept sparse data, some don't ...)
- - verification of type, shape of new data
- - shape conversion for model that only accept '1-dimensional' input
- - automatic splits and concatenation of results for models that only work one column at a time (See: :ref:`aikit.transformers.CountVectorizerWrapper`)
- - better handling of features names, get_feature_names method present everywhere, usage of those names for columns when the output is a DataFrame
- - delay the creation of underlying model until the :func:`fit` is called. This allow to customize hyper-parameters based on the data (Ex : ``n_components`` can be a float).
- 
-All those models are wrapped using :class:`aikit.transformers.model_wrapper.ModelWrapper`. A complete explanation of how to wrap new models is present there
-
-
-
+Here is a list of some of aikit transformers
 
 Text Transformer
 ----------------
@@ -41,7 +22,7 @@ This is another text pre-processing transformers that does classical text transf
  .. autoclass:: aikit.transformers.text.TextNltkProcessing
  
 CountVectorizerWrapper
-*****************
+**********************
 
 Wrapper around sklearn ``CountVectorizer``.
 
@@ -66,14 +47,15 @@ Dimension Reduction
 
 
 TruncatedSVDWrapper
-**************
+*******************
 
 Wrapper around sklearn ``TruncatedSVD``.
 
  .. autoclass:: aikit.transformers.base.TruncatedSVDWrapper
 
 KMeansTransformer
-*******************
+*****************
+
 This transformers does a KMeans clustering and uses the cluster to generate new features (based on the distance between each cluster).
 Remark : for the 'probability' result_type, since KMeans isn't a probabilistic model the probability is computed using an heuristic.
 

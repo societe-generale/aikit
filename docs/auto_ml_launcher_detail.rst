@@ -1,4 +1,4 @@
-.. _ml_machine_launcher:
+.. _auto_ml_launcher_detail:
 
 
 Auto ML Launcher

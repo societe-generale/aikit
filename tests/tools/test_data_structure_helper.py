@@ -21,6 +21,9 @@ from aikit.tools.data_structure_helper import (
     convert_to_dataframe,
     convert_to_sparsearray,
     get_rid_of_categories,
+    get_rid_of_sparse_columns,
+    convert_to_sparseserie,
+    _IS_PD1,
 )
 from aikit.tools.data_structure_helper import make2dimensions, make1dimension
 from aikit.tools.data_structure_helper import generic_hstack
@@ -29,13 +32,15 @@ from tests.helpers.testing_help import get_sample_df
 
 def test_get_type():
     df = pd.DataFrame({"a": np.arange(10)})
-    dfs = pd.SparseDataFrame({"a": [0, 0, 0, 1, 1]})
+
+    if not _IS_PD1:
+        dfs = pd.SparseDataFrame({"a": [0, 0, 0, 1, 1]})
+        assert get_type(sparse.coo_matrix(df.values)) == DataTypes.SparseArray
+        assert get_type(dfs) == DataTypes.SparseDataFrame
 
     assert get_type(df) == DataTypes.DataFrame
     assert get_type(df["a"]) == DataTypes.Serie
     assert get_type(df.values) == DataTypes.NumpyArray
-    assert get_type(sparse.coo_matrix(df.values)) == DataTypes.SparseArray
-    assert get_type(dfs) == DataTypes.SparseDataFrame
 
 
 def test__nbcols():
@@ -101,8 +106,16 @@ def test_conversion():
         # "dfs1":(pd.SparseDataFrame(sparse.csr_matrix(array1),columns=["A","B","C"]) , data_type.SparseDataFrame)
         # "dfs2":(pd.SparseDataFrame(sparse.csr_matrix(1*(array1 > 0)),columns=["a","b","c"]), data_type.SparseDataFrame)
     }
+    
+    if _IS_PD1:
+        df1_cat = all_objects["df1"][0].copy()
+        df1_cat["A"] = df1_cat["A"].astype("category")
+        
+        all_objects["df1_cat"] = (df1_cat, DataTypes.DataFrame)
+        
 
     for name, (obj, expected_type) in all_objects.items():
+        
         assert get_type(obj) == expected_type
 
         converted = convert_to_dataframe(obj)
@@ -110,6 +123,7 @@ def test_conversion():
 
         converted = convert_to_array(obj)
         assert get_type(converted) == DataTypes.NumpyArray
+        assert converted.dtype.kind in ("i","f")
 
         converted = convert_to_sparsearray(obj)
         assert get_type(converted) == DataTypes.SparseArray
@@ -156,6 +170,27 @@ def test_generic_hstack():
         generic_hstack((df1.head(3).values, df2.head(4).values))
 
 
+@pytest.mark.skipif(not _IS_PD1, reason="only testing for pandas >= 1.0.0")
+@pytest.mark.parametrize('with_cat, force_sparse', [[True,True],[True,False],[False,True],[False,False]])
+def test_generic_hstack_sparse_and_category(with_cat, force_sparse):
+    
+    df = pd.DataFrame({"a":10+np.arange(10),"b":np.random.randn(10)})
+    if with_cat:
+        df["a"] = df["a"].astype("category")
+
+    xx = convert_to_sparsearray(np.random.randint(0,1, size=(10,2)))
+
+    concat = generic_hstack((df,xx), max_number_of_cells_for_non_sparse = 10 + (1-force_sparse) * 1000000)    
+    
+    assert concat.shape == (df.shape[0] , df.shape[1] + xx.shape[1])
+    if force_sparse:
+        assert get_type(concat) == DataTypes.SparseArray
+
+    elif with_cat:
+        assert concat.dtypes["a"] == "category"
+        assert isinstance(concat, pd.DataFrame)
+
+
 def test_get_rid_of_categories():
     df = get_sample_df()
     df2 = get_rid_of_categories(df)
@@ -181,12 +216,34 @@ def test_get_rid_of_categories():
     assert (df2.dtypes == df.dtypes).all()
 
 
-def verif_all():
-    test_make1dimension()
-    test_make2dimensions()
-    test_conversion()
-    test_generic_hstack()
-    test_get_type()
-    test__nbcols()
-    test__nbrows()
-    test_get_rid_of_categories()
+@pytest.mark.skipif(not _IS_PD1, reason="only testing for pandas >= 1.0.0")
+def test_get_rid_of_sparse_columns():
+    df = get_sample_df()
+    df2 = get_rid_of_sparse_columns(df)
+
+    assert df2 is df  # nothing happend
+    df_with_sparse = df.copy()
+    df_with_sparse["int_col"] = df_with_sparse["int_col"].astype(pd.SparseDtype(np.int))
+    df2 = get_rid_of_sparse_columns(df_with_sparse)
+    assert not hasattr(df2["int_col"], "sparse")
+    
+    assert (df2["int_col"] == df["int_col"]).all()
+
+@pytest.mark.skipif(not _IS_PD1, reason="only testing for pandas >= 1.0.0")
+def test_convert_to_sparseserie():
+    
+    s = pd.Series([0,1,2])
+    sp = convert_to_sparseserie(s)
+    assert hasattr(sp, "sparse")
+    assert (sp.sparse.to_dense() == s).all()
+    spp = convert_to_sparseserie(sp)
+    assert spp is sp
+    
+    s = pd.Series([0.1, 0.2, 0.3])
+    sp = convert_to_sparseserie(s)
+    assert hasattr(sp, "sparse")
+    assert (sp.sparse.to_dense() == s).all()
+    spp = convert_to_sparseserie(sp)
+    assert spp is sp
+    
+    
