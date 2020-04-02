@@ -1219,7 +1219,7 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
         aikit GraphPipeline
         
         """
-        
+          
         if not isinstance(sk_pipeline, Pipeline):
             raise TypeError(f"this function is for sklearn pipeline only not {type(sk_pipeline)}")
             
