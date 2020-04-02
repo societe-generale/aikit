@@ -508,3 +508,30 @@ def md5_hash(ob):
     m = hashlib.md5()
     m.update(s.getvalue().encode("utf-8"))
     return m.hexdigest()
+
+
+def _increase_name(name):
+    """ helper to increment a name by a number """
+    if "__" in name:
+        if re.search('__\d+$',name) is not None:
+            n = name.split('__')
+            name = '__'.join(n[0:-1]) + '__' + str(int(n[-1]) + 1)
+            return name
+        
+    return name + '__1'
+
+def _find_name_not_present(name, keys):
+    """ helper to find a new name that isn't already present in a set of keys """
+    if name not in keys:
+        return name
+    
+    new_name = name
+
+    while True:
+        if new_name in keys:
+            new_name = _increase_name(new_name)
+        else:
+            break
+
+    return new_name
+

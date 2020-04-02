@@ -128,12 +128,19 @@ def test_BlockManager_retrieve():
 
     assert id(df1) == id(df)
     assert id(arr1) == id(arr)
+    
+    assert "df" in X
+    assert "arr" in X
 
     with pytest.raises(KeyError):
         X["toto"]
+        
+    assert "toto" not in X
 
     with pytest.raises(KeyError):
         X[0]
+        
+    assert 0 not in X
 
     X = BlockManager([df, arr])
     df1 = X[0]
@@ -149,6 +156,11 @@ def test_BlockManager_retrieve():
 
     with pytest.raises(KeyError):
         X[3]
+
+    assert 0 in X
+    assert 1 in X
+    assert 3 not in X
+    assert "toto" not in X
 
 
 def test_BlockManager_subset():
@@ -175,11 +187,6 @@ def test_BlockManager_subset():
     assert isinstance(Xsubset, BlockManager)
     assert (Xsubset["df"] == df.iloc[0:3, :]).all().all()
     assert (Xsubset["arr"] == arr[0:3, :]).all()
-
-    #    Xsubset = safe_indexing(X, [0,1,2])
-    #    assert isinstance(Xsubset, BlockManager)
-    #    assert (Xsubset["df"]  == df.iloc[0:3,:]).all().all()
-    #    assert (Xsubset["arr"] == arr[0:3,:]).all()
 
     Xsubset = safe_indexing(X, np.array([0, 1, 2]))
     assert isinstance(Xsubset, BlockManager)

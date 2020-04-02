@@ -324,6 +324,11 @@ class BlockManager(object):
             raise KeyError("Can't subset block %s" % block)
 
         return res
+    
+    def __contains__(self, data):
+        """ operator called when 'data in self' is called """
+        return data in self.keys()
+            
 
     def iloc_fun(self, index):
         """ subsetting function, will create a BlockManager subsetted using index """

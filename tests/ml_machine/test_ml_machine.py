@@ -335,7 +335,7 @@ def _all_same(all_gen):
 
 @pytest.mark.parametrize(
     "num_only, specific_hyper, only_random_forest",
-    [(True, False, False), (False, True, True), (False, True, False), (False, False, True), (False, False, False)],
+    [(True, False, False), (False, True, False), (False, False, True), (False, False, False)],
 )
 def test_RandomModelGenerator_random(num_only, specific_hyper, only_random_forest):
 
@@ -455,6 +455,15 @@ def test_RandomModelGenerator_random(num_only, specific_hyper, only_random_fores
     assert all_graphs1_node_edges == all_graphs4_node_edges
     assert all_params1 == all_params4
     assert all_blocks1 == all_blocks4
+
+
+@pytest.mark.longtest
+@pytest.mark.parametrize(
+    "num_only, specific_hyper, only_random_forest",
+    [(False, True, True)],
+)
+def test_RandomModelGenerator_random_failseed(num_only, specific_hyper, only_random_forest):
+    test_RandomModelGenerator_random(num_only, specific_hyper, only_random_forest)
 
 
 def test__create_all_combinations():

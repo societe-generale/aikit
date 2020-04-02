@@ -10,6 +10,7 @@ from copy import deepcopy
 
 from sklearn.base import TransformerMixin, BaseEstimator, clone
 from sklearn.utils.metaestimators import if_delegate_has_method
+from sklearn.pipeline import Pipeline
 
 from sklearn.exceptions import NotFittedError
 import sklearn.model_selection
@@ -30,7 +31,7 @@ from aikit.tools.graph_helper import (
 
 from aikit.transformers.model_wrapper import try_to_find_features_names
 from aikit.tools.data_structure_helper import generic_hstack, guess_output_type
-from aikit.tools.helper_functions import unlist, dico_key_filter, function_has_named_argument
+from aikit.tools.helper_functions import unlist, dico_key_filter, function_has_named_argument, _find_name_not_present
 
 
 from aikit.transformers.block_selector import BlockSelector, BlockManager
@@ -1201,3 +1202,51 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
         sub_pipeline._all_concat_type = dico_key_filter(self._all_concat_type, lambda n: n in nodes_to_keep)
 
         return sub_pipeline
+
+    @classmethod
+    def from_sklearn(cls, sk_pipeline):
+        """ Function to create an aikit GraphPipeline from an existing sklearn Pipeline
+        
+        The original pipeline can be fitted or not
+        
+        Parameters
+        ----------
+        sk_pipeline : sklearn Pipeline
+            the pipeline to convert
+                
+        Returns
+        -------
+        aikit GraphPipeline
+        
+        """
+        
+        if not isinstance(sk_pipeline, Pipeline):
+            raise TypeError(f"this function is for sklearn pipeline only not {type(sk_pipeline)}")
+            
+        estimator = sk_pipeline.steps[-1][1]
+        attributes = [v for v in vars(estimator) if v.endswith("_") and not v.startswith("__")]
+        is_fitted = len(attributes) > 0
+
+        # simple case : when sklearn Pipeline est not fitted
+    
+        models = {}
+        edges  = []
+            
+        for name, model in sk_pipeline.steps:
+            new_name = _find_name_not_present(name, models.keys() )
+            edges.append(new_name)
+            models[new_name] = model
+    
+        model = GraphPipeline(models=models, edges=[tuple(edges)])
+        
+        if not is_fitted:
+            return model
+    
+        # if the model was fitted I need to emulate the fitting of GraphPipeline
+        model._complete_init()
+        model._already_fitted = True
+        model._Xinput_features = None    # don't know the input feature
+        model._all_concat_order = dict() # no concat this pipeline is linear
+        model._all_concat_type = dict()  # no concat this pipeline is linear
+        
+        return model
