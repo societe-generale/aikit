@@ -1,13 +1,12 @@
-# build documentation in the docs/ directory
-sphinx:
-  configuration: docs/conf.py
-  
-# default formats
-formats: []
+version: 2
 
-# python version
 python:
   version: 3.7
   install:
-    - requirements: docs/requirements.txt
     - requirements: requirements.txt
+    - requirements: requirements-doc.txt
+
+sphinx:
+  configuration: docs/conf.py
+  
+formats: all
