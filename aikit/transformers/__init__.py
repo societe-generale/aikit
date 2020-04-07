@@ -28,7 +28,7 @@ from .text import (
 )
 from .target import TargetEncoderClassifier, TargetEncoderEntropyClassifier, TargetEncoderRegressor
 from .block_selector import BlockSelector, BlockManager, TransformToBlockManager
-from .model_wrapper import ModelWrapper, ColumnsSelector
+from .model_wrapper import ModelWrapper, ColumnsSelector, AutoWrapper
 
 __all__ = [
     "FeaturesSelectorClassifier",
@@ -56,6 +56,7 @@ __all__ = [
     "BlockManager",
     "TransformToBlockManager",
     "ModelWrapper",
+    "AutoWrapper",
     "ColumnsSelector",
     "PCAWrapper",
 ]
