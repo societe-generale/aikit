@@ -1237,8 +1237,8 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
 def AutoWrapper(model, wrapping_kwargs=None):
     """ returns sklearn-learn like class that 
     
-    * works the same way has a model
-    * but implements the functionnalities from ModelWrapper
+    * works the same way as a model
+    * but implements the functionalities from ModelWrapper
     
     Parameters
     ----------
@@ -1330,7 +1330,7 @@ def AutoWrapper(model, wrapping_kwargs=None):
                      regex_match=False,
                      desired_output_type=DataTypes.DataFrame,
                      drop_used_columns=True,
-                     drop_unused_columns=False,
+                     drop_unused_columns=True,
                      ):
             
             self.columns_to_use=columns_to_use
