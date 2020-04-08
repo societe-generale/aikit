@@ -964,6 +964,11 @@ class DummyOnlyOneDimension(BaseEstimator, TransformerMixin):
     def transform(self, X):
         return X.values[:, np.newaxis].repeat(self.nb_outputs, axis=1) # 2 dimensional output
 
+class DummyOnlyOneDimensionWithGetFeatureNames(DummyOnlyOneDimension):
+    
+    def get_feature_names(self):
+        return ["FEATURE__%d" % j for j in range(self.nb_outputs)]
+
 
 def test_AutoWrapper():
     np.random.seed(123)
@@ -1007,21 +1012,27 @@ def test_AutoWrapper():
     with pytest.raises(TypeError):
         dummy_not_wrapped.fit_transform(df)
     
-    dummy_auto_wrapped = AutoWrapper(DummyNoDataFrame, wrapping_kwargs={"accepted_input_types":(DataTypes.NumpyArray,)})()
+    dummy_auto_wrapped = AutoWrapper(DummyNoDataFrame, accepted_input_types=(DataTypes.NumpyArray,))()
     Xres = dummy_auto_wrapped.fit_transform(df)
     assert isinstance(Xres, pd.DataFrame)
 
 
-@pytest.mark.parametrize('column_prefix, nb_outputs', [[None, 1], [None, 2], ["DUM", 1], ["DUM", 2]])
-def test_AutoWrapper_one_dimensional_transformer(column_prefix, nb_outputs):
+@pytest.mark.parametrize('column_prefix, nb_outputs, with_get_feature_names', list(itertools.product((None, "DUM"),(1,2),(True, False))))
+def test_AutoWrapper_one_dimensional_transformer(column_prefix, nb_outputs, with_get_feature_names):
     np.random.seed(123)
     X = np.random.randn(100,10)
     df = pd.DataFrame(X, columns=[f"NUMBER_{j}" for j in range(X.shape[1])])
     df["not_a_number"] = "a"
     
-    wrapping_kwargs={"work_on_one_column_only":True, "all_columns_at_once":False}
- 
-    dummy_auto_wrapped = AutoWrapper(DummyOnlyOneDimension(nb_outputs=nb_outputs), wrapping_kwargs=wrapping_kwargs)(column_prefix=column_prefix)
+    if with_get_feature_names:
+        klass = DummyOnlyOneDimensionWithGetFeatureNames
+    else:
+        klass = DummyOnlyOneDimension
+    
+    dummy_auto_wrapped = AutoWrapper(klass(nb_outputs=nb_outputs),
+                                     work_on_one_column_only=True,
+                                     all_columns_at_once=False
+                                     )(column_prefix=column_prefix)
     Xres = dummy_auto_wrapped.fit_transform(df)
     
     assert isinstance(Xres, pd.DataFrame)
@@ -1030,10 +1041,17 @@ def test_AutoWrapper_one_dimensional_transformer(column_prefix, nb_outputs):
     
     expected_cols = []
     for col in df.columns:
-        if column_prefix is None:
-            expected_cols += [(col + "__%d" % d) for d in range(nb_outputs)]
-        else:
-            expected_cols += [(col + "__%s__%d" % (column_prefix, d)) for d in range(nb_outputs)]
+        add = "FEATURE" if with_get_feature_names else ""
+
+        if column_prefix is not None:
+            if add == "":
+                add = column_prefix
+            else:
+                add = column_prefix + "__" + add
+            
+        if add != "":
+            add = "__" + add
+        expected_cols += [(col + add + "__%d" % d) for d in range(nb_outputs)]
 
     assert Xres.shape == (df.shape[0] , df.shape[1] * nb_outputs)
     assert dummy_auto_wrapped.get_feature_names() == expected_cols
