@@ -1179,6 +1179,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         #                                           all_Xres = None,
         #                                           Xsubset_columns = None,
         #                                           Xsubset_shape = None):
+
         ########################################
         ### Apply the model COLUMN BY COLUMN ###
         ########################################
@@ -1195,7 +1196,6 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
 
         # 1) use get_feature_names
         all_features = [try_to_find_features_names(submodel, input_features=input_columns) for submodel in self._models]
-
         # 2) if not found.. I'll try to read it elsewhere..
         if any_none(all_features):
 
@@ -1206,7 +1206,8 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
                 all_features = [[c] for c in input_columns]
 
             if any_none(all_features) and not any_none(all_output_shape):
-                all_features = [list(range(nbcols_from_shape(s))) for s in input_shape]
+
+                all_features = [list(range(nbcols_from_shape(s))) for s in all_output_shape]
 
             if any_none(all_features) and self.dont_change_columns and input_shape is not None:
                 all_features = [[i] for i in range(nbcols_from_shape(input_shape))]
@@ -1230,6 +1231,9 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         if self.column_prefix is not None:
             for col, features in zip(input_columns, all_features):
                 final_features += [_concat(col, self.column_prefix, f, sep="__") for f in features]
+        else:
+            for col, features in zip(input_columns, all_features):
+                final_features += [_concat(col, f, sep="__") for f in features]
 
         return final_features
 
@@ -1273,7 +1277,7 @@ def AutoWrapper(model, wrapping_kwargs=None):
                  "all_columns_at_once":True,
                  "accepted_input_types":(DataTypes.DataFrame,),
                  "must_transform_to_get_features_name":False,
-                 "dont_change_columns":False
+                 "dont_change_columns":False,
     }
     
     if wrapping_kwargs is not None:
