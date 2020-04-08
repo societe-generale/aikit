@@ -949,6 +949,20 @@ class DummyNoDataFrame(BaseEstimator, TransformerMixin):
             raise TypeError("doesn't work on DatraFrame")
             
         return X
+    
+class DummyOnlyOneDimension(BaseEstimator, TransformerMixin):
+    
+    def __init__(self, nb_outputs=1):
+        self.nb_outputs=nb_outputs
+  
+    def fit(self, X, y=None):
+        if X.ndim != 1:
+            raise TypeError("only work for one-dimensional data")
+            
+        return self
+    
+    def transform(self, X):
+        return X.values[:, np.newaxis].repeat(self.nb_outputs, axis=1) # 2 dimensional output
 
 
 def test_AutoWrapper():
@@ -997,7 +1011,35 @@ def test_AutoWrapper():
     Xres = dummy_auto_wrapped.fit_transform(df)
     assert isinstance(Xres, pd.DataFrame)
 
-        
+
+@pytest.mark.parametrize('column_prefix, nb_outputs', [[None, 1], [None, 2], ["DUM", 1], ["DUM", 2]])
+def test_AutoWrapper_one_dimensional_transformer(column_prefix, nb_outputs):
+    np.random.seed(123)
+    X = np.random.randn(100,10)
+    df = pd.DataFrame(X, columns=[f"NUMBER_{j}" for j in range(X.shape[1])])
+    df["not_a_number"] = "a"
+    
+    wrapping_kwargs={"work_on_one_column_only":True, "all_columns_at_once":False}
+ 
+    dummy_auto_wrapped = AutoWrapper(DummyOnlyOneDimension(nb_outputs=nb_outputs), wrapping_kwargs=wrapping_kwargs)(column_prefix=column_prefix)
+    Xres = dummy_auto_wrapped.fit_transform(df)
+    
+    assert isinstance(Xres, pd.DataFrame)
+    assert (Xres.iloc[:, 0].values == df.iloc[:,0].values).all()
+    assert (Xres.iloc[:, 1+(nb_outputs-1)].values == df.iloc[:, 1].values).all()
+    
+    expected_cols = []
+    for col in df.columns:
+        if column_prefix is None:
+            expected_cols += [(col + "__%d" % d) for d in range(nb_outputs)]
+        else:
+            expected_cols += [(col + "__%s__%d" % (column_prefix, d)) for d in range(nb_outputs)]
+
+    assert Xres.shape == (df.shape[0] , df.shape[1] * nb_outputs)
+    assert dummy_auto_wrapped.get_feature_names() == expected_cols
+    assert dummy_auto_wrapped.get_feature_names() == list(Xres.columns)
+
+
 def test_AutoWrapper_fails_if_not_instance():
     model = 10
     with pytest.raises(TypeError):
