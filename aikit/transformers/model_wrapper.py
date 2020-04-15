@@ -1179,6 +1179,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         #                                           all_Xres = None,
         #                                           Xsubset_columns = None,
         #                                           Xsubset_shape = None):
+
         ########################################
         ### Apply the model COLUMN BY COLUMN ###
         ########################################
@@ -1195,7 +1196,6 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
 
         # 1) use get_feature_names
         all_features = [try_to_find_features_names(submodel, input_features=input_columns) for submodel in self._models]
-
         # 2) if not found.. I'll try to read it elsewhere..
         if any_none(all_features):
 
@@ -1206,7 +1206,8 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
                 all_features = [[c] for c in input_columns]
 
             if any_none(all_features) and not any_none(all_output_shape):
-                all_features = [list(range(nbcols_from_shape(s))) for s in input_shape]
+
+                all_features = [list(range(nbcols_from_shape(s))) for s in all_output_shape]
 
             if any_none(all_features) and self.dont_change_columns and input_shape is not None:
                 all_features = [[i] for i in range(nbcols_from_shape(input_shape))]
@@ -1230,27 +1231,56 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         if self.column_prefix is not None:
             for col, features in zip(input_columns, all_features):
                 final_features += [_concat(col, self.column_prefix, f, sep="__") for f in features]
+        else:
+            for col, features in zip(input_columns, all_features):
+                final_features += [_concat(col, f, sep="__") for f in features]
 
         return final_features
 
 
-def AutoWrapper(model, wrapping_kwargs=None):
+def AutoWrapper(model,
+                work_on_one_column_only=False,
+                all_columns_at_once=True,
+                accepted_input_types=(DataTypes.DataFrame,),
+                must_transform_to_get_features_name=False,
+                dont_change_columns=False):
+
     """ returns sklearn-learn like class that 
     
-    * works the same way has a model
-    * but implements the functionnalities from ModelWrapper
+    * works the same way as a model
+    * but implements the functionalities from ModelWrapper
     
     Parameters
     ----------
+    
     model : object
         a sklearn instance
-        
-    wrapping_kwargs : None or dict
-        additionnal parameters to pass to the wrapping function
     
+    work_on_one_column_only : boolean
+        if True tells that the underlying transformer works with 1 dimensinal data (pd.Serie for example)
+        
+    all_columns_at_once : boolean
+        if False it tells that the underlying transformer only know how to work one a singular column
+        This is the case for sklearn CountVectorizer for example.
+        If that is the case the wrapped model will work one several column has well (a clone of the underlying model will be create for each column)
+        
+    accepted_input_types : list of DataType
+        tells what is accepted by the underlying transformer, a conversion will be made if the input type is not among that list
+        if None nothing is done
+
+    must_transform_to_get_features_name : boolean
+        specify if the transformer should transform its data in order to get its features names.
+        Ideally the underlying transformer should implement a  'get_features_names' method but sometimes the features names are only retrieve from the column of the transformed DataFrame
+
+    dont_change_columns : boolean
+        indicate that the transformer doesn't change the column (for example a StandardScaler)
+        if that is the case you know that the resulting feature are the input feature
+
+
     Returns
     -------
     sklearn class
+    
     
     Example
     -------
@@ -1268,16 +1298,16 @@ def AutoWrapper(model, wrapping_kwargs=None):
     
     """
     
-    wrapping_parameters = {
-                 "work_on_one_column_only":False,
-                 "all_columns_at_once":True,
-                 "accepted_input_types":(DataTypes.DataFrame,),
-                 "must_transform_to_get_features_name":False,
-                 "dont_change_columns":False
-    }
-    
-    if wrapping_kwargs is not None:
-        wrapping_parameters.update(wrapping_kwargs)
+#    wrapping_parameters = {
+#                 "work_on_one_column_only":False,
+#                 "all_columns_at_once":True,
+#                 "accepted_input_types":(DataTypes.DataFrame,),
+#                 "must_transform_to_get_features_name":False,
+#                 "dont_change_columns":False,
+#    }
+#    
+#    if wrapping_kwargs is not None:
+#        wrapping_parameters.update(wrapping_kwargs)
         
     if isinstance(model, type):
         model_instance = model() # instanciate the klass with default parameters
@@ -1330,7 +1360,7 @@ def AutoWrapper(model, wrapping_kwargs=None):
                      regex_match=False,
                      desired_output_type=DataTypes.DataFrame,
                      drop_used_columns=True,
-                     drop_unused_columns=False,
+                     drop_unused_columns=True,
                      ):
             
             self.columns_to_use=columns_to_use
@@ -1341,13 +1371,20 @@ def AutoWrapper(model, wrapping_kwargs=None):
             self.drop_unused_columns=drop_unused_columns
                  
             super(WrappedKlass, self).__init__(
+                 # param in instance
                  columns_to_use=columns_to_use,
                  regex_match=regex_match,
                  column_prefix=column_prefix,
                  desired_output_type=desired_output_type,
                  drop_used_columns=drop_used_columns,
                  drop_unused_columns=drop_unused_columns,
-                 **wrapping_parameters
+                 
+                 # fix param
+                 work_on_one_column_only=work_on_one_column_only,
+                 all_columns_at_once=all_columns_at_once,
+                 accepted_input_types=accepted_input_types,
+                 must_transform_to_get_features_name=must_transform_to_get_features_name,
+                 dont_change_columns=dont_change_columns,
                  )
             
         def _get_model(self, X, y=None):
