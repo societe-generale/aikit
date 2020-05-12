@@ -900,7 +900,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
             nbcols = dsh._nbcols(Xsubset)
             if nbcols != self._expected_nbcols:
                 raise ValueError(
-                    "I don't have the correct nb of colmns as input, expected : %d, got : %d"
+                    "I don't have the correct nb of columns as input, expected : %d, got : %d"
                     % (self._expected_nbcols, nbcols)
                 )
 
