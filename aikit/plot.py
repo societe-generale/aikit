@@ -152,7 +152,7 @@ def conditional_boxplot(df, var, explaining_var, nb_quantiles=10, use_rank=True,
         var_bis = var
         explaining_var_bis = explaining_var
 
-    df_copy["_quantile"] = pd.qcut(df_copy[explaining_var_bis], q=nb_quantiles)
+    df_copy["_quantile"] = pd.qcut(df_copy[explaining_var_bis], q=nb_quantiles, duplicates="drop")
 
     positions = [np.median(sub_df[explaining_var_bis].values) for _, sub_df in df_copy.groupby("_quantile")]
     if use_rank:
