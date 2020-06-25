@@ -2240,4 +2240,8 @@ class AutoMlResultReader(object):
         return df.loc[:, cols]
 
 
+def read_results(result_reader: AutoMlResultReader) -> pd.DataFrame:
+    """todo"""
+    return None
+
 # In[]
