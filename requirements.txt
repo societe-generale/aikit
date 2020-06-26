@@ -6,4 +6,4 @@ statsmodels
 lockfile
 decorator
 networkx
-graphviz
+

@@ -2243,7 +2243,7 @@ class AutoMlResultReader(object):
 # In[]
 
 
-def read_results(result_reader: AutoMlResultReader) -> pd.DataFrame:
+def read_results(result_reader: AutoMlResultReader, df_params: pd.DataFrame = None) -> pd.DataFrame:
     """ aggregates results of the automl launcher.
         It is useful for API.
 
@@ -2252,9 +2252,10 @@ def read_results(result_reader: AutoMlResultReader) -> pd.DataFrame:
             * merge them
             * save everything into a DataFrame
     """
+    if df_params is None:
+        df_params = result_reader.load_all_params()
     df_results = result_reader.load_all_results()
     df_additional_results = result_reader.load_additional_results()
-    df_params = result_reader.load_all_params()
 
     df_params_other = result_reader.load_all_other_params()
 
@@ -2277,5 +2278,5 @@ def read_results_and_errors(result_reader: AutoMlResultReader) -> (pd.DataFrame,
     df_params = result_reader.load_all_params()
     df_errors = result_reader.load_all_errors()
     df_merged_error = pd.merge(df_params, df_errors, how="inner", on="job_id")
-    return read_results(result_reader), pd.DataFrame(df_merged_error)
+    return read_results(result_reader, df_params), pd.DataFrame(df_merged_error)
 
