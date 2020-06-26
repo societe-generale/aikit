@@ -1,4 +1,4 @@
-scikit-learn>=0.20
+scikit-learn==0.21
 pandas>=0.23
 numpy
 scipy
@@ -6,3 +6,4 @@ statsmodels
 lockfile
 decorator
 networkx
+graphviz
