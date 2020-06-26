@@ -2240,8 +2240,42 @@ class AutoMlResultReader(object):
         return df.loc[:, cols]
 
 
-def read_results(result_reader: AutoMlResultReader) -> pd.DataFrame:
-    """todo"""
-    return None
-
 # In[]
+
+
+def read_results(result_reader: AutoMlResultReader) -> pd.DataFrame:
+    """ aggregates results of the automl launcher.
+        It is useful for API.
+
+        It will:
+            * load result, params
+            * merge them
+            * save everything into a DataFrame
+    """
+    df_results = result_reader.load_all_results()
+    df_additional_results = result_reader.load_additional_results()
+    df_params = result_reader.load_all_params()
+
+    df_params_other = result_reader.load_all_other_params()
+
+    df_merged_result = pd.merge(df_params, df_results, how="inner", on="job_id")
+    df_merged_result = pd.merge(df_merged_result, df_params_other, how="inner", on="job_id")
+    if df_additional_results.shape[0] > 0:
+        df_merged_result = pd.merge(df_merged_result, df_additional_results, how="inner", on="job_id")
+
+    return pd.DataFrame(df_merged_result)
+
+
+def read_results_and_errors(result_reader: AutoMlResultReader) -> (pd.DataFrame, pd.DataFrame):
+    """ aggregates results and errors of the automl launcher.
+        It is useful for API.
+
+        It will:
+            * load result, params and errors
+            * separate in two different DataFrame: one will be the results, the other the errors
+    """
+    df_params = result_reader.load_all_params()
+    df_errors = result_reader.load_all_errors()
+    df_merged_error = pd.merge(df_params, df_errors, how="inner", on="job_id")
+    return read_results(result_reader), pd.DataFrame(df_merged_error)
+

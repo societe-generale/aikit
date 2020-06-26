@@ -6,7 +6,7 @@ Created on Fri May  4 13:33:07 2018
 """
 
 
-from .ml_machine import AutoMlConfig, JobConfig, MlJobRunner, MlJobManager, AutoMlResultReader
+from .ml_machine import AutoMlConfig, JobConfig, MlJobRunner, MlJobManager, AutoMlResultReader, read_results, read_results_and_errors
 from .ml_machine_launcher import MlMachineLauncher
 from .data_persister import FolderDataPersister, SavingType
 from .ml_machine_guider import AutoMlModelGuider
@@ -22,5 +22,7 @@ __all__ = [
     "FolderDataPersister",
     "SavingType",
     "AutoMlModelGuider",
-    "get_default_pipeline"
+    "get_default_pipeline",
+    "read_results",
+    "read_results_and_errors"
 ]
