@@ -2250,7 +2250,7 @@ def read_results(result_reader: AutoMlResultReader, df_params: pd.DataFrame = No
         It will:
             * load result, params
             * merge them
-            * save everything into a DataFrame
+            * return everything into a DataFrame
     """
     if df_params is None:
         df_params = result_reader.load_all_params()

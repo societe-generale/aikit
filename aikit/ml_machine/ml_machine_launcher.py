@@ -13,7 +13,7 @@ import pandas as pd
 from multiprocessing import Process
 
 
-from aikit.ml_machine.ml_machine import AutoMlConfig, JobConfig, MlJobManager, MlJobRunner, AutoMlResultReader
+from aikit.ml_machine.ml_machine import AutoMlConfig, JobConfig, MlJobManager, MlJobRunner, AutoMlResultReader, read_results_and_errors
 from aikit.ml_machine.ml_machine_guider import AutoMlModelGuider
 from aikit.ml_machine.data_persister import FolderDataPersister, SavingType
 
@@ -237,37 +237,22 @@ class MlMachineLauncher(object):
         self.data_persister.write("", key="stop", path="mljobrunner_workers", write_type=SavingType.txt)
 
     def result_command(self):
-        """ this command is to launch aggregat of result.
+        """ this command is to launch aggregate of result.
         It can be executed using the 'result' keyword in the command argument.
         
-        It will:
-            * load result, params and error
-            * merge them
-            * save everything into two excel files
+        It will call the read_results_and_errors method, which:
+            * loads result, params and error
+            * merges them
+            * saves everything into two excel files
             
         """
         self.data_persister = FolderDataPersister(base_folder=self.base_folder)
         self.result_reader = AutoMlResultReader(self.data_persister)
 
-        df_results = self.result_reader.load_all_results()
-        df_additional_results = self.result_reader.load_additional_results()
-        df_params = self.result_reader.load_all_params()
-        df_errors = self.result_reader.load_all_errors()
-
-        df_params_other = self.result_reader.load_all_other_params()
-
-        df_merged_result = pd.merge(df_params, df_results, how="inner", on="job_id")
-        df_merged_result = pd.merge(df_merged_result, df_params_other, how="inner", on="job_id")
-        if df_additional_results.shape[0] > 0:
-            df_merged_result = pd.merge(df_merged_result, df_additional_results, how="inner", on="job_id")
-
-        df_merged_error = pd.merge(df_params, df_errors, how="inner", on="job_id")
-
-        #        df_merged_result2 = pd.merge( df_params_other, df_results, how = "inner",on = "job_id")
-        #        df_merged_result2 = df_merged_result2.sort_values(by="job_creation_time")
+        df_merged_result, df_merged_error = read_results_and_errors(self)
 
         try:
-            df_merged_result.to_excel(self.base_folder + "/result.xlsx", index=False)
+            dd.to_excel(self.base_folder + "/result.xlsx", index=False)
             print("file %s saved" % self.base_folder + "/result.xlsx")
         except OSError:
             print("I couldn't save excel file")
