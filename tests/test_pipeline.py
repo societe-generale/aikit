@@ -1059,18 +1059,21 @@ def test_graphpipeline_nodes_concat_order():
         assert list(Xres.columns) == pipeline.get_feature_names()
 
 
+def get_pipeline():
+    pipeline = GraphPipeline(
+        {
+            "pt1": DebugPassThrough(column_prefix="PT1_", debug=True),
+            "pt2": DebugPassThrough(column_prefix="PT2_", debug=True),
+            "pt3": DebugPassThrough(column_prefix="PT3_", debug=True),
+            "pt4": DebugPassThrough(column_prefix="PT4_", debug=True),
+        },
+        edges=[("pt1", "pt3", "pt4"), ("pt2", "pt3", "pt4")],
+    )
+    return pipeline
+
+
 def test_get_subpipeline():
-    def get_pipeline():
-        pipeline = GraphPipeline(
-            {
-                "pt1": DebugPassThrough(column_prefix="PT1_", debug=True),
-                "pt2": DebugPassThrough(column_prefix="PT2_", debug=True),
-                "pt3": DebugPassThrough(column_prefix="PT3_", debug=True),
-                "pt4": DebugPassThrough(column_prefix="PT4_", debug=True),
-            },
-            edges=[("pt1", "pt3", "pt4"), ("pt2", "pt3", "pt4")],
-        )
-        return pipeline
+
 
     pipeline = get_pipeline()
 
@@ -1110,6 +1113,29 @@ def test_get_subpipeline():
     assert isinstance(sub_pipeline, type(pipeline._models["pt1"]))
 
 
+
+def test_GraphPipeline_substitute_nodes():
+    
+    pipeline = get_pipeline()
+    new_pipeline = pipeline.substitute_nodes({"pt1": DebugPassThrough(column_prefix="newPT1_", debug=True)})
+    
+    assert isinstance(new_pipeline, GraphPipeline)
+    new_pipeline.fit(dfX, y)
+    Xres = new_pipeline.transform(dfX)
+    assert Xres.columns[0] == "PT4__PT3__newPT1__text1"
+    
+    with pytest.raises(NotFittedError):
+        pipeline.transform(dfX)
+        
+    Xres2 = pipeline.fit_transform(dfX)
+    assert Xres2.columns[0] == "PT4__PT3__PT1__text1"
+    
+    with pytest.raises(ValueError):
+        pipeline.substitute_nodes({"doesntexist": DebugPassThrough(column_prefix="newPT1_", debug=True)})
+        
+    with pytest.raises(ValueError):
+        pipeline.substitute_nodes({"pt1": "this_is_not_a_model"})
+    
 
 def test_GraphPipeline_from_sklearn():
     
