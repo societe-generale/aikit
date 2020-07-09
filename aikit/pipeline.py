@@ -1202,6 +1202,66 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
         sub_pipeline._all_concat_type = dico_key_filter(self._all_concat_type, lambda n: n in nodes_to_keep)
 
         return sub_pipeline
+    
+    def substitute_nodes(self, new_nodes, deepcopy_models=False):
+        """ this method will change some nodes in a the pipeline and return a new GraphPipeline
+        
+        Parameters
+        ----------
+        
+        new_nodes : dict
+            keys = node to change
+            values = models to subsitute
+            
+        Returns
+        -------
+        new GraphPipeline instance
+        """
+        
+        _preparation_was_done = self._preparation_done
+        self._complete_init()
+        
+        for node, model in new_nodes.items():
+            if node not in self.complete_graph:
+                raise ValueError(f"the node {node} isn't in the orignal Graph")
+                
+            if not hasattr(model, "fit"):
+                raise ValueError(f"the model {node} doesn't have a fit method")
+                
+        
+        models = {}
+        for node in self.complete_graph.nodes:
+            if node in new_nodes:
+                if deepcopy_models:
+                    models[node] = deepcopy(new_nodes[node])
+                else:
+                    models[node] = new_nodes[node]
+                    
+            else:
+                if deepcopy_models:
+                    models[node] = deepcopy(self._models[node])
+                else:
+                    models[node] = self._models[node]                
+                
+        new_pipeline = GraphPipeline(models=models, edges=self.edges, no_concat_nodes=self.no_concat_nodes)
+        
+        
+        # Internal modification to change the state
+        if _preparation_was_done:
+            new_pipeline._complete_init()
+
+        if not self._already_fitted:
+            return new_pipeline
+            
+        # here the pipeline was fitted
+        # In that case I'll assume nothing was changed ... 
+        new_pipeline._already_fitted = True
+        new_pipeline._Xinput_features = deepcopy(self._Xinput_features)  # copy just to be safe
+        new_pipeline._all_concat_order = self._all_concat_order
+        new_pipeline._all_concat_type = self._all_concat_type
+        
+        return new_pipeline
+
 
     @classmethod
     def from_sklearn(cls, sk_pipeline):
