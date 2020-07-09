@@ -1137,6 +1137,24 @@ def test_GraphPipeline_substitute_nodes():
         pipeline.substitute_nodes({"pt1": "this_is_not_a_model"})
     
 
+def test_GraphPipeline_add_nodes():
+    
+    pipeline = get_pipeline()
+    
+    new_pipeline = pipeline.add_nodes({"pt0":DebugPassThrough(column_prefix="PT0_", debug=True)}, [("pt0", "pt1")])
+    
+    assert isinstance(new_pipeline, GraphPipeline)
+    Xres= new_pipeline.fit_transform(dfX, y)
+    assert Xres.columns[0] == "PT4__PT3__PT1__PT0__text1"
+    
+    Xres2 = pipeline.fit_transform(dfX)
+    assert Xres2.columns[0] == "PT4__PT3__PT1__text1"
+    
+    with pytest.raises(ValueError):
+        pipeline.add_nodes({"pt1": DebugPassThrough(column_prefix="newPT1_", debug=True)}, new_edges=[("pt0", "pt1")])
+        
+
+        
 def test_GraphPipeline_from_sklearn():
     
     np.random.seed(123)
