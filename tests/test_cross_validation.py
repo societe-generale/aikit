@@ -824,11 +824,11 @@ def test_score_from_params_clustering_with_scorer_object():
 
     assert np.abs(result1.iloc[:, 0] - result2.iloc[:, 0]).max() <= 10 ** (-5)
 
-    result1 = score_from_params_clustering(kmeans, X, scoring=SCORERS["calinski_harabaz"])
+    result1 = score_from_params_clustering(kmeans, X, scoring=SCORERS["calinski_harabasz"])
     assert result1.shape[0] == 1
     assert isinstance(result1, pd.DataFrame)
 
-    result2 = score_from_params_clustering(kmeans, X, scoring="calinski_harabaz")
+    result2 = score_from_params_clustering(kmeans, X, scoring="calinski_harabasz")
     assert result2.shape[0] == 1
     assert isinstance(result2, pd.DataFrame)
 
@@ -871,7 +871,7 @@ def test_score_from_params(x_data_type, shuffle, graph_pipeline):
         else:
             X = X[ii, :]
 
-    scoring = ["silhouette", "davies_bouldin", "calinski_harabaz"]
+    scoring = ["silhouette", "davies_bouldin", "calinski_harabasz"]
 
     if graph_pipeline:
         estimator = GraphPipeline(

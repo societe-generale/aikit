@@ -173,7 +173,7 @@ def test_silhouette_score():
 
 # check that score is greater than 0 and that a nan is returned if nclust==1
 # or nclust == nsamples
-def test_calinski_harabaz_score():
+def test_calinski_harabasz_score():
     np.random.seed(123)
 
     X = np.random.randn(100, 5)
@@ -186,9 +186,9 @@ def test_calinski_harabaz_score():
     estimator2.fit(X)
     estimator3.fit(X)
 
-    score1 = aikit.scorer.calinski_harabaz_scorer(estimator1, X)
-    score2 = aikit.scorer.calinski_harabaz_scorer(estimator2, X)
-    score3 = aikit.scorer.calinski_harabaz_scorer(estimator3, X)
+    score1 = aikit.scorer.calinski_harabasz_scorer(estimator1, X)
+    score2 = aikit.scorer.calinski_harabasz_scorer(estimator2, X)
+    score3 = aikit.scorer.calinski_harabasz_scorer(estimator3, X)
 
     assert score1 >= 0
     assert math.isnan(score2)

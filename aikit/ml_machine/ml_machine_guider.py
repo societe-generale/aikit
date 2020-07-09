@@ -76,7 +76,7 @@ def get_metric_default_transformation(metric_name):
         # Metric where 'perfection' is 0 => focus on differences with 0
         return lambda x: -np.log10(-x)
 
-    elif metric_name in {"calinski_harabaz"}:
+    elif metric_name in {"calinski_harabasz"}:
         return lambda x: np.log10(1 + x)
 
     else:
