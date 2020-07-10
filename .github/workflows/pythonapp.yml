@@ -41,6 +41,8 @@ jobs:
     strategy:
       matrix:
         python-version: [3.6, 3.7, 3.8]
+        scikitlearn-version: [0.22.2]
+        pandas-version: [0.25.3]
 
     steps:
     - uses: actions/checkout@v2
@@ -53,6 +55,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -r requirements-test.txt
+        pip install pandas==${{ matrix.pandas-version }}
+        pip install scikit-learn==${{ matrix.scikitlearn-version }}
     - name: Install NLTK
       run: |
         python -m nltk.downloader punkt
@@ -66,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        scikitlearn-version: [0.21.3, 0.22.1]
+        scikitlearn-version: [0.21.3, 0.22.2, 0.23.1]
         pandas-version: [0.25.3]
 
     steps:
