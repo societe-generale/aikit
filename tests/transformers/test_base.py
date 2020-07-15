@@ -17,14 +17,14 @@ from sklearn.linear_model import Ridge
 from sklearn.base import is_classifier, is_regressor
 from sklearn.exceptions import NotFittedError
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.decomposition import TruncatedSVD
 
 import pickle
 
 from tests.helpers.testing_help import get_sample_data, get_sample_df
 
 from aikit.tools.helper_functions import diff
-from aikit.tools.data_structure_helper import get_type
-from aikit.enums import DataTypes
+from aikit.tools.data_structure_helper import get_type, convert_generic, DataTypes
 from aikit.cross_validation import create_scoring
 
 from aikit.transformers.base import (
@@ -44,6 +44,39 @@ from aikit.datasets.datasets import load_titanic
 
 dfX, y , *_ = load_titanic()
 
+
+@pytest.mark.parametrize("use_wrapper", [True, False])
+def test_TruncatedSVDWrapperSparseData(use_wrapper):
+    if use_wrapper:
+        klass = TruncatedSVDWrapper
+    else:
+        klass = TruncatedSVD
+        
+    np.random.seed(123)
+    X1 = np.random.randn(50, 10)
+    df1=convert_generic(X1, output_type=DataTypes.SparseDataFrame)
+    
+    # ok : array
+    svd = klass(n_components=2)
+    svd.fit(X1)
+    
+    # ok : dataframe with sparse float
+    svd = klass(n_components=2)
+    svd.fit(df1)
+    
+    # ok : dataframe with sparse int
+    X2 = np.random.randint(0,10,(50,10))
+    df2=convert_generic(X2, output_type=DataTypes.SparseDataFrame)
+    svd = klass(n_components=2)
+    svd.fit(df2)
+    
+    # fails : mix sparse int and sparse float
+    df = pd.concat((df1, df2), axis=1)
+    df.columns=list(range(df.shape[1]))
+    svd = klass(n_components=2)
+    svd.fit(df)
+    
+    
 def test_TruncatedSVDWrapper():
 
     df = get_sample_df(100, seed=123)
