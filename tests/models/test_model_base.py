@@ -13,6 +13,16 @@ from sklearn.datasets.samples_generator import make_blobs
 from aikit.models import DBSCANWrapper, KMeansWrapper, AgglomerativeClusteringWrapper
 
 
+def test_KMeans_fix_seed():
+    Xtrain, cl = make_blobs(n_samples=1000, n_features=10, centers=5, random_state=123)
+    first_label = []
+    for i in range(10):
+        kmeans = KMeans(n_clusters=5, random_state=123)
+        kmeans.fit(Xtrain)
+        first_label.append(kmeans.labels_[0])
+    assert len(set(first_label)) == 1 # always the same ...
+
+
 def test_KMeansWrapper():
     Xtrain, cl = make_blobs(n_samples=1000, n_features=10, centers=5, random_state=123)
 
@@ -25,7 +35,7 @@ def test_KMeansWrapper():
     assert kmeans_wrapper.n_clusters == kmeans.n_clusters
 
     diff_cluster_centers = np.abs(kmeans_wrapper.cluster_centers_ - kmeans.cluster_centers_)
-
+    assert kmeans_wrapper.labels_[0] == 0
     assert np.array_equal(kmeans_wrapper.labels_, kmeans.labels_)
     assert np.sum(diff_cluster_centers) <= 10 ** (-10)
 
