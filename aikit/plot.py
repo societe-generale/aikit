@@ -174,7 +174,7 @@ def conditional_boxplot(df, var, explaining_var, nb_quantiles=10, use_rank=True,
         [sub_df[var_bis].values for _, sub_df in df_copy.groupby("_quantile")],
         positions=positions,
         widths=widths,
-        manage_xticks=False,
+        manage_ticks=False,
     )
 
     plt.xticks(positions, labels=["%2.2f" % p for p in real_positions])
