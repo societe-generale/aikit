@@ -17,7 +17,7 @@ def test_KMeans_fix_seed():
     Xtrain, cl = make_blobs(n_samples=1000, n_features=10, centers=5, random_state=123)
     first_label = []
     for i in range(10):
-        kmeans = KMeans(n_clusters=5, random_state=123)
+        kmeans = KMeans(n_clusters=5, random_state=123, n_init=1) # If n_init 
         kmeans.fit(Xtrain)
         first_label.append(kmeans.labels_[0])
     assert len(set(first_label)) == 1 # always the same ...
@@ -26,7 +26,7 @@ def test_KMeans_fix_seed():
 def test_KMeansWrapper():
     Xtrain, cl = make_blobs(n_samples=1000, n_features=10, centers=5, random_state=123)
 
-    kmeans_wrapper = KMeansWrapper(n_clusters=5, random_state=123)
+    kmeans_wrapper = KMeansWrapper(n_clusters=5, random_state=123, n_init=1)
     kmeans_wrapper.fit(Xtrain)
 
     kmeans = KMeans(n_clusters=5, random_state=123)
@@ -42,7 +42,7 @@ def test_KMeansWrapper():
     # check that n_clusters is < n_features
     Xtrain, cl = make_blobs(n_samples=10, n_features=5, centers=5)
 
-    kmeans_wrapper = KMeansWrapper(n_clusters=15, random_state=123)
+    kmeans_wrapper = KMeansWrapper(n_clusters=15, random_state=123, n_init=1)
     kmeans_wrapper.fit(Xtrain)
 
     assert kmeans_wrapper.n_clusters == 9
