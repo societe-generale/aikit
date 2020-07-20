@@ -52,11 +52,10 @@ class KMeansWrapper(KMeans):
         n_init=10,
         max_iter=300,
         tol=0.0001,
-        #precompute_distances="auto",
+        precompute_distances="auto",
         verbose=0,
         random_state=None,
         copy_x=True,
-        #n_jobs=None,
         algorithm="auto",
     ):
         super(KMeansWrapper, self).__init__(
@@ -65,11 +64,10 @@ class KMeansWrapper(KMeans):
             n_init=n_init,
             max_iter=max_iter,
             tol=tol,
-            precompute_distances="deprecated",
+            precompute_distances=precompute_distances,
             verbose=verbose,
             random_state=random_state,
             copy_x=copy_x,
-            n_jobs="deprecated",
             algorithm=algorithm,
         )
 
