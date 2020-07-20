@@ -35,7 +35,7 @@ def test_KMeansWrapper():
     assert kmeans_wrapper.n_clusters == kmeans.n_clusters
 
     diff_cluster_centers = np.abs(kmeans_wrapper.cluster_centers_ - kmeans.cluster_centers_)
-    assert kmeans_wrapper.labels_[0] == 0
+    
     assert np.array_equal(kmeans_wrapper.labels_, kmeans.labels_)
     assert np.sum(diff_cluster_centers) <= 10 ** (-10)
 
