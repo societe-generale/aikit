@@ -1202,6 +1202,142 @@ class GraphPipeline(TransformerMixin, BaseEstimator):
         sub_pipeline._all_concat_type = dico_key_filter(self._all_concat_type, lambda n: n in nodes_to_keep)
 
         return sub_pipeline
+    
+    def substitute_nodes(self, new_models, deepcopy_models=False):
+        """ this method will change some nodes in a the pipeline and return a new GraphPipeline
+        
+        Parameters
+        ----------
+        
+        new_models : dict
+            keys = node to change
+            values = models to subsitute
+            
+        deepcopy_models : bool, default=False
+            if True a deep copy of the models will be done
+            
+        Returns
+        -------
+        new GraphPipeline instance
+        """
+        
+        _preparation_was_done = self._preparation_done
+        self._complete_init()
+        
+        for node, model in new_models.items():
+            if node not in self.complete_graph:
+                raise ValueError(f"the node {node} isn't in the orignal GraphPipeline")
+                
+            if not hasattr(model, "fit"):
+                raise ValueError(f"the model {node} doesn't have a fit method")
+                
+        
+        models = {}
+        for node in self.complete_graph.nodes:
+            if node in new_models:
+                if deepcopy_models:
+                    models[node] = deepcopy(new_models[node])
+                else:
+                    models[node] = new_models[node]
+                    
+            else:
+                if deepcopy_models:
+                    models[node] = deepcopy(self._models[node])
+                else:
+                    models[node] = self._models[node]                
+                
+        new_pipeline = GraphPipeline(models=models, edges=self.edges, no_concat_nodes=self.no_concat_nodes)
+        
+        
+        # Internal modification to change the state
+        if _preparation_was_done:
+            new_pipeline._complete_init()
+
+        if not self._already_fitted:
+            return new_pipeline
+            
+        # here the pipeline was fitted
+        # In that case I'll assume nothing was changed ... 
+        new_pipeline._already_fitted = True
+        new_pipeline._Xinput_features = deepcopy(self._Xinput_features)  # copy just to be safe
+        new_pipeline._all_concat_order = self._all_concat_order
+        new_pipeline._all_concat_type = self._all_concat_type
+        
+        return new_pipeline
+
+
+    def add_nodes(self, new_models, new_edges, deepcopy_models=False):
+        """ this methods will add nodes to an existing GraphPipeline
+        
+        Parameters
+        ----------
+        new_models : dict
+            new new models to add
+            keys = name of node
+            values = modesl
+            
+        new_edges : list of tuple
+            the new edges to add
+            
+        deepcopy_models : bool, default=False
+            if True a deep copy of the models will be done
+            
+        Returns
+        -------
+        
+        new GraphPipeline instance
+        """
+        
+        _preparation_was_done = self._preparation_done
+        self._complete_init()
+        
+        for node, model in new_models.items():
+            if node in self.complete_graph:
+                raise ValueError(f"the node {node} is already in the orignal GraphPipeline")
+                
+            if not hasattr(model, "fit"):
+                raise ValueError(f"the model {node} doesn't have a fit method")
+               
+                
+        for sub_edges in new_edges:
+            if not isinstance(sub_edges, (list, tuple)):
+                raise TypeError("new_edges should be an ensemble of lists or tuples, instead it is '%s'" % type(sub_edges))
+
+            if len(sub_edges) <= 1:
+                raise ValueError("all elements of _edges should be of length at least 2")
+
+
+        models = {}
+        for node in self.complete_graph.nodes:
+            if deepcopy_models:
+                models[node] = deepcopy(self._models[node])
+            else:
+                models[node] = self._models[node]
+                
+        for new_node, model in new_models.items():
+            if deepcopy_models:
+                models[new_node] = deepcopy(model)
+            else:
+                models[new_node] = model
+                
+        edges = self._edges + list(new_edges)
+                    
+        new_pipeline = GraphPipeline(models=models, edges=edges, no_concat_nodes=self.no_concat_nodes)
+        
+        # Internal modification to change the state
+        if _preparation_was_done:
+            new_pipeline._complete_init()
+
+    
+        if not self._already_fitted:
+            return new_pipeline
+       
+        # if model is already fitted it won't always work ...
+        new_pipeline._already_fitted = True
+        new_pipeline._Xinput_features = deepcopy(self._Xinput_features)  # copy just to be safe
+        new_pipeline._all_concat_order = self._all_concat_order
+        new_pipeline._all_concat_type = self._all_concat_type
+        return new_pipeline
 
     @classmethod
     def from_sklearn(cls, sk_pipeline):
