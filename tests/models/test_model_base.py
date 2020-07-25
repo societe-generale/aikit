@@ -29,7 +29,7 @@ def test_KMeansWrapper():
     kmeans_wrapper = KMeansWrapper(n_clusters=5, random_state=123, n_init=1)
     kmeans_wrapper.fit(Xtrain)
 
-    kmeans = KMeans(n_clusters=5, random_state=123)
+    kmeans = KMeans(n_clusters=5, random_state=123, n_init=1)
     kmeans.fit(Xtrain)
 
     assert kmeans_wrapper.n_clusters == kmeans.n_clusters
