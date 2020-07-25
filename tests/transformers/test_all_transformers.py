@@ -1842,7 +1842,7 @@ def test_KMeansTransformer1():
         df2=df2_nona.loc[:, variable_by_type["NUM"]],
         y1=y_train_shuffled,
         klass=KMeansTransformer,
-        enc_kwargs={"random_state": 123, "n_clusters": 10, "result_type": "probability"},
+        enc_kwargs={"random_state": 123, "n_clusters": 10, "result_type": "probability", "kmeans_other_params":{"n_init":1}},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
         additional_test_functions=[
             check_all_numerical,
@@ -1851,7 +1851,7 @@ def test_KMeansTransformer1():
             nb_columns_verify(10),
             type_verifier(DataTypes.DataFrame),
         ],
-        randomized_transformer=False,
+        randomized_transformer=True,
     )
 
 
@@ -1864,7 +1864,7 @@ def test_KMeansTransformer2():
         df2=x_sk,
         y1=y_sk,
         klass=KMeansTransformer,
-        enc_kwargs={"n_clusters": 10, "random_state": 123, "result_type": "probability"},
+        enc_kwargs={"n_clusters": 10, "random_state": 123, "result_type": "probability", "kmeans_other_params":{"n_init":1}},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray),
         additional_test_functions=[
             check_all_numerical,
@@ -1873,7 +1873,7 @@ def test_KMeansTransformer2():
             nb_columns_verify(10),
             type_verifier(DataTypes.DataFrame),
         ],
-        randomized_transformer=False,
+        randomized_transformer=True,
     )
 
 
@@ -1890,6 +1890,7 @@ def test_KMeansTransformer3(desired_output_type):
             "n_clusters": 10,
             "result_type": "probability",
             "desired_output_type": desired_output_type,
+            "n_init": 1
         },
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
         additional_test_functions=[
@@ -1900,7 +1901,7 @@ def test_KMeansTransformer3(desired_output_type):
             nb_columns_verify(10),
             type_verifier(desired_output_type),
         ],
-        randomized_transformer=False,
+        randomized_transformer=True,
     )
 
 
@@ -1914,7 +1915,7 @@ def test_KMeansTransformer4(desired_output_type):
         df2=x_sk,
         y1=y_sk,
         klass=KMeansTransformer,
-        enc_kwargs={"n_clusters": 10, "random_state": 123, "result_type": "probability"},
+        enc_kwargs={"n_clusters": 10, "random_state": 123, "result_type": "probability", "kmeans_other_params":{"n_init":1}},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray),
         additional_test_functions=[
             check_all_numerical,
@@ -1923,7 +1924,7 @@ def test_KMeansTransformer4(desired_output_type):
             nb_columns_verify(10),
             type_verifier(desired_output_type),
         ],
-        randomized_transformer=False,
+        randomized_transformer=True,
     )
 
 
@@ -1944,7 +1945,7 @@ def test_KMeansTransformer5(temperature, result_type):
         df2=df2_nona.loc[:, variable_by_type["NUM"]],
         y1=y_train_shuffled,
         klass=KMeansTransformer,
-        enc_kwargs={"random_state": 123, "n_clusters": 10, "temperature": temperature, "result_type": result_type},
+        enc_kwargs={"random_state": 123, "n_clusters": 10, "temperature": temperature, "result_type": result_type, "kmeans_other_params":{"n_init":1}},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
         additional_test_functions=[
             check_all_numerical,
@@ -1954,7 +1955,7 @@ def test_KMeansTransformer5(temperature, result_type):
             type_verifier(DataTypes.DataFrame),
         ]
         + f,
-        randomized_transformer=False,
+        randomized_transformer=True,
     )
 
 
@@ -1977,7 +1978,7 @@ def test_KMeansTransformer6(temperature, result_type):
         df2=x_sk,
         y1=y_sk,
         klass=KMeansTransformer,
-        enc_kwargs={"random_state": 123, "n_clusters": 10, "temperature": temperature, "result_type": result_type},
+        enc_kwargs={"random_state": 123, "n_clusters": 10, "temperature": temperature, "result_type": result_type, "kmeans_other_params":{"n_init":1}},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray),
         additional_test_functions=[
             check_all_numerical,
@@ -1987,7 +1988,7 @@ def test_KMeansTransformer6(temperature, result_type):
             type_verifier(DataTypes.DataFrame),
         ]
         + f,
-        randomized_transformer=False,
+        randomized_transformer=True,
     )
 
 
