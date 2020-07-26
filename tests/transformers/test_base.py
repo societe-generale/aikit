@@ -11,7 +11,9 @@ import itertools
 import numpy as np
 import pandas as pd
 import scipy.sparse as sps
+from packaging import version
 
+import sklearn
 from sklearn.datasets import make_blobs
 from sklearn.linear_model import Ridge
 from sklearn.base import is_classifier, is_regressor
@@ -42,11 +44,13 @@ from aikit.transformers.base import _index_with_number, PassThrough, FeaturesSel
 from aikit.datasets.datasets import load_titanic
 # In[]
 
+SKLEARN_23 = version.parse(sklearn.__version__) >= version.parse('0.23.1')
+PD_1       = version.parse(pd.__version__) >= version.parse('1.0.1')
+
 dfX, y , *_ = load_titanic()
 
 
-@pytest.mark.parametrize("use_wrapper", [True, False])
-def test_TruncatedSVDWrapperSparseData(use_wrapper):
+def verif_TruncatedSVDWrapperSparseData(use_wrapper):
     if use_wrapper:
         klass = TruncatedSVDWrapper
     else:
@@ -76,7 +80,19 @@ def test_TruncatedSVDWrapperSparseData(use_wrapper):
     svd = klass(n_components=2)
     svd.fit(df)
     
-    
+
+# Faire seulement si pandas 1 et sklearn 0.23
+def test_TruncatedSVDWrapperSparseData_wrapper():
+    verif_TruncatedSVDWrapperSparseData(True)
+
+
+@pytest.mark.skipif(not (PD_1 and SKLEARN_23), "only for pandas 1 and sklearn23")
+@pytest.mark.xfail
+def test_TruncatedSVDWrapperSparseData_nowrapper():
+    verif_TruncatedSVDWrapperSparseData(False)
+    #For now sklearn doesn't know how to do that handle that correctly
+    #If later it works, I can change the wrapper
+
 def test_TruncatedSVDWrapper():
 
     df = get_sample_df(100, seed=123)
