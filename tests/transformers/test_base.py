@@ -86,7 +86,7 @@ def test_TruncatedSVDWrapperSparseData_wrapper():
     verif_TruncatedSVDWrapperSparseData(True)
 
 
-@pytest.mark.skipif(not (PD_1 and SKLEARN_23), "only for pandas 1 and sklearn23")
+@pytest.mark.skipif(not (PD_1 and SKLEARN_23), reason="only for pandas 1 and sklearn23")
 @pytest.mark.xfail
 def test_TruncatedSVDWrapperSparseData_nowrapper():
     verif_TruncatedSVDWrapperSparseData(False)
