@@ -1387,7 +1387,7 @@ def test_TruncatedSVDWrapper1():
         y1=None,
         klass=TruncatedSVDWrapper,
         enc_kwargs={"columns_to_use": variable_by_type["NUM"], "n_components": 3},
-        all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),
+        all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame) if _IS_PD1 else (DataTypes.DataFrame, ),
         additional_test_functions=[
             check_all_numerical,
             check_no_null,
