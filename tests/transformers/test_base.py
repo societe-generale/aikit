@@ -82,6 +82,8 @@ def verif_TruncatedSVDWrapperSparseData(use_wrapper):
     
 
 # Faire seulement si pandas 1 et sklearn 0.23
+@pytest.mark.skipif(not PD_1, reason="only for pandas 1")
+@pytest.mark.xfail
 def test_TruncatedSVDWrapperSparseData_wrapper():
     verif_TruncatedSVDWrapperSparseData(True)
 
