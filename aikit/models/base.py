@@ -56,21 +56,19 @@ class KMeansWrapper(KMeans):
         verbose=0,
         random_state=None,
         copy_x=True,
-        n_jobs=None,
         algorithm="auto",
     ):
         super(KMeansWrapper, self).__init__(
-            n_clusters,
-            init,
-            n_init,
-            max_iter,
-            tol,
-            precompute_distances,
-            verbose,
-            random_state,
-            copy_x,
-            n_jobs,
-            algorithm,
+            n_clusters=n_clusters,
+            init=init,
+            n_init=n_init,
+            max_iter=max_iter,
+            tol=tol,
+            precompute_distances=precompute_distances,
+            verbose=verbose,
+            random_state=random_state,
+            copy_x=copy_x,
+            algorithm=algorithm,
         )
 
     def fit(self, X, y=None, sample_weight=None):

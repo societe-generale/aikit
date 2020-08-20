@@ -9,7 +9,13 @@ logger = logging.getLogger(__name__)
 
 import sklearn.metrics
 from sklearn.metrics.regression import _check_reg_targets, r2_score
-from sklearn.metrics import silhouette_score, calinski_harabaz_score, davies_bouldin_score
+from sklearn.metrics import silhouette_score, davies_bouldin_score
+try:
+    from sklearn.metrics import calinski_harabasz_score
+except ImportError:
+    from sklearn.metrics import calinski_harabaz_score
+    calinski_harabasz_score = calinski_harabaz_score
+    
 
 from sklearn.metrics.scorer import SCORERS, _BaseScorer, type_of_target
 
@@ -288,7 +294,7 @@ def max_proba_group_accuracy(y, y_pred, groups):
 
 log_r2_scorer = sklearn.metrics.make_scorer(log_r2_score)
 silhouette_scorer = make_scorer_clustering(silhouette_score, metric="euclidean", greater_is_better=True)
-calinski_harabaz_scorer = make_scorer_clustering(calinski_harabaz_score, greater_is_better=True)
+calinski_harabasz_scorer = make_scorer_clustering(calinski_harabasz_score, greater_is_better=True)
 
 davies_bouldin_scorer = make_scorer_clustering(davies_bouldin_score, greater_is_better=False)
 
@@ -299,5 +305,5 @@ SCORERS["log_loss_patched"] = log_loss_scorer_patched()
 SCORERS["confidence_score"] = confidence_score()
 SCORERS["log_r2"] = log_r2_scorer
 SCORERS["silhouette"] = silhouette_scorer
-SCORERS["calinski_harabaz"] = calinski_harabaz_scorer
+SCORERS["calinski_harabasz"] = calinski_harabasz_scorer
 SCORERS["davies_bouldin"] = davies_bouldin_scorer

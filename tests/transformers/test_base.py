@@ -11,20 +11,22 @@ import itertools
 import numpy as np
 import pandas as pd
 import scipy.sparse as sps
+from packaging import version
 
+import sklearn
 from sklearn.datasets import make_blobs
 from sklearn.linear_model import Ridge
 from sklearn.base import is_classifier, is_regressor
 from sklearn.exceptions import NotFittedError
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.decomposition import TruncatedSVD
 
 import pickle
 
 from tests.helpers.testing_help import get_sample_data, get_sample_df
 
 from aikit.tools.helper_functions import diff
-from aikit.tools.data_structure_helper import get_type
-from aikit.enums import DataTypes
+from aikit.tools.data_structure_helper import get_type, convert_generic, DataTypes
 from aikit.cross_validation import create_scoring
 
 from aikit.transformers.base import (
@@ -42,7 +44,56 @@ from aikit.transformers.base import _index_with_number, PassThrough, FeaturesSel
 from aikit.datasets.datasets import load_titanic
 # In[]
 
+SKLEARN_23 = version.parse(sklearn.__version__) >= version.parse('0.23.1')
+PD_1       = version.parse(pd.__version__) >= version.parse('1.0.1')
+
 dfX, y , *_ = load_titanic()
+
+
+def verif_TruncatedSVDWrapperSparseData(use_wrapper):
+    if use_wrapper:
+        klass = TruncatedSVDWrapper
+    else:
+        klass = TruncatedSVD
+        
+    np.random.seed(123)
+    X1 = np.random.randn(50, 10)
+    df1=convert_generic(X1, output_type=DataTypes.SparseDataFrame)
+    
+    # ok : array
+    svd = klass(n_components=2)
+    svd.fit(X1)
+    
+    # ok : dataframe with sparse float
+    svd = klass(n_components=2)
+    svd.fit(df1)
+    
+    # ok : dataframe with sparse int
+    X2 = np.random.randint(0,10,(50,10))
+    df2=convert_generic(X2, output_type=DataTypes.SparseDataFrame)
+    svd = klass(n_components=2)
+    svd.fit(df2)
+    
+    # fails : mix sparse int and sparse float
+    df = pd.concat((df1, df2), axis=1)
+    df.columns=list(range(df.shape[1]))
+    svd = klass(n_components=2)
+    svd.fit(df)
+    
+
+# Faire seulement si pandas 1 et sklearn 0.23
+@pytest.mark.skipif(not PD_1, reason="only for pandas 1")
+@pytest.mark.xfail
+def test_TruncatedSVDWrapperSparseData_wrapper():
+    verif_TruncatedSVDWrapperSparseData(True)
+
+
+@pytest.mark.skipif(not (PD_1 and SKLEARN_23), reason="only for pandas 1 and sklearn23")
+@pytest.mark.xfail
+def test_TruncatedSVDWrapperSparseData_nowrapper():
+    verif_TruncatedSVDWrapperSparseData(False)
+    #For now sklearn doesn't know how to do that handle that correctly
+    #If later it works, I can change the wrapper
 
 def test_TruncatedSVDWrapper():
 

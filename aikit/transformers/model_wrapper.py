@@ -569,6 +569,9 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         tells what is accepted by the underlying transformer, a conversion will be made if the input type is not among that list
         if None nothing is done
         
+    remove_sparse_serie : bool
+        if True will remove Sparse Serie from DataFrame
+        
     column_prefix : str or None
         if we want the features_names to be prefixed by something like 'SVD_' or 'BAG_' (for TruncatedSVD or CountVectorizer)
         
@@ -604,6 +607,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         work_on_one_column_only,
         all_columns_at_once,
         accepted_input_types,
+        remove_sparse_serie,
         column_prefix,
         desired_output_type,
         must_transform_to_get_features_name,
@@ -625,6 +629,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
 
         ## Input type ##
         self.accepted_input_types = accepted_input_types  # What can be accepted as input
+        self.remove_sparse_serie = remove_sparse_serie
 
         ## Output ##
         self.column_prefix = column_prefix  # what suffix to put on columns
@@ -910,11 +915,14 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
             if expected_columns is not None and columns is not None and columns != self._expected_columns:
                 raise ValueError("I don't have the correct names of columns")
 
+        if getattr(self, "remove_sparse_serie", False) and self._expected_type == DataTypes.DataFrame:
+            Xsubset = dsh.get_rid_of_sparse_columns(Xsubset)
+            
         if self.accepted_input_types is not None and self._expected_type not in self.accepted_input_types:
             Xsubset = dsh.convert_generic(
                 Xsubset, mapped_type=self._expected_type, output_type=self.accepted_input_types[0]
             )
-
+        
         if is_fit:
             self._verif_params()
             self._empty_data = False
@@ -1262,6 +1270,7 @@ def AutoWrapper(model,
                 work_on_one_column_only=False,
                 all_columns_at_once=True,
                 accepted_input_types=(DataTypes.DataFrame,),
+                remove_sparse_serie=True,
                 must_transform_to_get_features_name=False,
                 dont_change_columns=False):
 
@@ -1287,6 +1296,9 @@ def AutoWrapper(model,
     accepted_input_types : list of DataType
         tells what is accepted by the underlying transformer, a conversion will be made if the input type is not among that list
         if None nothing is done
+
+    remove_sparse_serie : bool
+        if True will remove Sparse Serie from DataFrame
 
     must_transform_to_get_features_name : boolean
         specify if the transformer should transform its data in order to get its features names.
@@ -1403,6 +1415,7 @@ def AutoWrapper(model,
                  work_on_one_column_only=work_on_one_column_only,
                  all_columns_at_once=all_columns_at_once,
                  accepted_input_types=accepted_input_types,
+                 remove_sparse_serie=remove_sparse_serie,
                  must_transform_to_get_features_name=must_transform_to_get_features_name,
                  dont_change_columns=dont_change_columns,
                  )

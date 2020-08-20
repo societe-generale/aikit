@@ -324,6 +324,7 @@ class FeaturesSelectorClassifier(ModelWrapper):
             work_on_one_column_only=False,
             all_columns_at_once=True,
             accepted_input_types=None,
+            remove_sparse_serie=False,
             column_prefix=None,
             desired_output_type=None,
             must_transform_to_get_features_name=False,
@@ -368,6 +369,7 @@ class FeaturesSelectorRegressor(ModelWrapper):
             work_on_one_column_only=False,
             all_columns_at_once=True,
             accepted_input_types=None,
+            remove_sparse_serie=False,
             column_prefix=None,
             desired_output_type=None,
             must_transform_to_get_features_name=False,
@@ -410,6 +412,7 @@ class PassThrough(ModelWrapper):
             work_on_one_column_only=False,
             all_columns_at_once=True,
             accepted_input_types=None,
+            remove_sparse_serie=False,
             column_prefix=None,
             desired_output_type=None,
             must_transform_to_get_features_name=False,
@@ -472,6 +475,7 @@ class LambdaTransformer(ModelWrapper):
             work_on_one_column_only=False,
             all_columns_at_once=True,
             accepted_input_types=None,
+            remove_sparse_serie=False,
             column_prefix=None,
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=False,
@@ -515,6 +519,7 @@ class TruncatedSVDWrapper(ModelWrapper):
             work_on_one_column_only=False,
             all_columns_at_once=True,
             accepted_input_types=None,
+            remove_sparse_serie=True,
             column_prefix="SVD",
             desired_output_type=DataTypes.DataFrame,
             must_transform_to_get_features_name=True,
@@ -550,6 +555,7 @@ class PCAWrapper(ModelWrapper):
             work_on_one_column_only=False,
             all_columns_at_once=True,
             accepted_input_types=(DataTypes.NumpyArray, DataTypes.DataFrame),
+            remove_sparse_serie=True,
             column_prefix="PCA",
             desired_output_type=DataTypes.DataFrame,
             must_transform_to_get_features_name=True,
@@ -571,7 +577,7 @@ class _KMeansTransformer(BaseEstimator, TransformerMixin):
 
     _allowed_result_type = ("distance", "inv_distance", "log_distance", "probability", "cluster")
 
-    def __init__(self, n_clusters=8, result_type="probability", temperature=1, scale_input=True, random_state=None):
+    def __init__(self, n_clusters=8, result_type="probability", temperature=1, scale_input=True, random_state=None, kmeans_other_params=None):
         self.n_clusters = n_clusters
 
         self.result_type = result_type
@@ -579,6 +585,7 @@ class _KMeansTransformer(BaseEstimator, TransformerMixin):
         self.scale_input = scale_input
 
         self.random_state = random_state
+        self.kmeans_other_params=kmeans_other_params
 
         if result_type not in self._allowed_result_type:
             raise ValueError(
@@ -620,7 +627,12 @@ class _KMeansTransformer(BaseEstimator, TransformerMixin):
             Xscaled = X
 
         if is_fit:
-            self.model = KMeans(n_clusters=self.n_clusters, random_state=self.random_state)
+            if self.kmeans_other_params is None:
+                kmeans_other_params = {}
+            else:
+                kmeans_other_params = self.kmeans_other_params
+
+            self.model = KMeans(n_clusters=self.n_clusters, random_state=self.random_state, **kmeans_other_params)
 
         if is_fit:
             cluster_distance = self.model.fit_transform(Xscaled)
@@ -811,6 +823,7 @@ class KMeansTransformer(ModelWrapper):
         desired_output_type=DataTypes.DataFrame,
         drop_used_columns=True,
         drop_unused_columns=True,
+        kmeans_other_params=None
     ):
 
         self.n_clusters = n_clusters
@@ -818,7 +831,7 @@ class KMeansTransformer(ModelWrapper):
         self.random_state = random_state
         self.temperature = temperature
         self.scale_input = scale_input
-
+        self.kmeans_other_params = kmeans_other_params
         self.columns_to_use = columns_to_use
         self.regex_match = regex_match
         self.desired_output_type = desired_output_type
@@ -829,6 +842,7 @@ class KMeansTransformer(ModelWrapper):
             work_on_one_column_only=False,
             all_columns_at_once=True,
             accepted_input_types=None,
+            remove_sparse_serie=False,
             column_prefix="KM_",
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=False,
@@ -844,6 +858,7 @@ class KMeansTransformer(ModelWrapper):
             temperature=self.temperature,
             scale_input=self.scale_input,
             random_state=self.random_state,
+            kmeans_other_params=self.kmeans_other_params
         )
 
 
@@ -1624,6 +1639,7 @@ class NumImputer(ModelWrapper):
             work_on_one_column_only=False,
             all_columns_at_once=True,
             accepted_input_types=None,
+            remove_sparse_serie=True,
             column_prefix=None,
             desired_output_type=None,
             must_transform_to_get_features_name=False,
@@ -2031,6 +2047,7 @@ class CdfScaler(ModelWrapper):
             work_on_one_column_only=False,
             all_columns_at_once=True,
             accepted_input_types=None,
+            remove_sparse_serie=True,
             column_prefix=None,
             desired_output_type=desired_output_type,
             must_transform_to_get_features_name=False,
