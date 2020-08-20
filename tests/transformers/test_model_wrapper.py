@@ -645,9 +645,6 @@ class _DummyToWrapWithInputFeaturesNames(_DummyToWrap):
             return ["c_%s_%d" % (str(input_features[i]), i) for i in range(self.n)]
 
 
-# def _DummyToWrapWithFeaturesNa
-
-
 class DummyWrapped(ModelWrapper):
     def __init__(self, n, columns_to_use="all", column_prefix=None, drop_used_columns=True, drop_unused_columns=True):
 
@@ -661,6 +658,7 @@ class DummyWrapped(ModelWrapper):
             work_on_one_column_only=False,
             all_columns_at_once=True,
             accepted_input_types=None,
+            remove_sparse_serie=False,
             column_prefix=column_prefix,
             desired_output_type=DataTypes.DataFrame,
             must_transform_to_get_features_name=True,
@@ -687,6 +685,7 @@ class DummyWrappedWithFeaturesNames(ModelWrapper):
             work_on_one_column_only=False,
             all_columns_at_once=True,
             accepted_input_types=None,
+            remove_sparse_serie=False,
             column_prefix=column_prefix,
             desired_output_type=DataTypes.DataFrame,
             must_transform_to_get_features_name=True,
@@ -713,6 +712,7 @@ class DummyWrappedWithInputFeaturesNames(ModelWrapper):
             work_on_one_column_only=False,
             all_columns_at_once=True,
             accepted_input_types=None,
+            remove_sparse_serie=False,
             column_prefix=column_prefix,
             desired_output_type=DataTypes.DataFrame,
             must_transform_to_get_features_name=True,
@@ -949,6 +949,25 @@ class DummyNoDataFrame(BaseEstimator, TransformerMixin):
             raise TypeError("doesn't work on DatraFrame")
             
         return X
+    
+class DummyOnlyOneDimension(BaseEstimator, TransformerMixin):
+    
+    def __init__(self, nb_outputs=1):
+        self.nb_outputs=nb_outputs
+  
+    def fit(self, X, y=None):
+        if X.ndim != 1:
+            raise TypeError("only work for one-dimensional data")
+            
+        return self
+    
+    def transform(self, X):
+        return X.values[:, np.newaxis].repeat(self.nb_outputs, axis=1) # 2 dimensional output
+
+class DummyOnlyOneDimensionWithGetFeatureNames(DummyOnlyOneDimension):
+    
+    def get_feature_names(self):
+        return ["FEATURE__%d" % j for j in range(self.nb_outputs)]
 
 
 def test_AutoWrapper():
@@ -957,14 +976,19 @@ def test_AutoWrapper():
     df = pd.DataFrame(X, columns=[f"NUMBER_{j}" for j in range(X.shape[1])])
     df["not_a_number"] = "a"
 
-    model = AutoWrapper(TruncatedSVD(n_components=2, random_state=123))(columns_to_use=["NUMBER_"], regex_match=True)
+    model = AutoWrapper(TruncatedSVD(n_components=2, random_state=123))(columns_to_use=["NUMBER_"],
+                                                                        regex_match=True,
+                                                                        drop_unused_columns=False)
     Xres = model.fit_transform(df)
     
     assert isinstance(Xres, pd.DataFrame)
     assert Xres.shape[0] == df.shape[0]
     
     
-    model = AutoWrapper(TruncatedSVD(n_components=2, random_state=123))(columns_to_use=["NUMBER_"], regex_match=True, column_prefix="SVD")
+    model = AutoWrapper(TruncatedSVD(n_components=2, random_state=123))(columns_to_use=["NUMBER_"],
+                                                                        regex_match=True,
+                                                                        column_prefix="SVD",
+                                                                        drop_unused_columns=False)
     Xres = model.fit_transform(df)
     assert isinstance(Xres, pd.DataFrame)
     assert list(Xres.columns) == ["not_a_number", "SVD__0", "SVD__1"]
@@ -988,13 +1012,117 @@ def test_AutoWrapper():
     with pytest.raises(TypeError):
         dummy_not_wrapped.fit_transform(df)
     
-    dummy_auto_wrapped = AutoWrapper(DummyNoDataFrame, wrapping_kwargs={"accepted_input_types":(DataTypes.NumpyArray,)})()
+    dummy_auto_wrapped = AutoWrapper(DummyNoDataFrame, accepted_input_types=(DataTypes.NumpyArray,))()
     Xres = dummy_auto_wrapped.fit_transform(df)
     assert isinstance(Xres, pd.DataFrame)
 
-        
+
+@pytest.mark.parametrize('column_prefix, nb_outputs, with_get_feature_names', list(itertools.product((None, "DUM"),(1,2),(True, False))))
+def test_AutoWrapper_one_dimensional_transformer(column_prefix, nb_outputs, with_get_feature_names):
+    np.random.seed(123)
+    X = np.random.randn(100,10)
+    df = pd.DataFrame(X, columns=[f"NUMBER_{j}" for j in range(X.shape[1])])
+    df["not_a_number"] = "a"
+    
+    if with_get_feature_names:
+        klass = DummyOnlyOneDimensionWithGetFeatureNames
+    else:
+        klass = DummyOnlyOneDimension
+    
+    dummy_auto_wrapped = AutoWrapper(klass(nb_outputs=nb_outputs),
+                                     work_on_one_column_only=True,
+                                     all_columns_at_once=False
+                                     )(column_prefix=column_prefix)
+    Xres = dummy_auto_wrapped.fit_transform(df)
+    
+    assert isinstance(Xres, pd.DataFrame)
+    assert (Xres.iloc[:, 0].values == df.iloc[:,0].values).all()
+    assert (Xres.iloc[:, 1+(nb_outputs-1)].values == df.iloc[:, 1].values).all()
+    
+    expected_cols = []
+    for col in df.columns:
+        add = "FEATURE" if with_get_feature_names else ""
+
+        if column_prefix is not None:
+            if add == "":
+                add = column_prefix
+            else:
+                add = column_prefix + "__" + add
+            
+        if add != "":
+            add = "__" + add
+        expected_cols += [(col + add + "__%d" % d) for d in range(nb_outputs)]
+
+    assert Xres.shape == (df.shape[0] , df.shape[1] * nb_outputs)
+    assert dummy_auto_wrapped.get_feature_names() == expected_cols
+    assert dummy_auto_wrapped.get_feature_names() == list(Xres.columns)
+
+
 def test_AutoWrapper_fails_if_not_instance():
     model = 10
     with pytest.raises(TypeError):
         AutoWrapper(model)
+        
+        
+class _DummyWithInverseTransform(BaseEstimator, TransformerMixin):
+    def __init__(self):
+        pass
+    
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X):
+        return np.exp(X)
+    
+    def inverse_transform(self, X):
+        return np.log(X)
+    
+class DummyWrappedWithInverseTransform(ModelWrapper):
+    
+    def __init__(self, columns_to_use="all", column_prefix=None, drop_used_columns=True, drop_unused_columns=True):
 
+        self.column_prefix = column_prefix
+        self.columns_to_use = columns_to_use
+    
+        super(DummyWrappedWithInverseTransform, self).__init__(
+            columns_to_use=columns_to_use,
+            regex_match=False,
+            work_on_one_column_only=False,
+            all_columns_at_once=True,
+            accepted_input_types=None,
+            remove_sparse_serie=False,
+            column_prefix=column_prefix,
+            desired_output_type=DataTypes.DataFrame,
+            must_transform_to_get_features_name=True,
+            dont_change_columns=False,
+            drop_used_columns=drop_used_columns,
+            drop_unused_columns=drop_unused_columns,
+        )
+
+    def _get_model(self, X, y=None):
+        return _DummyWithInverseTransform()
+
+
+def test_dummy_wrapper_inverse_transform():
+    
+    np.random.seed(123)
+    xx = np.random.randn(10, 5)
+    input_features = ["COL_%d" % i for i in range(xx.shape[1])]
+    df = pd.DataFrame(xx, columns=input_features)
+
+    dummy = DummyWrapped(n=1)
+    dummy.fit(df)
+
+    with pytest.raises(AttributeError):    
+        dummy.inverse_transform(df)
+
+    dummy = DummyWrappedWithInverseTransform()
+
+    df_exp = dummy.fit_transform(df)
+    df_org = dummy.inverse_transform(df_exp)
+
+    assert (df_exp.values == np.exp(df.values)).all()
+    assert (df_exp.values == np.exp(df.values)).all()
+    
+    assert np.abs(df_org.values - df.values).max() <= 10**(-5)
+            

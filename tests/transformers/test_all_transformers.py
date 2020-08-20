@@ -24,7 +24,7 @@ from aikit.tools.db_informations import get_columns_informations
 from aikit.enums import TypeOfVariables, DataTypes
 from aikit.tools.data_structure_helper import convert_generic, get_type, _IS_PD1
 
-from aikit.transformers.categories import NumericalEncoder, CategoricalEncoder, category_encoders
+from aikit.transformers.categories import NumericalEncoder, CategoricalEncoder, OrdinalOneHotEncoder, category_encoders
 from aikit.transformers.target import TargetEncoderClassifier, TargetEncoderEntropyClassifier, TargetEncoderRegressor
 from aikit.transformers.base import (
     TruncatedSVDWrapper,
@@ -435,7 +435,7 @@ def verif_encoder(
     extended_all_types = extend_all_type(all_types)
 
     for fit_type, additional_conversion_fun in extended_all_types:
-
+        print(f"...testing for {fit_type} ... ")
         # Convert inputs into several type ..
         df1_conv = convert_generic(df1, output_type=fit_type)
         df2_conv = convert_generic(df2, output_type=fit_type)
@@ -870,6 +870,27 @@ def test_NumericalEncoder_numerical3():
     )
 
 
+# In[] : OrdinalOneHotEncoder
+def test_OrdinalOneHotEncoder():
+    df1_no_nan = df1.loc[:, ["sex","embarked"]].copy()
+    df1_no_nan.loc[ df1["embarked"].isnull(), "embarked"] = "C"
+    
+    df2_no_nan = df2.loc[:, ["sex","embarked"]].copy()
+    df2_no_nan.loc[ df2["embarked"].isnull(), "embarked"] = "C"
+    
+    assert df1_no_nan.isnull().sum().sum() == 0
+    assert df2_no_nan.isnull().sum().sum() == 0
+
+    verif_encoder(
+        df1=df1_no_nan.loc[:, ["sex","embarked"]],
+        df2=df2_no_nan.loc[:, ["sex","embarked"]],
+        y1=y1,
+        klass=OrdinalOneHotEncoder,
+        enc_kwargs={"columns_to_use": "all"},
+        all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),  # DataTypes.NumpyArray),
+        additional_test_functions=[check_all_numerical, check_no_null]
+    )
+    
 # In[] : CategoricalEncoder
 
 ##########################
@@ -1366,7 +1387,7 @@ def test_TruncatedSVDWrapper1():
         y1=None,
         klass=TruncatedSVDWrapper,
         enc_kwargs={"columns_to_use": variable_by_type["NUM"], "n_components": 3},
-        all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),
+        all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame) if _IS_PD1 else (DataTypes.DataFrame, ),
         additional_test_functions=[
             check_all_numerical,
             check_no_null,
@@ -1387,7 +1408,7 @@ def test_TruncatedSVDWrapper2():
         y1=None,
         klass=TruncatedSVDWrapper,
         enc_kwargs={"n_components": 3},
-        all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
+        all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame, DataTypes.NumpyArray, DataTypes.SparseArray) if _IS_PD1 else (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
         additional_test_functions=[
             check_all_numerical,
             check_no_null,
@@ -1408,7 +1429,7 @@ def test_TruncatedSVDWrapper3():
         y1=None,
         klass=TruncatedSVDWrapper,
         enc_kwargs={"columns_to_use": variable_by_type["NUM"]},
-        all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame),
+        all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame) if _IS_PD1 else (DataTypes.DataFrame, ),
         additional_test_functions=[check_all_numerical, check_no_null],
         randomized_transformer=True,
         difference_tolerence=10 ** (-6),
@@ -1423,7 +1444,7 @@ def test_TruncatedSVDWrapper4():
         y1=None,
         klass=TruncatedSVDWrapper,
         enc_kwargs={},
-        all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
+        all_types=(DataTypes.DataFrame, DataTypes.SparseDataFrame, DataTypes.NumpyArray, DataTypes.SparseArray) if _IS_PD1 else (DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
         additional_test_functions=[check_all_numerical, check_no_null],
         randomized_transformer=True,
         difference_tolerence=10 ** (-6),
@@ -1821,7 +1842,7 @@ def test_KMeansTransformer1():
         df2=df2_nona.loc[:, variable_by_type["NUM"]],
         y1=y_train_shuffled,
         klass=KMeansTransformer,
-        enc_kwargs={"random_state": 123, "n_clusters": 10, "result_type": "probability"},
+        enc_kwargs={"random_state": 123, "n_clusters": 10, "result_type": "probability", "kmeans_other_params":{"n_init":1}},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
         additional_test_functions=[
             check_all_numerical,
@@ -1830,7 +1851,7 @@ def test_KMeansTransformer1():
             nb_columns_verify(10),
             type_verifier(DataTypes.DataFrame),
         ],
-        randomized_transformer=False,
+        randomized_transformer=True,
     )
 
 
@@ -1843,7 +1864,7 @@ def test_KMeansTransformer2():
         df2=x_sk,
         y1=y_sk,
         klass=KMeansTransformer,
-        enc_kwargs={"n_clusters": 10, "random_state": 123, "result_type": "probability"},
+        enc_kwargs={"n_clusters": 10, "random_state": 123, "result_type": "probability", "kmeans_other_params":{"n_init":1}},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray),
         additional_test_functions=[
             check_all_numerical,
@@ -1852,7 +1873,7 @@ def test_KMeansTransformer2():
             nb_columns_verify(10),
             type_verifier(DataTypes.DataFrame),
         ],
-        randomized_transformer=False,
+        randomized_transformer=True,
     )
 
 
@@ -1869,6 +1890,7 @@ def test_KMeansTransformer3(desired_output_type):
             "n_clusters": 10,
             "result_type": "probability",
             "desired_output_type": desired_output_type,
+            "n_init": 1
         },
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
         additional_test_functions=[
@@ -1879,7 +1901,7 @@ def test_KMeansTransformer3(desired_output_type):
             nb_columns_verify(10),
             type_verifier(desired_output_type),
         ],
-        randomized_transformer=False,
+        randomized_transformer=True,
     )
 
 
@@ -1893,7 +1915,7 @@ def test_KMeansTransformer4(desired_output_type):
         df2=x_sk,
         y1=y_sk,
         klass=KMeansTransformer,
-        enc_kwargs={"n_clusters": 10, "random_state": 123, "result_type": "probability"},
+        enc_kwargs={"n_clusters": 10, "random_state": 123, "result_type": "probability", "kmeans_other_params":{"n_init":1}},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray),
         additional_test_functions=[
             check_all_numerical,
@@ -1902,7 +1924,7 @@ def test_KMeansTransformer4(desired_output_type):
             nb_columns_verify(10),
             type_verifier(desired_output_type),
         ],
-        randomized_transformer=False,
+        randomized_transformer=True,
     )
 
 
@@ -1923,7 +1945,7 @@ def test_KMeansTransformer5(temperature, result_type):
         df2=df2_nona.loc[:, variable_by_type["NUM"]],
         y1=y_train_shuffled,
         klass=KMeansTransformer,
-        enc_kwargs={"random_state": 123, "n_clusters": 10, "temperature": temperature, "result_type": result_type},
+        enc_kwargs={"random_state": 123, "n_clusters": 10, "temperature": temperature, "result_type": result_type, "kmeans_other_params":{"n_init":1}},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseArray),
         additional_test_functions=[
             check_all_numerical,
@@ -1933,7 +1955,7 @@ def test_KMeansTransformer5(temperature, result_type):
             type_verifier(DataTypes.DataFrame),
         ]
         + f,
-        randomized_transformer=False,
+        randomized_transformer=True,
     )
 
 
@@ -1956,7 +1978,7 @@ def test_KMeansTransformer6(temperature, result_type):
         df2=x_sk,
         y1=y_sk,
         klass=KMeansTransformer,
-        enc_kwargs={"random_state": 123, "n_clusters": 10, "temperature": temperature, "result_type": result_type},
+        enc_kwargs={"random_state": 123, "n_clusters": 10, "temperature": temperature, "result_type": result_type, "kmeans_other_params":{"n_init":1}},
         all_types=(DataTypes.DataFrame, DataTypes.NumpyArray),
         additional_test_functions=[
             check_all_numerical,
@@ -1966,7 +1988,7 @@ def test_KMeansTransformer6(temperature, result_type):
             type_verifier(DataTypes.DataFrame),
         ]
         + f,
-        randomized_transformer=False,
+        randomized_transformer=True,
     )
 
 

@@ -13,15 +13,15 @@ import pandas as pd
 import scipy.sparse as sps
 
 from sklearn.base import TransformerMixin, BaseEstimator, clone
+from sklearn.utils.metaestimators import if_delegate_has_method
 from sklearn.exceptions import NotFittedError
 
-
 from aikit.enums import DataTypes
-from aikit.tools.helper_functions import intersect, diff, exception_improved_logging
 
 import aikit.tools.data_structure_helper as dsh
-from aikit.tools.helper_functions import function_has_named_argument
+from aikit.tools.helper_functions import intersect, diff, exception_improved_logging, function_has_named_argument
 from aikit.tools.db_informations import guess_type_of_variable, TypeOfVariables
+
 
 
 class ColumnsSelector(TransformerMixin, BaseEstimator):
@@ -569,6 +569,9 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         tells what is accepted by the underlying transformer, a conversion will be made if the input type is not among that list
         if None nothing is done
         
+    remove_sparse_serie : bool
+        if True will remove Sparse Serie from DataFrame
+        
     column_prefix : str or None
         if we want the features_names to be prefixed by something like 'SVD_' or 'BAG_' (for TruncatedSVD or CountVectorizer)
         
@@ -604,6 +607,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         work_on_one_column_only,
         all_columns_at_once,
         accepted_input_types,
+        remove_sparse_serie,
         column_prefix,
         desired_output_type,
         must_transform_to_get_features_name,
@@ -625,6 +629,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
 
         ## Input type ##
         self.accepted_input_types = accepted_input_types  # What can be accepted as input
+        self.remove_sparse_serie = remove_sparse_serie
 
         ## Output ##
         self.column_prefix = column_prefix  # what suffix to put on columns
@@ -806,6 +811,22 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
 
         self._already_fitted = True
         return self
+    
+    
+    @if_delegate_has_method(delegate="_model")
+    @exception_improved_logging
+    def inverse_transform(self, X):
+        self._check_is_fitted()
+        
+        if self.all_columns_at_once:
+            return self._model.inverse_transform(X)
+        else:
+            all_Xres = []
+            for model in self._model:
+                all_Xres.append( model.inverse_transform(X) )
+            
+            return dsh.generic_hstack(all_Xres)
+
 
     @exception_improved_logging
     def transform(self, X):
@@ -815,6 +836,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         transformed_part = self._fit_transform(X, y=None, is_fit=False, is_transform=True)
 
         return self._fit_transform_rest(X, transformed_part=transformed_part, is_fit=False, is_transform=True)
+
 
     @exception_improved_logging
     def fit_transform(self, X, y=None, **fit_params):
@@ -883,7 +905,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
             nbcols = dsh._nbcols(Xsubset)
             if nbcols != self._expected_nbcols:
                 raise ValueError(
-                    "I don't have the correct nb of colmns as input, expected : %d, got : %d"
+                    "I don't have the correct nb of columns as input, expected : %d, got : %d"
                     % (self._expected_nbcols, nbcols)
                 )
 
@@ -893,11 +915,14 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
             if expected_columns is not None and columns is not None and columns != self._expected_columns:
                 raise ValueError("I don't have the correct names of columns")
 
+        if getattr(self, "remove_sparse_serie", False) and self._expected_type == DataTypes.DataFrame:
+            Xsubset = dsh.get_rid_of_sparse_columns(Xsubset)
+            
         if self.accepted_input_types is not None and self._expected_type not in self.accepted_input_types:
             Xsubset = dsh.convert_generic(
                 Xsubset, mapped_type=self._expected_type, output_type=self.accepted_input_types[0]
             )
-
+        
         if is_fit:
             self._verif_params()
             self._empty_data = False
@@ -1024,6 +1049,9 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
                     all_Xres.append(Xres_j)
 
             if is_fit:
+                
+                if len(self._models) > 0:
+                    self._model = self._models[0] # to have something in '_model' no matter what case I'm in
 
                 self._columns_informations = {
                     "all_output_columns": None
@@ -1179,6 +1207,7 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         #                                           all_Xres = None,
         #                                           Xsubset_columns = None,
         #                                           Xsubset_shape = None):
+
         ########################################
         ### Apply the model COLUMN BY COLUMN ###
         ########################################
@@ -1195,7 +1224,6 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
 
         # 1) use get_feature_names
         all_features = [try_to_find_features_names(submodel, input_features=input_columns) for submodel in self._models]
-
         # 2) if not found.. I'll try to read it elsewhere..
         if any_none(all_features):
 
@@ -1206,7 +1234,8 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
                 all_features = [[c] for c in input_columns]
 
             if any_none(all_features) and not any_none(all_output_shape):
-                all_features = [list(range(nbcols_from_shape(s))) for s in input_shape]
+
+                all_features = [list(range(nbcols_from_shape(s))) for s in all_output_shape]
 
             if any_none(all_features) and self.dont_change_columns and input_shape is not None:
                 all_features = [[i] for i in range(nbcols_from_shape(input_shape))]
@@ -1230,27 +1259,60 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
         if self.column_prefix is not None:
             for col, features in zip(input_columns, all_features):
                 final_features += [_concat(col, self.column_prefix, f, sep="__") for f in features]
+        else:
+            for col, features in zip(input_columns, all_features):
+                final_features += [_concat(col, f, sep="__") for f in features]
 
         return final_features
 
 
-def AutoWrapper(model, wrapping_kwargs=None):
+def AutoWrapper(model,
+                work_on_one_column_only=False,
+                all_columns_at_once=True,
+                accepted_input_types=(DataTypes.DataFrame,),
+                remove_sparse_serie=True,
+                must_transform_to_get_features_name=False,
+                dont_change_columns=False):
+
     """ returns sklearn-learn like class that 
     
-    * works the same way has a model
-    * but implements the functionnalities from ModelWrapper
+    * works the same way as a model
+    * but implements the functionalities from ModelWrapper
     
     Parameters
     ----------
+    
     model : object
         a sklearn instance
-        
-    wrapping_kwargs : None or dict
-        additionnal parameters to pass to the wrapping function
     
+    work_on_one_column_only : boolean
+        if True tells that the underlying transformer works with 1 dimensinal data (pd.Serie for example)
+        
+    all_columns_at_once : boolean
+        if False it tells that the underlying transformer only know how to work one a singular column
+        This is the case for sklearn CountVectorizer for example.
+        If that is the case the wrapped model will work one several column has well (a clone of the underlying model will be create for each column)
+        
+    accepted_input_types : list of DataType
+        tells what is accepted by the underlying transformer, a conversion will be made if the input type is not among that list
+        if None nothing is done
+
+    remove_sparse_serie : bool
+        if True will remove Sparse Serie from DataFrame
+
+    must_transform_to_get_features_name : boolean
+        specify if the transformer should transform its data in order to get its features names.
+        Ideally the underlying transformer should implement a  'get_features_names' method but sometimes the features names are only retrieve from the column of the transformed DataFrame
+
+    dont_change_columns : boolean
+        indicate that the transformer doesn't change the column (for example a StandardScaler)
+        if that is the case you know that the resulting feature are the input feature
+
+
     Returns
     -------
     sklearn class
+    
     
     Example
     -------
@@ -1268,16 +1330,16 @@ def AutoWrapper(model, wrapping_kwargs=None):
     
     """
     
-    wrapping_parameters = {
-                 "work_on_one_column_only":False,
-                 "all_columns_at_once":True,
-                 "accepted_input_types":(DataTypes.DataFrame,),
-                 "must_transform_to_get_features_name":False,
-                 "dont_change_columns":False
-    }
-    
-    if wrapping_kwargs is not None:
-        wrapping_parameters.update(wrapping_kwargs)
+#    wrapping_parameters = {
+#                 "work_on_one_column_only":False,
+#                 "all_columns_at_once":True,
+#                 "accepted_input_types":(DataTypes.DataFrame,),
+#                 "must_transform_to_get_features_name":False,
+#                 "dont_change_columns":False,
+#    }
+#    
+#    if wrapping_kwargs is not None:
+#        wrapping_parameters.update(wrapping_kwargs)
         
     if isinstance(model, type):
         model_instance = model() # instanciate the klass with default parameters
@@ -1330,7 +1392,7 @@ def AutoWrapper(model, wrapping_kwargs=None):
                      regex_match=False,
                      desired_output_type=DataTypes.DataFrame,
                      drop_used_columns=True,
-                     drop_unused_columns=False,
+                     drop_unused_columns=True,
                      ):
             
             self.columns_to_use=columns_to_use
@@ -1341,13 +1403,21 @@ def AutoWrapper(model, wrapping_kwargs=None):
             self.drop_unused_columns=drop_unused_columns
                  
             super(WrappedKlass, self).__init__(
+                 # param in instance
                  columns_to_use=columns_to_use,
                  regex_match=regex_match,
                  column_prefix=column_prefix,
                  desired_output_type=desired_output_type,
                  drop_used_columns=drop_used_columns,
                  drop_unused_columns=drop_unused_columns,
-                 **wrapping_parameters
+                 
+                 # fix param
+                 work_on_one_column_only=work_on_one_column_only,
+                 all_columns_at_once=all_columns_at_once,
+                 accepted_input_types=accepted_input_types,
+                 remove_sparse_serie=remove_sparse_serie,
+                 must_transform_to_get_features_name=must_transform_to_get_features_name,
+                 dont_change_columns=dont_change_columns,
                  )
             
         def _get_model(self, X, y=None):

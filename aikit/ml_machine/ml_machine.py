@@ -1287,7 +1287,7 @@ class JobConfig(object):
             self.scoring = ["accuracy", "log_loss_patched", "avg_roc_auc", "f1_macro"]
 
         elif auto_ml_config.type_of_problem == en.TypeOfProblem.CLUSTERING:
-            self.scoring = ["silhouette", "calinski_harabaz", "davies_bouldin"]
+            self.scoring = ["silhouette", "calinski_harabasz", "davies_bouldin"]
 
         else:
             self.scoring = ["r2", "neg_mean_squared_error", "neg_mean_absolute_error"]

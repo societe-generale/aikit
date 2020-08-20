@@ -23,6 +23,7 @@ from aikit.tools.data_structure_helper import (
     get_rid_of_categories,
     get_rid_of_sparse_columns,
     convert_to_sparseserie,
+    convert_generic,
     _IS_PD1,
 )
 from aikit.tools.data_structure_helper import make2dimensions, make1dimension
@@ -247,3 +248,25 @@ def test_convert_to_sparseserie():
     assert spp is sp
     
     
+@pytest.mark.skipif(not _IS_PD1, reason="only testing for pandas >= 1.0.0")
+def test_convert_to_array_when_sparse():
+    
+    array = np.zeros((10,3), dtype=np.float32)
+    df1 = pd.DataFrame(array, columns=["A", "B", "C"])
+    df1_sparse = convert_generic(df1, output_type=DataTypes.SparseDataFrame)
+    df1_array  = convert_generic(df1_sparse, output_type=DataTypes.NumpyArray)
+    assert (df1_array == array).all()
+    assert df1_array.dtype == array.dtype
+    
+    df1= pd.DataFrame({"int_col":np.zeros(10, dtype=np.int64),
+                  "float_col":np.zeros(10, dtype=np.float64)
+                  })
+    
+    df1_sparse = convert_generic(df1, output_type=DataTypes.SparseDataFrame)
+    df1_array  = convert_generic(df1_sparse, output_type=DataTypes.NumpyArray)
+    
+    assert (df1_array == 0).all()
+    assert df1_array.dtype == np.float64
+    # TODO : 
+    # convert to sparse
+    # reconvert to array -> type of array = object == ERROR

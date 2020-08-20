@@ -127,7 +127,7 @@ def convert_to_array(xx, mapped_type=None):
         return convert_to_array(convert_to_dataframe(xx))
 
     if mapped_type == DataTypes.DataFrame:
-        return get_rid_of_categories(xx).values
+        return get_rid_of_categories(get_rid_of_sparse_columns(xx)).values
 
     elif mapped_type == DataTypes.Serie:
         return xx.values.reshape((xx.shape[0], 1))
@@ -742,5 +742,5 @@ def _set_index(x, index):
 
     return x
 
-
+            
 # In[]

@@ -17,7 +17,7 @@ from .base import (
     CdfScaler,
     PCAWrapper,
 )
-from .categories import NumericalEncoder, CategoricalEncoder
+from .categories import NumericalEncoder, CategoricalEncoder, OrdinalOneHotEncoder
 from .text import (
     TextDigitAnonymizer,
     TextNltkProcessing,
@@ -28,7 +28,7 @@ from .text import (
 )
 from .target import TargetEncoderClassifier, TargetEncoderEntropyClassifier, TargetEncoderRegressor
 from .block_selector import BlockSelector, BlockManager, TransformToBlockManager
-from .model_wrapper import ModelWrapper, ColumnsSelector
+from .model_wrapper import ModelWrapper, ColumnsSelector, AutoWrapper
 
 __all__ = [
     "FeaturesSelectorClassifier",
@@ -41,6 +41,7 @@ __all__ = [
     "CdfScaler",
     "NumericalEncoder",
     "CategoricalEncoder",
+    "OrdinalOneHotEncoder",
     "NumericalEncoder",
     "CategoricalEncoder",
     "TextDigitAnonymizer",
@@ -56,6 +57,7 @@ __all__ = [
     "BlockManager",
     "TransformToBlockManager",
     "ModelWrapper",
+    "AutoWrapper",
     "ColumnsSelector",
     "PCAWrapper",
 ]
