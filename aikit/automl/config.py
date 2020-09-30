@@ -10,16 +10,13 @@ from aikit.tools.db_informations import (
     get_all_var_type,
 )
 
-from aikit.ml_machine.steps_handling import (
+from aikit.automl.model_generation.steps_handling import (
     get_needed_steps,
-    filter_model_to_keep,
-    modify_var_type_none_to_default,
-    modify_var_type_alldefault_to_none,
-    create_var_type_from_steps,
+    filter_model_to_keep
 )
 
-from aikit.ml_machine.hyper_parameters import HyperMultipleChoice, HyperCrossProduct, HyperComposition
-from aikit.ml_machine.ml_machine_registration import MODEL_REGISTER
+from aikit.automl.model_generation.hyper_parameters import HyperCrossProduct
+from aikit.automl.model_registration import MODEL_REGISTER
 from aikit.scorer import SCORERS
 from aikit import enums
 
@@ -394,26 +391,6 @@ class AutoMlConfig:
     def specific_hyper(self):
         self._specific_hyper = None
 
-    ###############
-    ### Helpers ###
-    ###############
-    def is_regression(self):
-        return self._type_of_problem == enums.TypeOfProblem.REGRESSION
-
-    def is_classification(self):
-        return self._type_of_problem == enums.TypeOfProblem.CLASSIFICATION
-
-    def is_clustering(self):
-        return self._type_of_problem == enums.TypeOfProblem.CLUSTERING
-
-    def get_predict_method_name(self):
-        if self.is_classification():
-            return "predict_proba"
-        elif self.is_clustering():
-            return "fit_predict"
-        else:
-            return "predict"
-
     ############
     ### Repr ###
     ############
@@ -448,8 +425,8 @@ class JobConfig:
 
     """
 
-    def __init__(self):
-
+    def __init__(self, type_of_problem):
+        self.type_of_problem = type_of_problem
         self.cv = None
         self.scoring = None
 
@@ -466,10 +443,10 @@ class JobConfig:
     ########################
     ### Cross Validation ###
     ########################
-    def guess_cv(self, auto_ml_config, n_splits=10):
-        if auto_ml_config.type_of_problem == enums.TypeOfProblem.CLASSIFICATION:
+    def guess_cv(self, n_splits=10):
+        if self.type_of_problem == enums.TypeOfProblem.CLASSIFICATION:
             self.cv = sklearn.model_selection.StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=123)
-        elif auto_ml_config.type_of_problem == enums.TypeOfProblem.CLUSTERING:
+        elif self.type_of_problem == enums.TypeOfProblem.CLUSTERING:
             self.cv = sklearn.model_selection.KFold(n_splits=n_splits, shuffle=True, random_state=123)
         else:
             self.cv = sklearn.model_selection.KFold(n_splits=n_splits, shuffle=True, random_state=123)
@@ -500,11 +477,11 @@ class JobConfig:
     ###############
     ### Metrics ###
     ###############
-    def guess_scoring(self, auto_ml_config):
-        if auto_ml_config.type_of_problem == enums.TypeOfProblem.CLASSIFICATION:
+    def guess_scoring(self):
+        if self.type_of_problem == enums.TypeOfProblem.CLASSIFICATION:
             self.scoring = ["accuracy", "log_loss_patched", "avg_roc_auc", "f1_macro"]
 
-        elif auto_ml_config.type_of_problem == enums.TypeOfProblem.CLUSTERING:
+        elif self.type_of_problem == enums.TypeOfProblem.CLUSTERING:
             self.scoring = ["silhouette", "calinski_harabasz", "davies_bouldin"]
 
         else:
@@ -609,6 +586,26 @@ class JobConfig:
     @additional_scoring_function.deleter
     def additional_scoring_function(self):
         self._additional_scoring_function = None
+
+    ###############
+    ### Helpers ###
+    ###############
+    def is_regression(self):
+        return self.type_of_problem == enums.TypeOfProblem.REGRESSION
+
+    def is_classification(self):
+        return self.type_of_problem == enums.TypeOfProblem.CLASSIFICATION
+
+    def is_clustering(self):
+        return self.type_of_problem == enums.TypeOfProblem.CLUSTERING
+
+    def get_predict_method_name(self):
+        if self.is_classification():
+            return "predict_proba"
+        elif self.is_clustering():
+            return "fit_predict"
+        else:
+            return "predict"
 
     ############
     ### Repr ###

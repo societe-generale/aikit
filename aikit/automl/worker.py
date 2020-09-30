@@ -1,4 +1,3 @@
-import os
 import gc
 import uuid
 import time
@@ -8,14 +7,13 @@ from collections import OrderedDict
 
 from sklearn.utils.validation import check_random_state
 
-from aikit import enums
 from aikit.model_definition import sklearn_model_from_param
 from aikit.cross_validation import create_cv, cross_validation, score_from_params_clustering
 from aikit.scorer import SCORERS
 from aikit.tools.helper_functions import system_and_caller_information, md5_hash
 
-from aikit.automl.storage import Storage
-from aikit.automl.jobs import JobsQueue
+from aikit.automl.persistence.storage import Storage
+from aikit.automl.persistence.job_queue import JobsQueue
 
 
 logger = logging.getLogger('aikit')
@@ -32,7 +30,6 @@ class Worker:
         self.seed = seed
 
         self.random_state = None
-        self.automl_config = self.storage.load_pickle('automl_config')
         self.job_config = self.storage.load_pickle('job_config')
         self._init_worker()
 
@@ -54,7 +51,7 @@ class Worker:
 
     def run(self):
         X, y, *_ = self.data.load_pickle(self.data_key)
-        self.cv = create_cv(self.job_config.cv, y, classifier=self.automl_config.is_classification(),
+        self.cv = create_cv(self.job_config.cv, y, classifier=self.job_config.is_classification(),
                             shuffle=True, random_state=123)
 
         while True:
@@ -63,44 +60,48 @@ class Worker:
                 self.compute_job(job_id, X, y)
             else:
                 logging.info('Waiting for new job...')
-                time.sleep(10)
+                time.sleep(5)
 
     def compute_job(self, job_id, X, y, groups=None):
         logger.info('Running job {}'.format(job_id))
-        infos = {
+        status = {
             'job_id': job_id,
             'worker_id': self.uuid,
             'start_time': time.strftime("%Y-%m-%d %H:%M:%S")
         }
-        self.storage.save_json(infos, job_id, 'running')
+        self.storage.save_json(status, job_id, 'running')
 
         try:
             job = self.storage.load_special_json(job_id, 'jobs')
             self.validate_job(job)
             cv_result, yhat = self.compute_cv(job, X, y, groups)
-            self.save_results(job_id, cv_result, yhat, infos)
+            status['results'] = cv_result.to_dict(orient='records')
 
             if self.job_config.additional_scoring_function is not None:
                 additional_result = self.job_config.additional_scoring_function(cv_result, yhat, y, groups)
-                self.storage.save_json(additional_result, job_id, 'additional_results')
+                status['additional_results'] = additional_result.to_dict(orient='records')
+
+            if not self.job_config.is_clustering():
+                status['train_metric'] = cv_result["train_%s" % self.job_config.main_scorer].mean()
+                status['test_metric'] = cv_result["test_%s" % self.job_config.main_scorer].mean()
+                logger.info('Train {}: {:.2%}'.format(self.job_config.main_scorer, status['train_metric']))
+                logger.info('Test {}: {:.2%}'.format(self.job_config.main_scorer, status['test_metric']))
+
+            if self.job_config.is_clustering():
+                status['labels'] = yhat
 
         except Exception as e:
             if isinstance(e, MemoryError):
                 gc.collect()
 
-            error = {
-                'job_id': job_id,
-                'error': repr(e),
-                'traceback': traceback.format_exc()
-            }
-            infos['error'] = error['error']
-            logger.error(error['error'])
-            self.storage.save_json(error, job_id, 'errors')
+            status['error'] = repr(e)
+            status['traceback'] = traceback.format_exc()
+            logger.error(status['error'])
 
         finally:
-            self.storage.remove(job_id, 'json', 'running')
-            infos['end_time'] = time.strftime("%Y-%m-%d %H:%M:%S")
-            self.storage.save_json(infos, job_id, 'finished')
+            self.storage.remove(job_id + '.json', 'running')
+            status['end_time'] = time.strftime("%Y-%m-%d %H:%M:%S")
+            self.storage.save_json(status, job_id, 'finished')
 
     def validate_job(self, job):
         if job['cv_type'] not in ["approximate", "full"]:
@@ -108,9 +109,9 @@ class Worker:
 
     def compute_cv(self, job, X, y, groups):
         model = sklearn_model_from_param(job['model_code'])
-        method = self.automl_config.get_predict_method_name()
+        method = self.job_config.get_predict_method_name()
 
-        if self.automl_config.is_clustering():
+        if self.job_config.is_clustering():
             cv_result, yhat = score_from_params_clustering(
                 model, X, scoring=self.scorers, return_predict=True, method=method, verbose=False
             )
@@ -124,25 +125,9 @@ class Worker:
                 method=method,
                 stopping_round=job['stopping_round'],
                 stopping_threshold=job['stopping_threshold'],
-                nodes_not_to_crossvalidate=job.get('nodes_not_to_crossvalidate', None),
+                nodes_not_to_crossvalidate=job['nodes_not_to_crossvalidate'],
                 approximate_cv=(job['cv_type'] == 'approximate'),
                 verbose=False
             )
 
-        cv_result['job_id'] = job['job_id']
         return cv_result, yhat
-
-    def save_results(self, job_id, cv_result, yhat, infos):
-        infos['results'] = cv_result.to_dict(orient='records')
-        self.storage.save_csv(cv_result, job_id, 'results')
-
-        if not self.automl_config.is_clustering():
-            train_metric = cv_result["train_%s" % self.job_config.main_scorer].mean()
-            test_metric = cv_result["test_%s" % self.job_config.main_scorer].mean()
-            infos['train_metric'] = train_metric
-            infos['test_metric'] = test_metric
-            logger.info('Train {}: {:.2%}'.format(self.job_config.main_scorer, train_metric))
-            logger.info('Test {}: {:.2%}'.format(self.job_config.main_scorer, test_metric))
-
-        if self.automl_config.is_clustering():
-            self.storage.save_json(yhat, job_id, 'labels')
