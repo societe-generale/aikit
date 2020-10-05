@@ -2,6 +2,18 @@ import sys
 import logging
 
 
+def unpack_data(*data):
+    X, *params = data
+    if len(params) == 0:
+        return X, None, None
+    elif len(params) == 1:
+        return X, params[0], None
+    elif len(params) == 2:
+        return X, params[0], params[1]
+    else:
+        raise ValueError('Data only expect X, y and groups')
+
+
 def deactivate_warnings():
     import warnings
     def warn(*args, **kwargs):

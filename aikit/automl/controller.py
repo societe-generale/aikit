@@ -8,6 +8,7 @@ from sklearn.utils.validation import check_random_state
 
 from aikit import enums
 from aikit.tools.helper_functions import md5_hash
+from aikit.automl.utils import unpack_data
 from aikit.automl.config import AutoMlConfig, JobConfig
 from aikit.automl.persistence.storage import Storage
 from aikit.automl.persistence.job_queue import JobsQueue
@@ -23,7 +24,9 @@ logger = logging.getLogger('aikit')
 
 
 class Controller:
-
+    """
+    TODO: use groups in jobConfig.guess_cv
+    """
     def __init__(self, data_path, data_key, storage_path, queue_path, random_state=None):
         self.data = Storage(data_path)
         self.data_key = data_key
@@ -37,15 +40,15 @@ class Controller:
         self.automl_guider: AutoMlModelGuider = None
         self.generator: RandomModelGenerator = None
         self._default_iterator = None
-        self._default_iterator_empty = True
         self._block_search_iterator = None
-        self._block_search_iterator_empty = True
 
         self.queue_size = 20
         self.jobs_update_time = 5
         self.p_block_search = 0.2
+        self.n_draws_for_guided_jobs = 100
         self.status = {
-            'mode': 'default',
+            'default_iterator_empty': True,
+            'block_search_iterator_empty': True,
             'metric_threshold': None
         }
 
@@ -59,7 +62,7 @@ class Controller:
             self.job_config = self.storage.load_pickle('job_config')
             self.reader.load()
         else:
-            X, y, *_ = self.data.load_pickle(self.data_key)
+            X, y, groups = unpack_data(self.data.load_pickle(self.data_key))
             self.automl_config = AutoMlConfig()
             self.automl_config.guess_everything(X, y)
             self.job_config = JobConfig(self.automl_config.type_of_problem)
@@ -76,11 +79,11 @@ class Controller:
 
         if self.job_config.start_with_default:
             self._default_iterator = self.generator.iterator_default_models()
-            self._default_iterator_empty = False
+            self.status['default_iterator_empty'] = False
 
         if self.job_config.do_blocks_search:
             self._block_search_iterator = self.generator.iterate_block_search(random_order=True)
-            self._block_search_iterator_empty = False
+            self.status['block_search_iterator_empty'] = False
 
     def run(self):
         while self.queue.size() < self.queue_size:
@@ -109,23 +112,22 @@ class Controller:
 
     def get_next_job(self):
         # iterate on default iterator
-        if self.status['mode'] == 'default' and not self._default_iterator_empty:
+        if not self.status['default_iterator_empty']:
             try:
                 next_job = next(self._default_iterator)
                 return self.get_job('default', *next_job)
             except StopIteration:
                 logger.info("Default iterator cleared out")
-                self._default_iterator_empty = True
-                self.status['mode'] = 'random'
+                self.status['default_iterator_empty'] = True
 
         # iterate on block search iterator
-        if not self._block_search_iterator_empty and self.random_state.rand(1)[0] <= self.p_block_search:
+        if not self.status['block_search_iterator_empty'] and self.random_state.rand(1)[0] <= self.p_block_search:
             try:
                 next_job = next(self._block_search_iterator)
                 return self.get_job('block-search', *next_job)
             except StopIteration:
                 logger.info("Block-search iterator cleared out")
-                self._block_search_iterator_empty = True
+                self.status['block_search_iterator_empty'] = True
 
         p_exploration = self.find_exploration_proba()
         logger.debug('Exploration probability: {:.2%}'.format(p_exploration))
@@ -163,58 +165,9 @@ class Controller:
 
     def get_guided_job(self):
         """ Guided job : draw several models and guess which is best
-
-        1) Mean + 2 * Std
-        benchmark = metric_prediction + 2 * np.sqrt(metric_variance_prediction)
-        2) Proba new >= best =>
-        (Mean - Best) / Std
-        3) E(New * (1[new >= best])
-        Rmk : si on utilise des rang, best presque 1
-        ii = np.argmax(benchmark)
-
-        NOTE: on va prendre a peu pres le plus best avec une proba 1/4 (suivant les tests)
-        # On peut aussi faire une heuristic en suppossant benchmark uniform (pas tres loin de la verite vu qu'on a fitter un rank...)
-
-        # Comme ca je prend pas l'argmax, mais quelque chose d'un peu plus exploratoir
-        # ... peut etre que argmax ca marcherait mieux (surement plus petite variation autour du meilleurs model)
-
-        # On peut aussi virer les trucs vraiment pas bon...
-        # Ou tirer au hasard parmis les meilleurs ..
-
-        TODO : on peut faire descendre la temperature en court de route.... a peu pres equivalent à gérer l'explortion...
         """
-        jobs = [self.get_job('guided', *self.generator.draw_random_graph()) for _ in range(100)]
-
-        # refit guider
-        self.automl_guider.fit_metric_model(self.reader)
-
-        # Predict score + var using the guider
-        metric_prediction, metric_variance_prediction = self.automl_guider.predict_metric(jobs)
-
-        if metric_prediction is None or metric_variance_prediction is None:
-            return jobs[0]
-
-        def softmax(benchmark, T=1):
-            ss = np.std(benchmark)
-            if ss == 0:
-                return 1 / len(benchmark) * np.ones(len(benchmark), dtype=np.float32)
-            else:
-                nbenchmark = (benchmark - np.mean(benchmark)) / ss
-                exp_nbenchmark = np.exp(nbenchmark / T)
-                return exp_nbenchmark / exp_nbenchmark.sum()
-
-        benchmark = metric_prediction + 2 * np.sqrt(metric_variance_prediction)
-        probas = softmax(benchmark, T=0.1)
-        probas[pd.isnull(probas)] = 0.0
-        probas[np.isinf(probas)] = 0.0
-
-        if probas.sum() == 0:
-            job_index = np.random.choice(len(probas), size=1)[0]
-        else:
-            probas = probas / probas.sum()
-            job_index = np.random.choice(len(probas), size=1, p=probas)[0]
-
-        return jobs[job_index]
+        jobs = [self.get_job('guided', *self.generator.draw_random_graph()) for _ in range(self.n_draws_for_guided_jobs)]
+        return self.automl_guider.predict_best_job(jobs, self.reader)
 
     def compute_job_cv_type(self, job):
         if self.job_config.allow_approx_cv and job['model_code'][0] == enums.SpecialModels.GraphPipeline:
@@ -226,10 +179,10 @@ class Controller:
                     if not infos.get("use_y", True):
                         nodes_not_to_crossvalidate.add(job['name_mapping'][node])
 
-            job["cv_type"] = "approximate"
+            job["cv_type"] = enums.TypeOfCv.Approximate
             job["nodes_not_to_crossvalidate"] = nodes_not_to_crossvalidate
         else:
-            job['cv_type'] = 'full'
+            job['cv_type'] = enums.TypeOfCv.Full
             job['nodes_not_to_crossvalidate'] = None
 
         return job

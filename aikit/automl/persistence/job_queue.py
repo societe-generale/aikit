@@ -1,9 +1,5 @@
 import os
-import time
-import redis
-import persistqueue
 import persistqueue.sqlqueue as pq
-from persistqueue.sqlbase import with_conditional_transaction
 
 
 class JobsQueue:

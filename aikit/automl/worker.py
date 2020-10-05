@@ -5,13 +5,13 @@ import logging
 import traceback
 from collections import OrderedDict
 
-from sklearn.utils.validation import check_random_state
-
+from aikit import enums
 from aikit.model_definition import sklearn_model_from_param
 from aikit.cross_validation import create_cv, cross_validation, score_from_params_clustering
 from aikit.scorer import SCORERS
-from aikit.tools.helper_functions import system_and_caller_information, md5_hash
+from aikit.tools.helper_functions import system_and_caller_information
 
+from aikit.automl.utils import unpack_data
 from aikit.automl.persistence.storage import Storage
 from aikit.automl.persistence.job_queue import JobsQueue
 
@@ -21,15 +21,13 @@ logger = logging.getLogger('aikit')
 
 class Worker:
 
-    def __init__(self, storage_path, queue_path, data_path, data_key, seed=None):
+    def __init__(self, storage_path, queue_path, data_path, data_key):
         self.uuid = str(uuid.uuid4())
         self.data = Storage(data_path)
         self.data_key = data_key
         self.storage = Storage(storage_path)
         self.queue = JobsQueue(queue_path)
-        self.seed = seed
 
-        self.random_state = None
         self.job_config = self.storage.load_pickle('job_config')
         self._init_worker()
 
@@ -37,11 +35,9 @@ class Worker:
         infos = system_and_caller_information()
         infos["id"] = self.uuid
         infos["start_time"] = time.strftime("%Y-%m-%d %H:%M:%S")
-        infos["seed"] = self.seed or int(md5_hash(infos), 16) % (2 ** 32 - 1)
 
         self.infos = infos
         self.storage.save_json(infos, self.uuid, 'workers')
-        self.random_state = check_random_state(infos["seed"])
         self.scorers = OrderedDict()
         for i, s in enumerate(self.job_config.scoring):
             if isinstance(s, str):
@@ -50,14 +46,14 @@ class Worker:
                 self.scorers["scorer_%d" % i] = SCORERS[s]
 
     def run(self):
-        X, y, *_ = self.data.load_pickle(self.data_key)
+        X, y, groups = unpack_data(self.data.load_pickle(self.data_key))
         self.cv = create_cv(self.job_config.cv, y, classifier=self.job_config.is_classification(),
                             shuffle=True, random_state=123)
 
         while True:
             job_id = self.queue.dequeue()
             if job_id is not None:
-                self.compute_job(job_id, X, y)
+                self.compute_job(job_id, X, y, groups)
             else:
                 logging.info('Waiting for new job...')
                 time.sleep(5)
@@ -104,7 +100,7 @@ class Worker:
             self.storage.save_json(status, job_id, 'finished')
 
     def validate_job(self, job):
-        if job['cv_type'] not in ["approximate", "full"]:
+        if job['cv_type'] not in enums.TypeOfCv.alls:
             raise ValueError('CV type {} is not allowed'.format(job['cv_type']))
 
     def compute_cv(self, job, X, y, groups):

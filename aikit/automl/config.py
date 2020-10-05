@@ -215,7 +215,6 @@ class AutoMlConfig:
         if not isinstance(values, (list, tuple)):
             raise TypeError("'needed_steps' should be a list or tuple")
 
-        new_needed_steps = list(values)
         for step in values:
             if not isinstance(step, dict):
                 raise TypeError("each step should be a dict, instead it is %s" % type(step))
@@ -230,7 +229,7 @@ class AutoMlConfig:
             if step["step"] not in enums.StepCategories.alls:
                 raise ValueError("Unknown step : %s" % step["step"])
 
-        self._needed_steps = values
+        self._needed_steps = list(values)
 
     @needed_steps.deleter
     def needed_steps(self):

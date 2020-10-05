@@ -2,9 +2,14 @@ import os
 import json
 import pickle
 import pandas as pd
-from smart_open import open
-from aikit.tools.json_helper import SpecialJSONEncoder, SpecialJSONDecoder
 
+try:
+    from smart_open import open
+except ImportError:
+    # use standard open instead
+    pass
+
+from aikit.tools.json_helper import SpecialJSONEncoder, SpecialJSONDecoder
 
 
 class Storage:

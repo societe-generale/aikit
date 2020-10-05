@@ -145,20 +145,60 @@ class AutoMlModelGuider:
         if self.avg_metric and self.metric_transformation is None:
             raise ValueError("I can't average raw metric, you should use a transformation")
 
-    def _get_scorers(self):
-        if self.job_config.guiding_scorer is None:
-            if self.avg_metric:
-                scorers = self.job_config.scoring
-            else:
-                scorers = [self.job_config.main_scorer]  # I'll use only the main_scorer
+    def predict_best_job(self, jobs, reader):
+        """1) Mean + 2 * Std
+        benchmark = metric_prediction + 2 * np.sqrt(metric_variance_prediction)
+        2) Proba new >= best =>
+        (Mean - Best) / Std
+        3) E(New * (1[new >= best])
+        Rmk : si on utilise des rang, best presque 1
+        ii = np.argmax(benchmark)
+
+        NOTE: on va prendre a peu pres le plus best avec une proba 1/4 (suivant les tests)
+        # On peut aussi faire une heuristic en suppossant benchmark uniform (pas tres loin de la verite vu qu'on a fitter un rank...)
+
+        # Comme ca je prend pas l'argmax, mais quelque chose d'un peu plus exploratoir
+        # ... peut etre que argmax ca marcherait mieux (surement plus petite variation autour du meilleurs model)
+
+        # On peut aussi virer les trucs vraiment pas bon...
+        # Ou tirer au hasard parmis les meilleurs ..
+
+        TODO : on peut faire descendre la temperature en court de route.... a peu pres equivalent à gérer l'explortion...
+        """
+        # refit guider
+        self.fit_metric_model(reader)
+
+        # Predict score + var using the guider
+        metric_prediction, metric_variance_prediction = self.predict_metric(jobs)
+
+        if metric_prediction is None or metric_variance_prediction is None:
+            return jobs[0]
+
+        benchmark = metric_prediction + 2 * np.sqrt(metric_variance_prediction)
+        probas = self.softmax(benchmark, T=0.1)
+        probas[pd.isnull(probas)] = 0.0
+        probas[np.isinf(probas)] = 0.0
+
+        if probas.sum() == 0:
+            job_index = np.random.choice(len(probas), size=1)[0]
         else:
-            if not isinstance(self.job_config.guiding_scorer, list):
-                scorers = [self.job_config.guiding_scorer]
-            else:
-                scorers = self.job_config.guiding_scorer
-        return scorers
+            probas = probas / probas.sum()
+            job_index = np.random.choice(len(probas), size=1, p=probas)[0]
+
+        return jobs[job_index]
+
+    @staticmethod
+    def softmax(benchmark, T=1):
+        ss = np.std(benchmark)
+        if ss == 0:
+            return 1 / len(benchmark) * np.ones(len(benchmark), dtype=np.float32)
+        else:
+            nbenchmark = (benchmark - np.mean(benchmark)) / ss
+            exp_nbenchmark = np.exp(nbenchmark / T)
+            return exp_nbenchmark / exp_nbenchmark.sum()
 
     def fit_metric_model(self, reader):
+        # TODO: remove columns random_state in unnest_job_parameters ?
         # Load the results
         results = reader.get_results(agregate=True)
         additional_results = reader.get_additional_results()
@@ -218,6 +258,19 @@ class AutoMlModelGuider:
             y.append(score)
         y = np.vstack(y).mean(axis=0)
         return y
+
+    def _get_scorers(self):
+        if self.job_config.guiding_scorer is None:
+            if self.avg_metric:
+                scorers = self.job_config.scoring
+            else:
+                scorers = [self.job_config.main_scorer]  # I'll use only the main_scorer
+        else:
+            if not isinstance(self.job_config.guiding_scorer, list):
+                scorers = [self.job_config.guiding_scorer]
+            else:
+                scorers = self.job_config.guiding_scorer
+        return scorers
 
     def _transform_target(self, y, scorer):
         if self.metric_transformation is None:
