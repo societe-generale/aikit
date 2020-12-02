@@ -66,7 +66,7 @@ class Storage:
             return pd.read_csv(file)
 
     def exists(self, key, folder=None):
-        return self.backend.exists(self.full_path(key, folder))
+        return self.backend.exists(self.full_path(key, folder), is_full_path=True)
 
     def listdir(self, folder):
         if not self.exists(folder):
@@ -93,8 +93,11 @@ class FileStorage:
         else:
             return os.path.join(self.path, folder, key)
 
-    def exists(self, path):
-        return os.path.exists(os.path.join(self.path, path))
+    def exists(self, path, is_full_path=False):
+        if is_full_path:
+            return os.path.exists(path)
+        else:
+            return os.path.exists(os.path.join(self.path, path))
 
     def listdir(self, folder):
         return os.listdir(os.path.join(self.path, folder))
