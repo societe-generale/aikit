@@ -2,7 +2,7 @@ import sys
 import logging
 
 
-def unpack_data(*data):
+def unpack_data(data):
     X, *params = data
     if len(params) == 0:
         return X, None, None
