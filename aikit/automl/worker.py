@@ -1,4 +1,5 @@
 import gc
+import sys
 import uuid
 import time
 import logging
@@ -45,18 +46,24 @@ class Worker:
             else:
                 self.scorers["scorer_%d" % i] = SCORERS[s]
 
-    def run(self):
+    def run(self, max_model_count=None):
+        if max_model_count is None:
+            max_model_count = sys.maxsize
+        total_model_count = 0
+
         X, y, groups = unpack_data(self.data.load_pickle(self.data_key))
         self.cv = create_cv(self.job_config.cv, y, classifier=self.job_config.is_classification(),
                             shuffle=True, random_state=123)
 
-        while True:
+        while total_model_count < max_model_count:
             job_id = self.queue.dequeue()
             if job_id is not None:
                 self.compute_job(job_id, X, y, groups)
+                total_model_count += 1
             else:
                 logging.info('Waiting for new job...')
                 time.sleep(5)
+        logger.info('Finished fitting models, worker exiting.')
 
     def compute_job(self, job_id, X, y, groups=None):
         logger.info('Running job {}'.format(job_id))

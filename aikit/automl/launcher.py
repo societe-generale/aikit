@@ -14,20 +14,22 @@ class AutoMlLauncher:
         self.data_path = data_path or storage_path
         self.data_key = data_key or 'data'
 
-    def start_controller(self):
+    def start_controller(self, max_model_count=None):
         controller = Controller(
             data_path=self.data_path,
             data_key=self.data_key,
             storage_path=self.storage_path,
             queue_path=self.queue_path
         )
-        controller.run()
+        controller.run(max_model_count=max_model_count)
+        return controller
 
-    def start_worker(self):
+    def start_worker(self, max_model_count=None):
         worker = Worker(
             data_path=self.data_path,
             data_key=self.data_key,
             storage_path=self.storage_path,
             queue_path=self.queue_path
         )
-        worker.run()
+        worker.run(max_model_count=max_model_count)
+        return worker

@@ -1,8 +1,8 @@
+import sys
 import time
 import logging
 import datetime
 import numpy as np
-import pandas as pd
 
 from sklearn.utils.validation import check_random_state
 
@@ -85,16 +85,23 @@ class Controller:
             self._block_search_iterator = self.generator.iterate_block_search(random_order=True)
             self.status['block_search_iterator_empty'] = False
 
-    def run(self):
-        while self.queue.size() < self.queue_size:
+    def run(self, max_model_count=None):
+        total_model_count = 0
+        if max_model_count is None:
+            max_model_count = sys.maxsize
+
+        while self.queue.size() < min(self.queue_size, max_model_count):
             self.create_job()
+            total_model_count += 1
 
         logger.info('Queue is full. Adding new jobs every {} seconds'.format(self.jobs_update_time))
-        while True:
+        while total_model_count < max_model_count:
             current_queue_size = self.queue.size()
             for _ in range(self.queue_size - current_queue_size):
                 self.create_job()
+                total_model_count += 1
             time.sleep(self.jobs_update_time)
+        logger.info('Finished generating models, controller exiting.')
 
     def create_job(self):
         job = self.get_next_job()
