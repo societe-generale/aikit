@@ -51,6 +51,31 @@ def test_launcher_init(tmpdir):
     assert isinstance(launcher.job_config.scoring, list)
 
 
+def numpy_loader():
+    np.random.seed(123)
+    X = np.random.randn(100, 10).astype(np.float32)
+    y = X[:,0] + np.random.randn(100)
+    return X, y
+
+
+def test_launcher_init_with_numpy(tmpdir):
+    launcher = MlMachineLauncher(base_folder=tmpdir, name="numpy", loader=numpy_loader)
+
+    launcher.initialize()
+
+    assert launcher.auto_ml_config is not None
+    assert launcher.data_persister is not None
+    assert launcher.job_config is not None
+
+    # auto-ml-config check
+    assert launcher.auto_ml_config.type_of_problem == TypeOfProblem.REGRESSION
+
+    # job-config
+    assert launcher.job_config.cv is not None
+    assert launcher.job_config.scoring is not None
+    assert isinstance(launcher.job_config.scoring, list)
+
+
 def test_launcher_init_persist_reload(tmpdir):
     def set_configs(launcher):
         """ modify that function to change launcher configuration """
