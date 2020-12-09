@@ -340,6 +340,10 @@ class MlMachineLauncher(object):
                 self.groups = None
             else:
                 self.dfX, self.y, self.groups = temp
+                
+        if not isinstance(self.dfX, pd.DataFrame):
+            self.dfX = pd.DataFrame(self.dfX, columns=[f"COL_{j}" for j in range(self.dfX.shape[1])])
+
 
         ###########################################
         ### ** create database configuration ** ###
