@@ -19,7 +19,6 @@ from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 from aikit.tools.data_structure_helper import convert_generic, get_type
 from aikit.enums import DataTypes
-from aikit.models.sklearn_lightgbm_wrapper import LGBMClassifier, LGBMRegressor
 
 from tests.helpers.testing_help import rec_assert_equal
 
@@ -348,27 +347,25 @@ def test_DecisionTree_generic(klass,
 
 
 if lightgbm is not None:
-    classif_klasses = [LGBMClassifier]
-    regress_klasses = [LGBMRegressor]
+    classif_klasses = [lightgbm.sklearn.LGBMClassifier]
+    regress_klasses = [lightgbm.sklearn.LGBMRegressor]
 else:
     classif_klasses = []
     regress_klasses = []
     
 all_params_to_test_classification = list(itertools.product(
-        [True, False],   # do_crossvalidation
         classif_klasses, # klass
         [True],          # classification
-        [False],   # multi_output
+        [False],         # multi_output
         [True, False],   # only_two_classes
         [True, False],   # classes_as_string
         [True, False]    # target_is_numpy
 ))
 
 all_params_to_test_regression = list(itertools.product(
-        [True, False],   # do_crossvalidation
         regress_klasses, # klass
         [False],         # classification
-        [False],   # multi_output
+        [False],         # multi_output
         [False],         # only_two_classes
         [False],         # classes_as_string
         [True, False]    # target_is_numpy
@@ -377,9 +374,8 @@ all_params_to_test_regression = list(itertools.product(
 all_params_to_test_lgbm = all_params_to_test_classification + all_params_to_test_regression
 
 @pytest.mark.skipif(lightgbm is None, reason="lightgbm isn't installed")
-@pytest.mark.parametrize("do_crossvalidation, klass, classification, multi_output, only_two_classes, classes_as_string, target_is_numpy", all_params_to_test_lgbm)
+@pytest.mark.parametrize("klass, classification, multi_output, only_two_classes, classes_as_string, target_is_numpy", all_params_to_test_lgbm)
 def test_LGBM_generic(
-      do_crossvalidation,
       klass,
       classification,
       multi_output,
@@ -400,7 +396,7 @@ def test_LGBM_generic(
             df2=df2,
             y1=y1,
             klass=klass,
-            enc_kwargs = {"do_crossvalidation": do_crossvalidation},
+            enc_kwargs = {},
             all_types=(DataTypes.DataFrame, DataTypes.NumpyArray, DataTypes.SparseDataFrame, DataTypes.SparseArray)
     )
     

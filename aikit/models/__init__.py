@@ -14,7 +14,7 @@ except ImportError:
     lightgbm = None
     
 if lightgbm is not None:
-    from .sklearn_lightgbm_wrapper import LGBMClassifier, LGBMRegressor, LGBMRanker
+    from lightgbm.sklearn import LGBMClassifier, LGBMRegressor, LGBMRanker
 
 __all__ = [
     "StackerClassifier",
