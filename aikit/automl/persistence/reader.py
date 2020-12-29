@@ -99,4 +99,3 @@ class ResultsReader:
         self._load_cache(self.results, 'finished')
         results = [r for _, r in self.results.items() if 'results' in r]
         return len(results)
-

@@ -85,17 +85,21 @@ class Controller:
             self._block_search_iterator = self.generator.iterate_block_search(random_order=True)
             self.status['block_search_iterator_empty'] = False
 
-    def run(self, max_model_count=None):
+    def run(self, max_runtime_seconds=None, max_model_count=None):
         total_model_count = 0
+        start_ts = datetime.datetime.utcnow()
         if max_model_count is None:
             max_model_count = sys.maxsize
+        if max_runtime_seconds is None:
+            max_runtime_seconds = 600
 
         while self.queue.size() < min(self.queue_size, max_model_count):
             self.create_job()
             total_model_count += 1
 
         logger.info('Queue is full. Adding new jobs every {} seconds'.format(self.jobs_update_time))
-        while total_model_count < max_model_count:
+        while total_model_count < max_model_count\
+                and (datetime.datetime.utcnow() - start_ts).total_seconds() < max_runtime_seconds:
             current_queue_size = self.queue.size()
             for _ in range(self.queue_size - current_queue_size):
                 self.create_job()

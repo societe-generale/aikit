@@ -1,3 +1,4 @@
+import datetime
 import gc
 import sys
 import uuid
@@ -46,16 +47,20 @@ class Worker:
             else:
                 self.scorers["scorer_%d" % i] = SCORERS[s]
 
-    def run(self, max_model_count=None):
+    def run(self, max_runtime_seconds=None, max_model_count=None):
+        start_ts = datetime.datetime.utcnow()
         if max_model_count is None:
             max_model_count = sys.maxsize
+        if max_runtime_seconds is None:
+            max_runtime_seconds = 600
         total_model_count = 0
 
         X, y, groups = unpack_data(self.data.load_pickle(self.data_key))
         self.cv = create_cv(self.job_config.cv, y, classifier=self.job_config.is_classification(),
                             shuffle=True, random_state=123)
 
-        while total_model_count < max_model_count:
+        while total_model_count < max_model_count\
+                and (datetime.datetime.utcnow() - start_ts).total_seconds() < max_runtime_seconds:
             job_id = self.queue.dequeue()
             if job_id is not None:
                 self.compute_job(job_id, X, y, groups)
