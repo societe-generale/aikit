@@ -527,7 +527,8 @@ class NumericalEncoder_CatEncoder(ModelRepresentationBase):
 
     type_of_variable = (TypeOfVariables.CAT, )
 
-    custom_hyper = {"encoding_type": ["dummy", "num"], "min_nb_observations": hp.HyperRangeInt(2, 20)}
+    custom_hyper = {"encoding_type": ["dummy", "num"],
+                    "min_nb_observations": hp.HyperRangeInt(2, 20)}
 
     type_of_model = None
 
@@ -628,14 +629,17 @@ class Text_TruncatedSVD_DimensionReduction(ModelRepresentationBase):
     klass = TruncatedSVDWrapper
     category = StepCategories.TextDimensionReduction
 
-    custom_hyper = {"n_components": hp.HyperRangeInt(10, 500, step=5)}
+    custom_hyper = {"n_components": hp.HyperRangeInt(10, 500, step=5),
+                    "drop_used_columns": [True, False],
+                    "column_prefix":["textSVD"] # so that SVD column don't have same names
+                     }
 
     type_of_variable = TypeOfVariables.TEXT
 
     type_of_model = None
     use_y = False
 
-    custom_hyper = {"drop_used_columns": [True, False]}
+
 
 
 @register
@@ -646,12 +650,11 @@ class KMeansTransformer_DimensionReduction(ModelRepresentationBase):
     custom_hyper = {
         "result_type": ("probability", "distance", "inv_distance", "log_distance", "cluster"),
         "temperature": hp.HyperLogRangeFloat(start=0.01, end=2, n=100),
+        "drop_used_columns": [True, False]
     }
     type_of_model = None
     use_y = False
     type_of_variable = None
-
-    custom_hyper = {"drop_used_columns": [True, False]}
 
 
 @register
@@ -659,7 +662,8 @@ class CdfScaler_Scaler(ModelRepresentationBase):
     klass = CdfScaler
     category = StepCategories.Scaling
 
-    custom_hyper = {"distribution": ("auto-nonparam", "auto-param"), "output_distribution": ("normal", "uniform")}
+    custom_hyper = {"distribution": ("auto-nonparam", "auto-param"),
+                    "output_distribution": ("normal", "uniform")}
 
     use_y = False
     type_of_model = None
