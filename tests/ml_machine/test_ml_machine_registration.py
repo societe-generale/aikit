@@ -14,6 +14,9 @@ except ImportError:
     LGBMClassifier_Model = None
 
 from aikit.ml_machine.ml_machine_registration import (CountVectorizer_TextEncoder,
+                                                      TruncatedSVD_DimensionReduction,
+                                                      Text_TruncatedSVD_DimensionReduction,
+                                                      KMeansTransformer_DimensionReduction,
                                                       MODEL_REGISTER,
                                                       register,
                                                       ModelRepresentationBase,
@@ -42,6 +45,32 @@ def test_CountVectorizer_TextEncoder():
     for hyper in all_hypers:
         if hyper["analyzer"] == "word":
             assert hyper["ngram_range"] == 1
+            
+            
+def test_KMeansTransformer_DimensionReduction():
+    hyper_gen = KMeansTransformer_DimensionReduction.get_hyper_parameter()
+    all_hypers = [hyper_gen.get_rand() for _ in range(100)]
+    for hyper in all_hypers:
+        assert "result_type" in hyper
+        assert "drop_used_columns" in hyper
+        assert "drop_unused_columns" in hyper
+        
+
+def test_Text_TruncatedSVD_DimensionReduction():
+    hyper_gen = Text_TruncatedSVD_DimensionReduction.get_hyper_parameter()
+    all_hypers = [hyper_gen.get_rand() for _ in range(100)]
+    for hyper in all_hypers:
+        assert "n_components" in hyper
+        assert isinstance(hyper["n_components"], int)
+    
+
+def test_TruncatedSVD_DimensionReduction():
+    hyper_gen = TruncatedSVD_DimensionReduction.get_hyper_parameter()
+    all_hypers = [hyper_gen.get_rand() for _ in range(100)]
+    for hyper in all_hypers:
+        assert "n_components" in hyper
+        assert isinstance(hyper["n_components"], float)
+    
 
 
 def test_hyper_init():
