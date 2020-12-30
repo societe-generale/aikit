@@ -799,7 +799,6 @@ class RandomModelGenerator(object):
             for step_name, model_name in models_by_steps.items():
                 if model_name[0] is not None:
                     default_parameters = MODEL_REGISTER.default_hyper_parameters.get(model_name, {})
-#                    default_parameters = MODEL_REGISTER.informations.get(model_name, {}).get("default_parameters", {})
                     # If default_parameters present in register use it, otherwise use {} (and so will go back to default parameter of the model)
                     hyper_parameters_by_step[(step_name, model_name)] = default_parameters
 
@@ -905,9 +904,7 @@ class RandomModelGenerator(object):
                 hyper_parameters_by_step = {}
                 for step_name, model_name in models_by_steps.items():
                     if model_name[0] is not None:
-                        default_parameters = MODEL_REGISTER.informations.get(model_name, {}).get(
-                            "default_parameters", {}
-                        )
+                        default_parameters = MODEL_REGISTER.default_hyper_parameters.get(model_name, {})
                         # If default_parameters present in register use it, otherwise use {} (and so will go back to default parameter of the model)
                         hyper_parameters_by_step[(step_name, model_name)] = default_parameters
 
