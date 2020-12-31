@@ -392,13 +392,22 @@ class _PassThrough(BaseEstimator, TransformerMixin):
         pass
 
     def fit(self, X, y=None):
+        self._Xcolumns = getattr(X, "columns", None)
         return self
 
     def transform(self, X):
         return X
 
     def fit_transform(self, X, y=None):
+        self._Xcolumns = getattr(X, "columns", None)
         return X
+    
+    def get_feature_names(self, input_features=None):
+
+        if input_features is None:
+            return list(self._Xcolumns)
+        else:
+            return input_features
 
 
 class PassThrough(ModelWrapper):
@@ -507,6 +516,7 @@ class TruncatedSVDWrapper(ModelWrapper):
         random_state=None,
         drop_used_columns=True,
         drop_unused_columns=True,
+        column_prefix="SVD"
     ):
         self.n_components = n_components
         self.columns_to_use = columns_to_use
@@ -520,7 +530,7 @@ class TruncatedSVDWrapper(ModelWrapper):
             all_columns_at_once=True,
             accepted_input_types=None,
             remove_sparse_serie=True,
-            column_prefix="SVD",
+            column_prefix=column_prefix,
             desired_output_type=DataTypes.DataFrame,
             must_transform_to_get_features_name=True,
             dont_change_columns=False,

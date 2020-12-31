@@ -853,6 +853,15 @@ class ModelWrapper(TransformerMixin, BaseEstimator):
 
         if fit_params is None:
             fit_params = {}
+            
+        if hasattr(X, "columns"):
+            if len(set(X.columns)) != len(X.columns):
+                cols = list(X.columns)
+                cols = ", ".join([c for c in set(cols) if cols.count(c) > 1])
+                raise ValueError(f"I have duplicate columns {cols}, please check")
+            
+        
+            
 
         if is_fit:
             if isinstance(self.columns_to_use, str) and self.columns_to_use == "auto":
