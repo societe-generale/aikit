@@ -392,14 +392,14 @@ class _PassThrough(BaseEstimator, TransformerMixin):
         pass
 
     def fit(self, X, y=None):
-        self._Xcolumns = getattr(X, "colums", None)
+        self._Xcolumns = getattr(X, "columns", None)
         return self
 
     def transform(self, X):
         return X
 
     def fit_transform(self, X, y=None):
-        self._Xcolumns = getattr(X, "colums", None)
+        self._Xcolumns = getattr(X, "columns", None)
         return X
     
     def get_feature_names(self, input_features=None):
