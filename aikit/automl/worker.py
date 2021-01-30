@@ -25,6 +25,7 @@ class Worker:
 
     def __init__(self, storage_path, queue_path, data_path, data_key):
         self.uuid = str(uuid.uuid4())
+        self.infos = {}
         self.data = Storage(data_path)
         self.data_key = data_key
         self.storage = Storage(storage_path)
@@ -34,12 +35,12 @@ class Worker:
         self._init_worker()
 
     def _init_worker(self):
-        infos = system_and_caller_information()
-        infos["id"] = self.uuid
-        infos["start_time"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        self.infos = system_and_caller_information()
+        self.infos["id"] = self.uuid
+        self.infos["start_time"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        self.infos["status"] = "running"
+        self.storage.save_json(self.infos, self.uuid, 'workers')
 
-        self.infos = infos
-        self.storage.save_json(infos, self.uuid, 'workers')
         self.scorers = OrderedDict()
         for i, s in enumerate(self.job_config.scoring):
             if isinstance(s, str):
@@ -47,24 +48,21 @@ class Worker:
             else:
                 self.scorers["scorer_%d" % i] = SCORERS[s]
 
-    def run(self, max_runtime_seconds=None, max_model_count=None):
-        start_ts = datetime.datetime.utcnow()
-        if max_model_count is None:
-            max_model_count = sys.maxsize
-        if max_runtime_seconds is None:
-            max_runtime_seconds = 600
-        total_model_count = 0
+    def is_running(self):
+        self.infos = self.storage.load_json(self.uuid, 'workers')
+        return self.infos["status"] != "stopped"
 
+    def run(self):
         X, y, groups = unpack_data(self.data.load_pickle(self.data_key))
-        self.cv = create_cv(self.job_config.cv, y, classifier=self.job_config.is_classification(),
-                            shuffle=True, random_state=123)
+        self.cv = create_cv(self.job_config.cv, y,
+                            classifier=self.job_config.is_classification(),
+                            shuffle=True,
+                            random_state=123)
 
-        while total_model_count < max_model_count\
-                and (datetime.datetime.utcnow() - start_ts).total_seconds() < max_runtime_seconds:
+        while self.is_running():
             job_id = self.queue.dequeue()
             if job_id is not None:
                 self.compute_job(job_id, X, y, groups)
-                total_model_count += 1
             else:
                 logging.info('Waiting for new job...')
                 time.sleep(5)
@@ -72,6 +70,7 @@ class Worker:
 
     def compute_job(self, job_id, X, y, groups=None):
         logger.info('Running job {}'.format(job_id))
+
         status = {
             'job_id': job_id,
             'worker_id': self.uuid,

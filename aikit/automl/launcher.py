@@ -1,4 +1,8 @@
+import logging
+import os
+
 from aikit.automl import Controller, Worker
+from aikit.automl.persistence.storage import Storage
 
 
 class AutoMlLauncher:
@@ -21,15 +25,26 @@ class AutoMlLauncher:
             storage_path=self.storage_path,
             queue_path=self.queue_path
         )
-        controller.run(max_runtime_seconds=max_runtime_seconds, max_model_count=max_model_count)
+        controller.run(max_runtime_seconds=max_runtime_seconds,
+                       max_model_count=max_model_count)
         return controller
 
-    def start_worker(self, max_runtime_seconds=None, max_model_count=None):
+    def start_worker(self):
         worker = Worker(
             data_path=self.data_path,
             data_key=self.data_key,
             storage_path=self.storage_path,
             queue_path=self.queue_path
         )
-        worker.run(max_runtime_seconds=max_runtime_seconds, max_model_count=max_model_count)
+        worker.run()
         return worker
+
+    def stop_workers(self):
+        storage = Storage(self.storage_path)
+        for filename in storage.listdir('workers'):
+            if filename.endswith('.json'):
+                worker_id = os.path.splitext(filename)[0]
+                logging.getLogger("aikit").info(f"Stop worker {worker_id}...")
+                jso = storage.load_json(worker_id, 'workers')
+                jso['status'] = "stopped"
+                storage.save_json(jso, worker_id, 'workers')
