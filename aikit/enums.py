@@ -17,6 +17,15 @@ class TypeOfProblem:
     alls = (REGRESSION, CLASSIFICATION, CLUSTERING)
 
 
+class TypeOfCv:
+    """ enumeration of type of Machine Learning problem """
+
+    Approximate = "approximate"
+    Full = "full"
+
+    alls = (Approximate, Full)
+
+
 # In[]
 
 
