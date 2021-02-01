@@ -24,7 +24,12 @@ import os
 from io import StringIO
 import hashlib
 
-from sklearn.utils import check_random_state, safe_indexing
+from sklearn.utils import check_random_state
+try:
+    from sklearn.utils import safe_indexing
+except:
+    from sklearn.utils import _safe_indexing
+    safe_indexing = _safe_indexing
 
 from aikit.tools.json_helper import SpecialJSONEncoder
 
