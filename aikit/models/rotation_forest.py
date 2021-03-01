@@ -11,9 +11,16 @@ import numpy as np
 from sklearn.exceptions import NotFittedError
 from sklearn.base import ClassifierMixin, BaseEstimator, TransformerMixin, RegressorMixin
 
-from sklearn.ensemble.forest import ForestClassifier, ForestRegressor
+try:
+    from sklearn.ensemble.forest import ForestClassifier, ForestRegressor
+except ImportError:
+    from sklearn.ensemble._forest import ForestClassifier, ForestRegressor
+    
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from sklearn.tree.tree import DTYPE
+try:
+    from sklearn.tree.tree import DTYPE
+except ImportError:
+    from sklearn.tree._tree import DTYPE
 
 
 from sklearn.preprocessing import StandardScaler
