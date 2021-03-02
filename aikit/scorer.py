@@ -11,7 +11,7 @@ import sklearn.metrics
 
 try:
     from sklearn.metrics.regression import _check_reg_targets, r2_score
-except:
+except ImportError:
     from sklearn.metrics import r2_score
     from sklearn.metrics._regression import _check_reg_targets
 

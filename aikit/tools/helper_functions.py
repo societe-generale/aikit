@@ -27,7 +27,7 @@ import hashlib
 from sklearn.utils import check_random_state
 try:
     from sklearn.utils import safe_indexing
-except:
+except ImportError:
     from sklearn.utils import _safe_indexing
     safe_indexing = _safe_indexing
 

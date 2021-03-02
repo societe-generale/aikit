@@ -21,7 +21,7 @@ from sklearn.exceptions import NotFittedError
 try:
     from sklearn.metrics.scorer import _BaseScorer, _PredictScorer
     import sklearn.metrics.scorer as sk_scorer
-except:
+except ImportError:
     from sklearn.metrics._scorer import _BaseScorer, _PredictScorer
     import sklearn.metrics._scorer as sk_scorer
 
