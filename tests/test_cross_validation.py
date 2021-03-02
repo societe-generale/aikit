@@ -119,9 +119,13 @@ def test_fit_and_predict_transfrom():
     for train, test in cv.split(X, y):
 
         pt = DebugPassThrough()
-        predictions, _ = sklearn.model_selection._validation._fit_and_predict(
+        temp = sklearn.model_selection._validation._fit_and_predict(
             pt, X, y, train, test, verbose=1, fit_params=None, method="transform"
         )
+        if isinstance(temp, tuple):
+            predictions = temp[0]
+        else:
+            predictions = temp
 
         assert predictions.shape[0] == test.shape[0]
         assert predictions.shape[1] == X.shape[1]
@@ -138,9 +142,13 @@ def test_fit_and_predict_predict():
     for train, test in cv.split(X, y):
 
         logit = LogisticRegression()
-        predictions, _ = sklearn.model_selection._validation._fit_and_predict(
+        temp = sklearn.model_selection._validation._fit_and_predict(
             logit, X, y, train, test, verbose=1, fit_params=None, method="predict"
         )
+        if isinstance(temp, tuple):
+            predictions=temp[0]
+        else:
+            predictions=temp
 
         assert predictions.shape[0] == test.shape[0]
         assert len(predictions.shape) == 1
@@ -157,9 +165,13 @@ def test_fit_and_predict_predict_proba():
     for train, test in cv.split(X, y):
 
         logit = LogisticRegression()
-        predictions, _ = sklearn.model_selection._validation._fit_and_predict(
+        temp = sklearn.model_selection._validation._fit_and_predict(
             logit, X, y, train, test, verbose=1, fit_params=None, method="predict_proba"
         )
+        if isinstance(temp, tuple):
+            predictions=temp[0]
+        else:
+            predictions=temp
 
         assert predictions.shape[0] == test.shape[0]
         assert predictions.shape[1] == 2
