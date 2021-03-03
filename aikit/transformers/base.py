@@ -318,6 +318,7 @@ class FeaturesSelectorClassifier(ModelWrapper):
         self.n_components = n_components
         self.selector_type = selector_type
         self.component_selection = component_selection
+        self.random_state=random_state
         self.model_params = model_params
         self.columns_to_use = columns_to_use
         self.regex_match = regex_match
@@ -343,6 +344,7 @@ class FeaturesSelectorClassifier(ModelWrapper):
             component_selection=self.component_selection,
             selector_type=self.selector_type,
             model_params=self.model_params,
+            random_state=self.random_state
         )
 
 
@@ -354,6 +356,7 @@ class FeaturesSelectorRegressor(ModelWrapper):
         n_components=0.5,
         selector_type="forest",
         component_selection="number",
+        random_state=None,
         model_params=None,
         columns_to_use="all",
         regex_match=False,
@@ -363,6 +366,7 @@ class FeaturesSelectorRegressor(ModelWrapper):
         self.n_components = n_components
         self.selector_type = selector_type
         self.component_selection = component_selection
+        self.random_state=random_state
         self.model_params = model_params
         self.columns_to_use = columns_to_use
         self.regex_match = regex_match
@@ -388,6 +392,7 @@ class FeaturesSelectorRegressor(ModelWrapper):
             component_selection=self.component_selection,
             selector_type=self.selector_type,
             model_params=self.model_params,
+            random_state=self.random_state
         )
 
 
