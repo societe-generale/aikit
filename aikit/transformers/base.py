@@ -17,8 +17,13 @@ from collections import OrderedDict
 
 from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin
 from sklearn.exceptions import NotFittedError
-from sklearn.metrics.scorer import _BaseScorer, _PredictScorer
 
+try:
+    from sklearn.metrics.scorer import _BaseScorer, _PredictScorer
+    import sklearn.metrics.scorer as sk_scorer
+except ImportError:
+    from sklearn.metrics._scorer import _BaseScorer, _PredictScorer
+    import sklearn.metrics._scorer as sk_scorer
 
 from sklearn.utils import check_random_state
 from sklearn.utils.multiclass import type_of_target
@@ -33,7 +38,6 @@ from sklearn.decomposition import PCA
 
 from sklearn.utils.metaestimators import if_delegate_has_method
 from sklearn.cluster import KMeans
-import sklearn.metrics.scorer
 
 # from aikit.helper_functions import is_user
 from aikit.enums import DataTypes
@@ -314,6 +318,7 @@ class FeaturesSelectorClassifier(ModelWrapper):
         self.n_components = n_components
         self.selector_type = selector_type
         self.component_selection = component_selection
+        self.random_state=random_state
         self.model_params = model_params
         self.columns_to_use = columns_to_use
         self.regex_match = regex_match
@@ -339,6 +344,7 @@ class FeaturesSelectorClassifier(ModelWrapper):
             component_selection=self.component_selection,
             selector_type=self.selector_type,
             model_params=self.model_params,
+            random_state=self.random_state
         )
 
 
@@ -350,6 +356,7 @@ class FeaturesSelectorRegressor(ModelWrapper):
         n_components=0.5,
         selector_type="forest",
         component_selection="number",
+        random_state=None,
         model_params=None,
         columns_to_use="all",
         regex_match=False,
@@ -359,6 +366,7 @@ class FeaturesSelectorRegressor(ModelWrapper):
         self.n_components = n_components
         self.selector_type = selector_type
         self.component_selection = component_selection
+        self.random_state=random_state
         self.model_params = model_params
         self.columns_to_use = columns_to_use
         self.regex_match = regex_match
@@ -384,6 +392,7 @@ class FeaturesSelectorRegressor(ModelWrapper):
             component_selection=self.component_selection,
             selector_type=self.selector_type,
             model_params=self.model_params,
+            random_state=self.random_state
         )
 
 
@@ -1008,15 +1017,15 @@ class _TargetTransformer(BaseEstimator, RegressorMixin):
         if isinstance(score_name, str):
 
             score_fun_dico = {
-                "explained_variance": sklearn.metrics.scorer.explained_variance_score,
-                "r2": sklearn.metrics.scorer.r2_score,
-                "neg_median_absolute_error": sklearn.metrics.scorer.median_absolute_error,
-                "neg_mean_absolute_error": sklearn.metrics.scorer.mean_absolute_error,
-                "neg_mean_squared_error": sklearn.metrics.scorer.mean_squared_error,
-                "neg_mean_squared_log_error": sklearn.metrics.scorer.mean_squared_log_error,
-                "median_absolute_error": sklearn.metrics.scorer.median_absolute_error,
-                "mean_absolute_error": sklearn.metrics.scorer.mean_absolute_error,
-                "mean_squared_error": sklearn.metrics.scorer.mean_squared_error,
+                "explained_variance": sk_scorer.explained_variance_score,
+                "r2": sk_scorer.r2_score,
+                "neg_median_absolute_error": sk_scorer.median_absolute_error,
+                "neg_mean_absolute_error": sk_scorer.mean_absolute_error,
+                "neg_mean_squared_error": sk_scorer.mean_squared_error,
+                "neg_mean_squared_log_error": sk_scorer.mean_squared_log_error,
+                "median_absolute_error": sk_scorer.median_absolute_error,
+                "mean_absolute_error": sk_scorer.mean_absolute_error,
+                "mean_squared_error": sk_scorer.mean_squared_error,
             }
 
             greater_is_better = {

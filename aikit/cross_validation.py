@@ -92,6 +92,7 @@ def create_cv(cv=3, y=None, classifier=False, shuffle=False, random_state=None):
     if cv is None:
         cv = 3
 
+    random_state_ = random_state if shuffle else None
     if isinstance(cv, sklearn.model_selection._split.numbers.Integral):
         if (
             classifier
@@ -99,10 +100,10 @@ def create_cv(cv=3, y=None, classifier=False, shuffle=False, random_state=None):
             and (sklearn.model_selection._split.type_of_target(y) in ("binary", "multiclass"))
         ):
 
-            return sklearn.model_selection.StratifiedKFold(cv, shuffle=shuffle, random_state=random_state)
+            return sklearn.model_selection.StratifiedKFold(cv, shuffle=shuffle, random_state=random_state_)
 
         else:
-            return sklearn.model_selection.KFold(cv, shuffle=shuffle, random_state=random_state)
+            return sklearn.model_selection.KFold(cv, shuffle=shuffle, random_state=random_state_)
 
     if not hasattr(cv, "split") or isinstance(cv, str):
         if not isinstance(cv, sklearn.model_selection._split.Iterable) or isinstance(cv, str):

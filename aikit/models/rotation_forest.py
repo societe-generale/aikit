@@ -11,9 +11,16 @@ import numpy as np
 from sklearn.exceptions import NotFittedError
 from sklearn.base import ClassifierMixin, BaseEstimator, TransformerMixin, RegressorMixin
 
-from sklearn.ensemble.forest import ForestClassifier, ForestRegressor
+try:
+    from sklearn.ensemble.forest import ForestClassifier, ForestRegressor
+except ImportError:
+    from sklearn.ensemble._forest import ForestClassifier, ForestRegressor
+    
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from sklearn.tree.tree import DTYPE
+try:
+    from sklearn.tree.tree import DTYPE
+except ImportError:
+    from sklearn.tree._tree import DTYPE
 
 
 from sklearn.preprocessing import StandardScaler
@@ -182,7 +189,6 @@ class GroupPCADecisionTreeClassifier(BaseEstimator, ClassifierMixin):
         min_impurity_decrease=0.0,
         min_impurity_split=None,
         class_weight=None,
-        presort=False,
         pca_bootstrap=False,
         pca_max_nb_groups=0.25,
         pca_max_group_size=0.05,
@@ -200,7 +206,6 @@ class GroupPCADecisionTreeClassifier(BaseEstimator, ClassifierMixin):
         self.min_impurity_decrease = min_impurity_decrease
         self.min_impurity_split = min_impurity_split
         self.class_weight = class_weight
-        self.presort = presort
 
         self.pca_bootstrap = pca_bootstrap
         self.pca_max_nb_groups = pca_max_nb_groups
@@ -237,7 +242,6 @@ class GroupPCADecisionTreeClassifier(BaseEstimator, ClassifierMixin):
             random_state=self.random_state,
             min_impurity_decrease=self.min_impurity_decrease,
             min_impurity_split=self.min_impurity_split,
-            presort=self.presort,
         )
 
         # 3) Apply group PCA
@@ -329,7 +333,6 @@ class GroupPCADecisionTreeRegressor(BaseEstimator, RegressorMixin):
         max_leaf_nodes=None,
         min_impurity_decrease=0.0,
         min_impurity_split=None,
-        presort=False,
         pca_bootstrap=False,
         pca_max_nb_groups=0.25,
         pca_max_group_size=0.05,
@@ -346,7 +349,6 @@ class GroupPCADecisionTreeRegressor(BaseEstimator, RegressorMixin):
         self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
         self.min_impurity_split = min_impurity_split
-        self.presort = presort
 
         self.pca_bootstrap = pca_bootstrap
         self.pca_max_nb_groups = pca_max_nb_groups
@@ -379,7 +381,6 @@ class GroupPCADecisionTreeRegressor(BaseEstimator, RegressorMixin):
             random_state=self.random_state,
             min_impurity_decrease=self.min_impurity_decrease,
             min_impurity_split=self.min_impurity_split,
-            presort=self.presort,
         )
 
         # 3) Apply group PCA
