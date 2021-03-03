@@ -60,9 +60,7 @@ def test_GroupPCADecisionTreeClassifier():
     )
 
 
-pytest.mark.longtest
-
-
+@pytest.mark.longtest
 @pytest.mark.parametrize(
     "random_state, max_depth, criterion, pca_bootstrap",
     list(itertools.product(range(100), (None, 2, 5), ("gini", "entropy"), (True, False))),
