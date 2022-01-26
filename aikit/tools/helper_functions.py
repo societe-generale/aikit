@@ -24,7 +24,11 @@ import os
 from io import StringIO
 import hashlib
 
-from sklearn.utils import check_random_state, safe_indexing
+try:
+    from sklearn.utils import check_random_state, safe_indexing
+except (ModuleNotFoundError, ImportError):
+    from sklearn.utils import check_random_state, _safe_indexing
+    safe_indexing = _safe_indexing
 
 from aikit.tools.json_helper import SpecialJSONEncoder
 

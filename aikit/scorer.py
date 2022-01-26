@@ -8,17 +8,22 @@ import logging
 logger = logging.getLogger(__name__)
 
 import sklearn.metrics
-from sklearn.metrics.regression import _check_reg_targets, r2_score
+try:
+    from sklearn.metrics.regression import _check_reg_targets, r2_score
+except (ModuleNotFoundError, ImportError):
+    from sklearn.metrics._regression import _check_reg_targets, r2_score
+    
 from sklearn.metrics import silhouette_score, davies_bouldin_score
 try:
     from sklearn.metrics import calinski_harabasz_score
-except ImportError:
+except (ModuleNotFoundError, ImportError):
     from sklearn.metrics import calinski_harabaz_score
     calinski_harabasz_score = calinski_harabaz_score
     
-
-from sklearn.metrics.scorer import SCORERS, _BaseScorer, type_of_target
-
+try:
+    from sklearn.metrics.scorer import SCORERS, _BaseScorer, type_of_target
+except (ModuleNotFoundError, ImportError):
+    from sklearn.metrics._scorer import SCORERS, _BaseScorer, type_of_target
 
 import numpy as np
 import pandas as pd
