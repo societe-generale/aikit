@@ -14,7 +14,7 @@ import scipy.sparse as sps
 from sklearn.exceptions import NotFittedError
 try:
     from sklearn.model_selection._validation import safe_indexing
-except ImportError:
+except (ModuleNotFoundError, ImportError):
     from sklearn.model_selection._validation import _safe_indexing
     safe_indexing = _safe_indexing
 

@@ -27,7 +27,12 @@ from sklearn.datasets import make_classification, make_regression
 import sklearn.model_selection
 from sklearn.model_selection import StratifiedKFold, KFold, TimeSeriesSplit, GroupKFold, cross_val_predict
 
-from sklearn.model_selection._validation import _score#, _multimetric_score # TODO : fix test
+try:
+    from sklearn.model_selection._validation import _score, _multimetric_score
+except (ImportError, ModuleNotFoundError):
+    from sklearn.model_selection._validation import _score
+    _multimetric_score = _score # TEMP TEMP
+    
 from sklearn.exceptions import NotFittedError
 
 from aikit.tools.data_structure_helper import convert_generic
