@@ -1,7 +1,7 @@
-scikit-learn>=0.20
+scikit-learn>=0.23
 pandas>=0.23
 numpy
-scipy<1.6.0                     # https://github.com/scikit-optimize/scikit-optimize/issues/981
+scipy
 statsmodels
 lockfile
 decorator
