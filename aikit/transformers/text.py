@@ -528,8 +528,15 @@ class _Word2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
 
                 model = Word2Vec(window=self.window, seed=self.random_state, workers=1, min_count=self.min_count, **other_params)
                 model.build_vocab(Xsplitted_all)
-                if not model.wv.vocab:
-                    raise ValueError("Empty vocabulary, please change 'min_count'")
+                if hasattr(model.wv, "vocab"):
+                    # old compat code: gensim < 4
+                    if not model.wv.vocab:
+                        raise ValueError("Empty vocabulary, please change 'min_count'")
+                else:
+                    # new code: gensim >= 4
+                    if not model.wv.key_to_index:
+                        raise ValueError("Empty vocabulary, please change 'min_count'")
+                        
                 model.train(Xsplitted_all, total_examples=model.corpus_count, epochs=model.epochs)
 
                 self.models = [model for j in range(self._nbcols)]  # j time the same model, model train on everything
@@ -543,8 +550,15 @@ class _Word2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
                     seed = self.random_state + jj if self.random_state else None
                     model = Word2Vec(window=self.window, seed=seed, workers=1, min_count=self.min_count, **other_params)
                     model.build_vocab(Xs) # For some reason Word2Vec doesn't with few sample ....
-                    if not model.wv.vocab:
-                        raise ValueError(f"Empty vocabulary for column {jj}, please change 'min_count'")
+                    if hasattr(model.wv, "vocab"):
+                        # old compat code: gensim < 4
+                        if not model.wv.vocab:
+                            raise ValueError(f"Empty vocabulary for column {jj}, please change 'min_count'")
+                    else:
+                        # new code: gensim >= 4
+                        if not model.wv.key_to_index:
+                            raise ValueError(f"Empty vocabulary for column {jj}, please change 'min_count'")
+           
                     model.train(Xs, total_examples=model.corpus_count, epochs=model.epochs)
 
                     self.models.append(model)
