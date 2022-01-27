@@ -27,7 +27,12 @@ from sklearn.datasets import make_classification, make_regression
 import sklearn.model_selection
 from sklearn.model_selection import StratifiedKFold, KFold, TimeSeriesSplit, GroupKFold, cross_val_predict
 
-from sklearn.model_selection._validation import _score#, _multimetric_score # TODO : fix test
+from sklearn.model_selection._validation import _score
+try:
+    from sklearn.model_selection._validation import _multimetric_score
+except (ModuleNotFoundError, ImportError):
+    _multimetric_score = _score
+
 from sklearn.exceptions import NotFittedError
 
 from aikit.tools.data_structure_helper import convert_generic
@@ -1446,14 +1451,14 @@ def test__score_with_group__multimetric_score_with_group():
         else:
             result1 = _multimetric_score_with_group(estimator, X_test, y_test, group_test, {"auc": roc_auc_scorer})
         
-        #result2 = _multimetric_score(estimator, X_test, y_test, {"auc": roc_auc_scorer}) TODO : fix test
+        result2 = _multimetric_score(estimator, X_test, y_test, {"auc": roc_auc_scorer})
 
         assert isinstance(result1, dict)
         assert set(result1.keys()) == {"auc"}
         assert not pd.isnull(result1["auc"])
         assert isinstance(result1["auc"], numbers.Number)
         
-        # assert abs(result1["auc"] - result2["auc"]) <= 10 ** (-10) # TODO : fix test
+        assert abs(result1["auc"] - result2["auc"]) <= 10 ** (-10) # TODO : fix test
 
     ##############################################
     ### test with a scorer that accepts group  ###
