@@ -487,7 +487,7 @@ class _Word2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
         else:
             if newX.shape[1] != self._nbcols:
                 raise ValueError(
-                    "I don't have the correct number of columns %d, expected %d"(newX.shape[1], self._nbcols)
+                    f"I don't have the correct number of columns {newX.shape[1]}, expected {self._nbcols}"
                 )
 
         Xsplitted = [[x.split() for x in newX.iloc[:, j]] for j in range(newX.shape[1])]
