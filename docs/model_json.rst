@@ -68,7 +68,7 @@ it is best to overried the json serializer to handle those type. The special enc
 
 Example saving the 'json_object' above::
 
-    from aikit.json_helper import save_json
+    from aikit.tools.json_helper import save_json
     save_json(json_object, fname ="model.json")
     
     realoaded_json_object = load_json("model.json")
