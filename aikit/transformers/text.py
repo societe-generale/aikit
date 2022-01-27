@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 
 import string
+import inspect
 
 try:
     import nltk
@@ -443,7 +444,7 @@ class _Word2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
             raise NotImplementedError("I didn't code fasttext wrapping yet, please use gensim")
         else:
             if Word2Vec is None:
-                raise ValueError("You need to install Word2Vec")
+                raise ModuleNotFoundError("No module named 'gensim'")
 
     def _fit_transform(self, X, y=None, do_fit=True, do_transform=True):
 
@@ -505,6 +506,12 @@ class _Word2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
                 other_params = {}
             else:
                 other_params = self.other_params
+                
+            if "size" in inspect.getfullargspec(Word2Vec).args:
+                other_params["size"] = self.size # old Word2vec code
+            else:
+                other_params["vector_size"] = self.size # new Word2vec code
+                
 
             if self.use_fast_text:
                 raise NotImplementedError("")
@@ -519,7 +526,7 @@ class _Word2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
                     Xsplitted_all += Xs
                 # Unlist everything
 
-                model = Word2Vec(size=self.size, window=self.window, seed=self.random_state, workers=1, min_count=self.min_count, **other_params)
+                model = Word2Vec(window=self.window, seed=self.random_state, workers=1, min_count=self.min_count, **other_params)
                 model.build_vocab(Xsplitted_all)
                 if not model.wv.vocab:
                     raise ValueError("Empty vocabulary, please change 'min_count'")
@@ -534,7 +541,7 @@ class _Word2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
                 self.models = []
                 for jj, Xs in enumerate(Xsplitted):
                     seed = self.random_state + jj if self.random_state else None
-                    model = Word2Vec(size=self.size, window=self.window, seed=seed, workers=1, min_count=self.min_count, **other_params)
+                    model = Word2Vec(window=self.window, seed=seed, workers=1, min_count=self.min_count, **other_params)
                     model.build_vocab(Xs) # For some reason Word2Vec doesn't with few sample ....
                     if not model.wv.vocab:
                         raise ValueError(f"Empty vocabulary for column {jj}, please change 'min_count'")
@@ -745,7 +752,7 @@ class _Char2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
             raise NotImplementedError("I didn't code fasttext wrapping yet, please use gensim")
         else:
             if Word2Vec is None:
-                raise ValueError("You need to install Word2Vec")
+                raise ModuleNotFoundError("No module named 'gensim'")
 
     def _fit_transform(self, X, y, do_fit, do_transform):
 
@@ -802,7 +809,12 @@ class _Char2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
                 other_params = {}
             else:
                 other_params = self.other_params
-
+            
+            if "size" in inspect.getfullargspec(Word2Vec).args:
+                other_params["size"] = self.size # old Word2vec code
+            else:
+                other_params["vector_size"] = self.size # new Word2vec code
+            
             if self.same_embedding_all_columns:
                 ##############################################
                 ### One embedding for ALL the text columns ###
@@ -812,7 +824,7 @@ class _Char2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
                 for Xs in Xsplitted:
                     Xsplitted_all += unlist(Xs)
 
-                model = Word2Vec(size=self.size, window=self.window, seed=self.random_state, **other_params)
+                model = Word2Vec(window=self.window, seed=self.random_state, **other_params)
                 model.build_vocab(Xsplitted_all)
                 model.train(Xsplitted_all, total_examples=model.corpus_count, epochs=model.epochs)
 
@@ -827,7 +839,7 @@ class _Char2VecVectorizer(sklearn.base.TransformerMixin, sklearn.base.BaseEstima
                     seed = self.random_state + jj if self.random_state else None
                     uXs = unlist(Xs)
 
-                    model = Word2Vec(size=self.size, window=self.window, seed=seed, **other_params)
+                    model = Word2Vec(window=self.window, seed=seed, **other_params)
                     model.build_vocab(uXs)
                     model.train(uXs, total_examples=model.corpus_count, epochs=model.epochs)
 
