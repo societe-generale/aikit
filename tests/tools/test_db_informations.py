@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 
 from aikit.tools.data_structure_helper import convert_generic, DataTypes, _IS_PD1, convert_to_sparseserie
-from aikit.tools.db_informations import has_missing_values, guess_type_of_variable, TypeOfVariables, get_n_outputs, get_columns_informations
+from aikit.tools.db_informations import has_missing_values, guess_type_of_variable, TypeOfVariables, get_n_outputs
 
 from tests.helpers.testing_help import get_sample_df
 
@@ -28,7 +28,10 @@ def _convert_sparse(x, sparse):
         else:
             return x # nothing, I don't want to test sparse 
     elif isinstance(x, pd.DataFrame):
-        return convert_generic(x, output_type=DataTypes.SparseDataFrame)
+        if sparse:
+            return convert_generic(x, output_type=DataTypes.SparseDataFrame)
+        else:
+            return x
     
     else:
         TypeError("This function is for DataFrame or Serie")
@@ -100,6 +103,8 @@ def test_guess_type_of_variable(sparse):
     assert guess_type_of_variable(df["cat_col_1"]) == "CAT"
 
     df_with_cat = df.copy()
-    df_with_cat["cat_col_1"] = df_with_cat["cat_col_1"].astype("category")
+    if _IS_PD1:
+        df_with_cat["cat_col_1"] =  pd.Categorical(df_with_cat["cat_col_1"])
+    
     assert np.all([guess_type_of_variable(df[col]) == guess_type_of_variable(df_with_cat[col]) for col in df.columns])
     assert (df.values == df_with_cat.values).all()
