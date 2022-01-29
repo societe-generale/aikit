@@ -203,10 +203,17 @@ def convert_to_sparsedataframe(xx, mapped_type=None):
 
     if mapped_type == DataTypes.DataFrame:
         if _IS_PD1:
-            result = xx.copy()
+            _has_copied_yet=False
+            result = xx # no copy
             for col in xx.columns:
-                result[col] = xx[col].astype(pd.SparseDtype(xx.dtypes[col],
-                                                            fill_value=np.zeros((1,), dtype=xx.dtypes[col])[0]
+                if not pd.api.types.is_sparse(xx[col]): # only if not sparse
+                    
+                    if not _has_copied_yet:
+                        result = xx.copy() # copy at first modification
+                        _has_copied_yet=True
+                        
+                    result[col] = xx[col].astype(pd.SparseDtype(xx.dtypes[col],
+                                                            fill_value=xx.dtypes[col].type(0) # 0 of same type
                                                             # better to fill with 0 than NaN by default
                                                             ))
             return result
