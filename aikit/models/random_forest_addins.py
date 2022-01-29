@@ -168,7 +168,6 @@ class WaveRandomForestClassifier(BaseEstimator, ClassifierMixin):
         max_features="auto",
         max_leaf_nodes=None,
         min_impurity_decrease=0.0,
-        min_impurity_split=None,
         bootstrap=True,
         oob_score=False,
         n_jobs=1,
@@ -188,7 +187,6 @@ class WaveRandomForestClassifier(BaseEstimator, ClassifierMixin):
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
-        self.min_impurity_split = min_impurity_split
         self.bootstrap = bootstrap
         self.oob_score = oob_score
         self.n_jobs = n_jobs
@@ -214,7 +212,6 @@ class WaveRandomForestClassifier(BaseEstimator, ClassifierMixin):
             max_features=self.max_features,
             max_leaf_nodes=self.max_leaf_nodes,
             min_impurity_decrease=self.min_impurity_decrease,
-            min_impurity_split=self.min_impurity_split,
             bootstrap=self.bootstrap,
             oob_score=self.oob_score,
             n_jobs=self.n_jobs,
@@ -383,7 +380,6 @@ class WaveRandomForestRegressor(BaseEstimator, RegressorMixin):
         max_features="auto",
         max_leaf_nodes=None,
         min_impurity_decrease=0.0,
-        min_impurity_split=None,
         bootstrap=True,
         oob_score=False,
         n_jobs=1,
@@ -402,7 +398,6 @@ class WaveRandomForestRegressor(BaseEstimator, RegressorMixin):
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
-        self.min_impurity_split = min_impurity_split
         self.bootstrap = bootstrap
         self.oob_score = oob_score
         self.n_jobs = n_jobs
@@ -426,7 +421,6 @@ class WaveRandomForestRegressor(BaseEstimator, RegressorMixin):
             max_features=self.max_features,
             max_leaf_nodes=self.max_leaf_nodes,
             min_impurity_decrease=self.min_impurity_decrease,
-            min_impurity_split=self.min_impurity_split,
             bootstrap=self.bootstrap,
             oob_score=self.oob_score,
             n_jobs=self.n_jobs,

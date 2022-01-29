@@ -187,7 +187,6 @@ class GroupPCADecisionTreeClassifier(BaseEstimator, ClassifierMixin):
         random_state=None,
         max_leaf_nodes=None,
         min_impurity_decrease=0.0,
-        min_impurity_split=None,
         class_weight=None,
         pca_bootstrap=False,
         pca_max_nb_groups=0.25,
@@ -204,7 +203,6 @@ class GroupPCADecisionTreeClassifier(BaseEstimator, ClassifierMixin):
         self.random_state = random_state
         self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
-        self.min_impurity_split = min_impurity_split
         self.class_weight = class_weight
 
         self.pca_bootstrap = pca_bootstrap
@@ -241,7 +239,6 @@ class GroupPCADecisionTreeClassifier(BaseEstimator, ClassifierMixin):
             class_weight=self.class_weight,
             random_state=self.random_state,
             min_impurity_decrease=self.min_impurity_decrease,
-            min_impurity_split=self.min_impurity_split,
         )
 
         # 3) Apply group PCA
@@ -332,7 +329,6 @@ class GroupPCADecisionTreeRegressor(BaseEstimator, RegressorMixin):
         random_state=None,
         max_leaf_nodes=None,
         min_impurity_decrease=0.0,
-        min_impurity_split=None,
         pca_bootstrap=False,
         pca_max_nb_groups=0.25,
         pca_max_group_size=0.05,
@@ -348,7 +344,6 @@ class GroupPCADecisionTreeRegressor(BaseEstimator, RegressorMixin):
         self.random_state = random_state
         self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
-        self.min_impurity_split = min_impurity_split
 
         self.pca_bootstrap = pca_bootstrap
         self.pca_max_nb_groups = pca_max_nb_groups
@@ -380,7 +375,6 @@ class GroupPCADecisionTreeRegressor(BaseEstimator, RegressorMixin):
             max_leaf_nodes=self.max_leaf_nodes,
             random_state=self.random_state,
             min_impurity_decrease=self.min_impurity_decrease,
-            min_impurity_split=self.min_impurity_split,
         )
 
         # 3) Apply group PCA
@@ -450,7 +444,6 @@ class RandomRotationForestClassifier(ForestClassifier):
         max_features="auto",
         max_leaf_nodes=None,
         min_impurity_decrease=0.0,
-        min_impurity_split=None,
         bootstrap=True,
         oob_score=False,
         n_jobs=1,
@@ -475,7 +468,6 @@ class RandomRotationForestClassifier(ForestClassifier):
                 "max_features",
                 "max_leaf_nodes",
                 "min_impurity_decrease",
-                "min_impurity_split",
                 "random_state",
                 "pca_bootstrap",
                 "pca_max_nb_groups",
@@ -498,7 +490,6 @@ class RandomRotationForestClassifier(ForestClassifier):
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
-        self.min_impurity_split = min_impurity_split
 
         self.pca_bootstrap = pca_bootstrap
         self.pca_max_nb_groups = pca_max_nb_groups
@@ -517,7 +508,6 @@ class RandomRotationForestRegressor(ForestRegressor):
         max_features="auto",
         max_leaf_nodes=None,
         min_impurity_decrease=0.0,
-        min_impurity_split=None,
         bootstrap=True,
         oob_score=False,
         n_jobs=1,
@@ -541,7 +531,6 @@ class RandomRotationForestRegressor(ForestRegressor):
                 "max_features",
                 "max_leaf_nodes",
                 "min_impurity_decrease",
-                "min_impurity_split",
                 "random_state",
                 "pca_bootstrap",
                 "pca_max_nb_groups",
@@ -563,7 +552,6 @@ class RandomRotationForestRegressor(ForestRegressor):
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
-        self.min_impurity_split = min_impurity_split
 
         self.pca_bootstrap = pca_bootstrap
         self.pca_max_nb_groups = pca_max_nb_groups
