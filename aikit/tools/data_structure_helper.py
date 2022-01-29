@@ -205,7 +205,10 @@ def convert_to_sparsedataframe(xx, mapped_type=None):
         if _IS_PD1:
             result = xx.copy()
             for col in xx.columns:
-                result[col] = xx[col].astype(pd.SparseDtype(xx.dtypes[col]))
+                result[col] = xx[col].astype(pd.SparseDtype(xx.dtypes[col],
+                                                            fill_value=np.zeros((1,), dtype=xx.dtypes[col])[0]
+                                                            # better to fill with 0 than NaN by default
+                                                            ))
             return result
         else:
             return pd.SparseDataFrame(xx, default_fill_value=0)
