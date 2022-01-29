@@ -72,13 +72,17 @@ def test_TruncatedSVD_DimensionReduction():
         assert isinstance(hyper["n_components"], float)
     
 
-
-def test_hyper_init():
+@pytest.mark.parametrize("model", list(MODEL_REGISTER.hyper_parameters.keys()))
+def test_hyper_init(model):
     np.random.seed(123)
-    for model, hyper in MODEL_REGISTER.hyper_parameters.items():
+    hyper = MODEL_REGISTER.hyper_parameters[model]
+    klass = DICO_NAME_KLASS[model[1]]
+    if StepCategories.is_composition_step(model[0]):
+        klass(model=None, **hyper.get_rand())
+    else:
+        klass(**hyper.get_rand())
 
-        klass = DICO_NAME_KLASS[model[1]]
-        klass(*hyper.get_rand())
+
 
 
 def test_register():
