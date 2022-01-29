@@ -225,7 +225,7 @@ class _CustomPredictScorer(_BaseScorer):
 
     def _score(self, method_caller, estimator, X, y_true=None, sample_weight=None):
         
-        y_pred = method_caller(estimator, "predict", X)
+        y_pred = method_caller(estimator, "fit_predict", X)
         
         try:
             return self._sign * self._score_func(X, y_pred, **self._kwargs)
