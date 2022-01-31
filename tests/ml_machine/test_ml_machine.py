@@ -396,12 +396,19 @@ def test_RandomModelGenerator_random(num_only, specific_hyper, only_random_fores
             result = convert_graph_to_code(Graph, all_models_params_copy, also_returns_mapping=True)
             sk_model = sklearn_model_from_param(result["json_code"])
             
-            sub_index = np.concatenate((np.where(y==0)[0][0:200],
-                                        np.where(y==1)[0][0:200]),
+            sub_index = np.concatenate((np.where(y==0)[0][0:100],
+                                        np.where(y==1)[0][0:100]),
                                        axis=0)
             # Needs at least 20 observations to make sure all transformers works
             if hasattr(sk_model, "verbose"):
                 sk_model.verbose=True
+                
+            if hasattr(sk_model, "models"):
+                for n, m in sk_model.models.items():
+                    if getattr(m, "other_truncated_svd_params", None) is None:
+                        m.other_truncated_svd_params = {"n_iter":1}
+                
+                
                 
             sk_model.fit(dfX.iloc[sub_index,:] ,y[sub_index])
 
