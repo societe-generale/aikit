@@ -22,7 +22,7 @@ def test_RandomForestRidge():
     X = np.random.randn(1000, 10)
     y = np.random.randn(1000)
 
-    rf_ridge = RandomForestRidge(other_linear_params={"solver": "saga"})
+    rf_ridge = RandomForestRidge(other_linear_params={"solver": "sag"})
     rf_ridge.fit(X, y)
 
     yhat = rf_ridge.predict(X)
@@ -40,7 +40,7 @@ def test_RandomForestRidge_with_args(C, do_svd, nodes_to_keep):
                                  do_svd=do_svd,
                                  n_estimators=10,
                                  nodes_to_keep=nodes_to_keep,
-                                 other_linear_params={"solver": "saga"}
+                                 other_linear_params={"solver": "sag"}
                                  )
     rf_ridge.fit(X, y)
     yhat = rf_ridge.predict(X)
