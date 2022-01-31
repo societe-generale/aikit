@@ -220,9 +220,23 @@ class _BaseFeaturesSelector(BaseEstimator, TransformerMixin):
             features_importances = f_forest_classification(X, y, rf_params=self.model_params)
 
         elif self.selector_type == "linear" and is_regression:
+            ridge_params = self.model_params
+            if ridge_params is None:
+                ridge_params = {"solver": "sag"} # This solver doesn't bug : https://github.com/scikit-optimize/scikit-optimize/issues/981
+            
+            if self.random_state is not None:
+                ridge_params["random_state"] = self.random_state
+
             features_importances = f_linear_regression(X, y, ridge_params=self.model_params)
 
         elif self.selector_type == "linear" and not is_regression:
+            logit_params = self.model_params
+            if logit_params is None:
+                logit_params = {"solver": "sag"} # This solver doesn't bug : https://github.com/scikit-optimize/scikit-optimize/issues/981
+            
+            if self.random_state is not None:
+                logit_params["random_state"] = self.random_state
+                
             features_importances = f_linear_classification(X, y, logit_params=self.model_params)
 
         elif self.selector_type == "default" and is_regression:
