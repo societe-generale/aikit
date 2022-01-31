@@ -227,7 +227,7 @@ class _BaseFeaturesSelector(BaseEstimator, TransformerMixin):
             if self.random_state is not None:
                 ridge_params["random_state"] = self.random_state
 
-            features_importances = f_linear_regression(X, y, ridge_params=self.model_params)
+            features_importances = f_linear_regression(X, y, ridge_params=ridge_params)
 
         elif self.selector_type == "linear" and not is_regression:
             logit_params = self.model_params
@@ -237,7 +237,7 @@ class _BaseFeaturesSelector(BaseEstimator, TransformerMixin):
             if self.random_state is not None:
                 logit_params["random_state"] = self.random_state
                 
-            features_importances = f_linear_classification(X, y, logit_params=self.model_params)
+            features_importances = f_linear_classification(X, y, logit_params=logit_params)
 
         elif self.selector_type == "default" and is_regression:
             features_importances = sklearn.feature_selection.f_regression(X, y)
