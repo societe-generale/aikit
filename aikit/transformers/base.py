@@ -525,12 +525,14 @@ class TruncatedSVDWrapper(ModelWrapper):
         random_state=None,
         drop_used_columns=True,
         drop_unused_columns=True,
-        column_prefix="SVD"
+        column_prefix="SVD",
+        other_truncated_svd_params=None,
     ):
         self.n_components = n_components
         self.columns_to_use = columns_to_use
         self.regex_match = regex_match
         self.random_state = random_state
+        self.other_truncated_svd_params=other_truncated_svd_params
 
         super(TruncatedSVDWrapper, self).__init__(
             columns_to_use=columns_to_use,
@@ -548,11 +550,16 @@ class TruncatedSVDWrapper(ModelWrapper):
         )
 
     def _get_model(self, X, y=None):
+        
+        if self.other_truncated_svd_params is not None:
+            kwargs = self.other_truncated_svd_params
+        else:
+            kwargs = {}
 
         nbcolumns = _nbcols(X)
         n_components = int_n_components(nbcolumns, self.n_components)
 
-        return TruncatedSVD(n_components=n_components, random_state=self.random_state)
+        return TruncatedSVD(n_components=n_components, random_state=self.random_state, **kwargs)
 
 
 class PCAWrapper(ModelWrapper):
