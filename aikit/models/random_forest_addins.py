@@ -520,6 +520,9 @@ class _RandomForestLinear(BaseEstimator, ClassifierMixin):
         
     other_rf_params : dict or None
         additionnal parameters to be passed to the RandomForest
+        
+    other_linear_params : dict or None
+        additionnal parameters to be passed to the Linear model
     
     do_svd : boolean, default = False
         if True will do an SVD before calling the linear algorithm
@@ -543,6 +546,7 @@ class _RandomForestLinear(BaseEstimator, ClassifierMixin):
         random_state=None,
         nodes_to_keep=None,
         other_rf_params=None,
+        other_linear_params=None,
         do_svd=False,
         svd_n_components=100,
         C=1,
@@ -559,6 +563,7 @@ class _RandomForestLinear(BaseEstimator, ClassifierMixin):
         self.nodes_to_keep = nodes_to_keep
 
         self.other_rf_params = other_rf_params
+        self.other_linear_params = other_linear_params
 
         self.C = C
 
@@ -572,6 +577,9 @@ class _RandomForestLinear(BaseEstimator, ClassifierMixin):
             rf_klass = RandomForestClassifier
             lin_klass = LogisticRegression
             kwargs = {"C": self.C}
+            
+        if self.other_linear_params is not None:
+            kwargs.update(self.other_linear_params)
 
         if self.other_rf_params is None:
             other_rf_params = {}
