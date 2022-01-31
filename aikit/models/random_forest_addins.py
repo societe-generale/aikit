@@ -700,20 +700,21 @@ class RandomForestRidge(_RandomForestLinear):
         random_state=None,
         nodes_to_keep=None,
         other_rf_params=None,
+        other_linear_params=None,
         do_svd=False,
         svd_n_components=100,
         C=1,
     ):
-
         self.n_estimators = n_estimators
         self.criterion = criterion
         self.max_features = max_features
         self.max_depth = max_depth
         self.random_state = random_state
         self.nodes_to_keep = nodes_to_keep
+        self.other_rf_params = other_rf_params
+        self.other_linear_params = other_linear_params
         self.do_svd = do_svd
         self.svd_n_components = svd_n_components
-        self.other_rf_params = other_rf_params
         self.C = C
 
 
