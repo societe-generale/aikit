@@ -266,6 +266,14 @@ class BlockManager(object):
             # As in pandas DataFrame, dynamically created to limit memory issue (because it is created a loop of references)
 
         return self._iloc
+    
+    def take(self, key, axis=0):
+        
+        # axis argument kept the that safe_indexing works
+        if axis != 0:
+            raise ValueError(f"axis should be always 0, but I got {axis}")
+        
+        return self.iloc_fun(key)
 
     def __repr__(self):
         string = super(BlockManager, self).__repr__()

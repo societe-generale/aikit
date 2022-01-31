@@ -22,7 +22,7 @@ def test_RandomForestRidge():
     X = np.random.randn(1000, 10)
     y = np.random.randn(1000)
 
-    rf_ridge = RandomForestRidge()
+    rf_ridge = RandomForestRidge(other_linear_params={"solver": "sag"})
     rf_ridge.fit(X, y)
 
     yhat = rf_ridge.predict(X)
@@ -36,7 +36,12 @@ def test_RandomForestRidge_with_args(C, do_svd, nodes_to_keep):
     X = np.random.randn(1000, 10)
     y = np.random.randn(1000)
 
-    rf_ridge = RandomForestRidge(C=C, do_svd=do_svd, n_estimators=10, nodes_to_keep=nodes_to_keep)
+    rf_ridge = RandomForestRidge(C=C,
+                                 do_svd=do_svd,
+                                 n_estimators=10,
+                                 nodes_to_keep=nodes_to_keep,
+                                 other_linear_params={"solver": "sag"}
+                                 )
     rf_ridge.fit(X, y)
     yhat = rf_ridge.predict(X)
 
@@ -47,7 +52,7 @@ def test_RandomForestLogit():
     X = np.random.randn(1000, 10)
     y = 1 * (np.random.randn(1000) > 0)
 
-    rf_ridge = RandomForestLogit()
+    rf_ridge = RandomForestLogit(other_linear_params={"solver": "saga"})
     rf_ridge.fit(X, y)
 
     yhat = rf_ridge.predict(X)
@@ -69,7 +74,11 @@ def test_RandomForestLogit_with_args(C, do_svd, nodes_to_keep):
     X = np.random.randn(1000, 10)
     y = 1 * (np.random.randn(1000) > 0)
 
-    rf_ridge = RandomForestLogit(C=C, do_svd=do_svd, n_estimators=10, nodes_to_keep=nodes_to_keep)
+    rf_ridge = RandomForestLogit(C=C,
+                                 do_svd=do_svd,
+                                 n_estimators=10,
+                                 nodes_to_keep=nodes_to_keep,
+                                 other_linear_params={"solver": "saga"})
     rf_ridge.fit(X, y)
 
     yhat = rf_ridge.predict(X)

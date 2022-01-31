@@ -27,7 +27,12 @@ from sklearn.datasets import make_classification, make_regression
 import sklearn.model_selection
 from sklearn.model_selection import StratifiedKFold, KFold, TimeSeriesSplit, GroupKFold, cross_val_predict
 
-from sklearn.model_selection._validation import _score#, _multimetric_score # TODO : fix test
+from sklearn.model_selection._validation import _score
+try:
+    from sklearn.model_selection._validation import _multimetric_score
+except (ModuleNotFoundError, ImportError):
+    _multimetric_score = _score
+
 from sklearn.exceptions import NotFittedError
 
 from aikit.tools.data_structure_helper import convert_generic
@@ -119,9 +124,13 @@ def test_fit_and_predict_transfrom():
     for train, test in cv.split(X, y):
 
         pt = DebugPassThrough()
-        predictions, _ = sklearn.model_selection._validation._fit_and_predict(
+        temp = sklearn.model_selection._validation._fit_and_predict(
             pt, X, y, train, test, verbose=1, fit_params=None, method="transform"
         )
+        if isinstance(temp, tuple):
+            predictions = temp[0]
+        else:
+            predictions = temp
 
         assert predictions.shape[0] == test.shape[0]
         assert predictions.shape[1] == X.shape[1]
@@ -138,9 +147,13 @@ def test_fit_and_predict_predict():
     for train, test in cv.split(X, y):
 
         logit = LogisticRegression()
-        predictions, _ = sklearn.model_selection._validation._fit_and_predict(
+        temp = sklearn.model_selection._validation._fit_and_predict(
             logit, X, y, train, test, verbose=1, fit_params=None, method="predict"
         )
+        if isinstance(temp, tuple):
+            predictions=temp[0]
+        else:
+            predictions=temp
 
         assert predictions.shape[0] == test.shape[0]
         assert len(predictions.shape) == 1
@@ -157,9 +170,13 @@ def test_fit_and_predict_predict_proba():
     for train, test in cv.split(X, y):
 
         logit = LogisticRegression()
-        predictions, _ = sklearn.model_selection._validation._fit_and_predict(
+        temp = sklearn.model_selection._validation._fit_and_predict(
             logit, X, y, train, test, verbose=1, fit_params=None, method="predict_proba"
         )
+        if isinstance(temp, tuple):
+            predictions=temp[0]
+        else:
+            predictions=temp
 
         assert predictions.shape[0] == test.shape[0]
         assert predictions.shape[1] == 2
@@ -1434,14 +1451,14 @@ def test__score_with_group__multimetric_score_with_group():
         else:
             result1 = _multimetric_score_with_group(estimator, X_test, y_test, group_test, {"auc": roc_auc_scorer})
         
-        #result2 = _multimetric_score(estimator, X_test, y_test, {"auc": roc_auc_scorer}) TODO : fix test
+        result2 = _multimetric_score(estimator, X_test, y_test, {"auc": roc_auc_scorer})
 
         assert isinstance(result1, dict)
         assert set(result1.keys()) == {"auc"}
         assert not pd.isnull(result1["auc"])
         assert isinstance(result1["auc"], numbers.Number)
         
-        # assert abs(result1["auc"] - result2["auc"]) <= 10 ** (-10) # TODO : fix test
+        assert abs(result1["auc"] - result2["auc"]) <= 10 ** (-10) # TODO : fix test
 
     ##############################################
     ### test with a scorer that accepts group  ###

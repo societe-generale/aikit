@@ -78,9 +78,13 @@ def test_avg_roc_auc_scorer_aikit():
 
     assert np.abs(cv_res1 - cv_res2).max() <= 10 ** (-5)
 
-    with pytest.raises(ValueError):
-        cross_val_score(logit, X, y, cv=cv, scoring="roc_auc")  # sklearn doesn't handle that
-
+    try:
+        res = cross_val_score(logit, X, y, cv=cv, scoring="roc_auc")  # sklearn doesn't handle that
+    except ValueError:
+        res = None
+    assert res is None or pd.isnull(res).all()
+    # sklearn <0.23 raise ValueError, sklearn >= 0.24 generates only 'nan'
+    
     cv_res_aikit = cross_val_score(logit, X, 1 * (y == "AA"), cv=cv, scoring="avg_roc_auc")
     cv_res_sklearn = cross_val_score(logit, X, 1 * (y == "AA"), cv=cv, scoring="roc_auc")
 
@@ -107,8 +111,12 @@ def test_average_precision_scorer_aikit():
 
     assert np.abs(cv_res1 - cv_res2).max() <= 10 ** (-5)
 
-    with pytest.raises(ValueError):
-        cross_val_score(logit, X, y, cv=cv, scoring="average_precision")  # sklearn doesn't handle that
+    try:
+        res = cross_val_score(logit, X, y, cv=cv, scoring="average_precision")  # sklearn doesn't handle that
+    except ValueError:
+        res = None
+    assert res is None or pd.isnull(res).all()
+    # sklearn <0.23 raise ValueError, sklearn >= 0.24 generates only 'nan'
 
 
 def test_log_loss_patched_multioutput():

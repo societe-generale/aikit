@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 """
-import pytest
 
 import numpy as np
-import pandas as pd
-import scipy.sparse as sps
+
 
 from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_blobs
 
 from aikit.models import DBSCANWrapper, KMeansWrapper, AgglomerativeClusteringWrapper
 

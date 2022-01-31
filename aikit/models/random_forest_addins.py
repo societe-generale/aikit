@@ -168,7 +168,6 @@ class WaveRandomForestClassifier(BaseEstimator, ClassifierMixin):
         max_features="auto",
         max_leaf_nodes=None,
         min_impurity_decrease=0.0,
-        min_impurity_split=None,
         bootstrap=True,
         oob_score=False,
         n_jobs=1,
@@ -188,7 +187,6 @@ class WaveRandomForestClassifier(BaseEstimator, ClassifierMixin):
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
-        self.min_impurity_split = min_impurity_split
         self.bootstrap = bootstrap
         self.oob_score = oob_score
         self.n_jobs = n_jobs
@@ -214,7 +212,6 @@ class WaveRandomForestClassifier(BaseEstimator, ClassifierMixin):
             max_features=self.max_features,
             max_leaf_nodes=self.max_leaf_nodes,
             min_impurity_decrease=self.min_impurity_decrease,
-            min_impurity_split=self.min_impurity_split,
             bootstrap=self.bootstrap,
             oob_score=self.oob_score,
             n_jobs=self.n_jobs,
@@ -383,7 +380,6 @@ class WaveRandomForestRegressor(BaseEstimator, RegressorMixin):
         max_features="auto",
         max_leaf_nodes=None,
         min_impurity_decrease=0.0,
-        min_impurity_split=None,
         bootstrap=True,
         oob_score=False,
         n_jobs=1,
@@ -402,7 +398,6 @@ class WaveRandomForestRegressor(BaseEstimator, RegressorMixin):
         self.max_features = max_features
         self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
-        self.min_impurity_split = min_impurity_split
         self.bootstrap = bootstrap
         self.oob_score = oob_score
         self.n_jobs = n_jobs
@@ -426,7 +421,6 @@ class WaveRandomForestRegressor(BaseEstimator, RegressorMixin):
             max_features=self.max_features,
             max_leaf_nodes=self.max_leaf_nodes,
             min_impurity_decrease=self.min_impurity_decrease,
-            min_impurity_split=self.min_impurity_split,
             bootstrap=self.bootstrap,
             oob_score=self.oob_score,
             n_jobs=self.n_jobs,
@@ -526,6 +520,9 @@ class _RandomForestLinear(BaseEstimator, ClassifierMixin):
         
     other_rf_params : dict or None
         additionnal parameters to be passed to the RandomForest
+        
+    other_linear_params : dict or None
+        additionnal parameters to be passed to the Linear model
     
     do_svd : boolean, default = False
         if True will do an SVD before calling the linear algorithm
@@ -549,6 +546,7 @@ class _RandomForestLinear(BaseEstimator, ClassifierMixin):
         random_state=None,
         nodes_to_keep=None,
         other_rf_params=None,
+        other_linear_params=None,
         do_svd=False,
         svd_n_components=100,
         C=1,
@@ -565,6 +563,7 @@ class _RandomForestLinear(BaseEstimator, ClassifierMixin):
         self.nodes_to_keep = nodes_to_keep
 
         self.other_rf_params = other_rf_params
+        self.other_linear_params = other_linear_params
 
         self.C = C
 
@@ -578,6 +577,9 @@ class _RandomForestLinear(BaseEstimator, ClassifierMixin):
             rf_klass = RandomForestClassifier
             lin_klass = LogisticRegression
             kwargs = {"C": self.C}
+            
+        if self.other_linear_params is not None:
+            kwargs.update(self.other_linear_params)
 
         if self.other_rf_params is None:
             other_rf_params = {}
@@ -698,20 +700,21 @@ class RandomForestRidge(_RandomForestLinear):
         random_state=None,
         nodes_to_keep=None,
         other_rf_params=None,
+        other_linear_params=None,
         do_svd=False,
         svd_n_components=100,
         C=1,
     ):
-
         self.n_estimators = n_estimators
         self.criterion = criterion
         self.max_features = max_features
         self.max_depth = max_depth
         self.random_state = random_state
         self.nodes_to_keep = nodes_to_keep
+        self.other_rf_params = other_rf_params
+        self.other_linear_params = other_linear_params
         self.do_svd = do_svd
         self.svd_n_components = svd_n_components
-        self.other_rf_params = other_rf_params
         self.C = C
 
 

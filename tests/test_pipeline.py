@@ -18,7 +18,6 @@ from sklearn.base import is_classifier, is_regressor
 from sklearn.base import clone
 
 from sklearn.exceptions import NotFittedError
-from sklearn.utils.validation import check_is_fitted
 
 from sklearn.datasets import make_classification
 
@@ -160,7 +159,13 @@ def test_gpipeline_graphviz():
     )
 
     gpipeline.fit(dfX, y)
-    assert isinstance(gpipeline.graphviz, graphviz.dot.Digraph)
+    assert hasattr(gpipeline, "graphviz")
+    try:
+        gpipeline.graphviz
+    except graphviz.ExecutableNotFound:
+        return 
+    
+    assert gpipeline.graphviz.__class__.__name__ == "Digraph"
 
     gpipeline = GraphPipeline(
         {
@@ -171,7 +176,7 @@ def test_gpipeline_graphviz():
         edges=[("ColCat", "Pt"), ("ColNum", "Pt")],
     )
 
-    assert isinstance(gpipeline.graphviz, graphviz.dot.Digraph)  # graphviz even before fit is called
+    assert gpipeline.graphviz.__class__.__name__ == "Digraph"  # graphviz even before fit is called
 
 
 def test_graphpipeline_merging_node():
