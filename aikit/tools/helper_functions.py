@@ -24,7 +24,7 @@ import os
 from io import StringIO
 import hashlib
 
-from sklearn.utils import check_random_state, safe_indexing
+from sklearn.utils import check_random_state, _safe_indexing
 
 from aikit.tools.json_helper import SpecialJSONEncoder
 
@@ -490,7 +490,7 @@ def shuffle_all(*args, seed=None):
     ii = np.arange(N)
     rand.shuffle(ii)
 
-    shuffled_args = [safe_indexing(arg, ii) for arg in args]
+    shuffled_args = [_safe_indexing(arg, ii) for arg in args]
 
     if len(args) == 1:
         return shuffled_args[0]
