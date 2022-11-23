@@ -3,7 +3,7 @@ from sklearn.linear_model import Ridge, Lasso, LogisticRegression
 from scipy.stats import randint as sp_randint, reciprocal
 
 from aikit.models import KMeansWrapper, AgglomerativeClusteringWrapper, DBSCANWrapper
-from .._hyper_parameters import HyperComposition, HyperRangeInt, HyperRangeBetaFloat, HyperChoice, \
+from ..hyper_parameters import HyperComposition, HyperRangeInt, HyperRangeBetaFloat, HyperChoice, \
     HyperLogRangeFloat, HyperCrossProduct
 from ...enums import StepCategory, ProblemType
 from ._base import ModelRepresentationBase

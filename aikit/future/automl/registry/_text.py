@@ -1,7 +1,7 @@
 from aikit.transformers import CountVectorizerWrapper, Word2VecVectorizer, Char2VecVectorizer, TextNltkProcessing, \
     TextDefaultProcessing, TextDigitAnonymizer
 from ._base import ModelRepresentationBase
-from .._hyper_parameters import HyperComposition, HyperRangeInt, HyperChoice, \
+from ..hyper_parameters import HyperComposition, HyperRangeInt, HyperChoice, \
     HyperCrossProduct, HyperRangeBetaInt
 from .._registry import register
 from ...enums import StepCategory, VariableType

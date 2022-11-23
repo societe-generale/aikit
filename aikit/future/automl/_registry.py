@@ -9,7 +9,7 @@ from inspect import signature
 
 import networkx as nx
 
-from ._hyper_parameters import HyperCrossProduct
+from .hyper_parameters import HyperCrossProduct
 from ..enums import StepCategory
 from ..util import CLASS_REGISTRY
 from ..util.decorators import singleton

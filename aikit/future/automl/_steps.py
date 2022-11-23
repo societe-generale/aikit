@@ -1,5 +1,8 @@
+from collections import OrderedDict
+
 from ._registry import MODEL_REGISTRY
 from ..enums import ProblemType, VariableType, StepCategory
+from ..util.list import intersect
 
 
 def get_needed_steps(df_information, type_of_problem):
@@ -103,3 +106,53 @@ def filter_model_to_keep(problem_type, block_search_only=False):
                 models_to_keep.append(c)
 
     return models_to_keep
+
+
+def modify_var_type_none_to_default(var_type_by_steps, default_var_type):
+    """ change the None type to the default_var_type, for other intersect with default_var_type
+    Don't apply change on composition_step
+    """
+    for (step_name, model_name), var_type in var_type_by_steps.items():
+        if StepCategory.is_composition_step(step_name):
+            continue
+        if var_type is None:
+            var_type_by_steps[(step_name, model_name)] = default_var_type
+        else:
+            var_type_by_steps[(step_name, model_name)] = intersect(var_type, default_var_type)
+    return var_type_by_steps
+
+
+def modify_var_type_all_default_to_none(var_type_by_steps, default_var_type):
+    """ change type to None if everything is at None, ignoring composition step """
+    all_default = True
+    for (step_name, model_name), var_type in var_type_by_steps.items():
+        if StepCategory.is_composition_step(step_name):
+            continue
+        if set(var_type) != set(default_var_type):  # Set because we don't want to be False only because of order
+            all_default = False
+            break
+
+    if all_default:
+        for step_name, model_name in var_type_by_steps.keys():
+            if not StepCategory.is_composition_step(step_name):
+                var_type_by_steps[(step_name, model_name)] = None
+
+    return var_type_by_steps
+
+
+def create_var_type_from_steps(models_by_steps):
+    """ retrieve the type of variable for a given step from the registry """
+    var_type_by_steps = OrderedDict()
+
+    for step_name, model_name in models_by_steps.items():
+        if model_name[0] is None:
+            var_type = StepCategory.get_type_of_variable(step_name)
+        else:
+            var_type = MODEL_REGISTRY.informations[model_name].get("type_of_variable", None)
+
+        if var_type is not None and not isinstance(var_type, tuple):
+            var_type = (var_type,)
+
+        var_type_by_steps[(step_name, model_name)] = var_type
+
+    return var_type_by_steps

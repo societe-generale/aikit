@@ -1,6 +1,6 @@
 from sklearn.ensemble import RandomForestClassifier
 
-from aikit.future.automl._hyper_parameters import HyperCrossProduct, HyperComposition
+from aikit.future.automl.hyper_parameters import HyperCrossProduct, HyperComposition
 from aikit.future.automl._registry import MODEL_REGISTRY, get_init_parameters
 
 

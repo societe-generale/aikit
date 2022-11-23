@@ -1,5 +1,5 @@
 from .._registry import _AbstractModelRepresentation
-from .._hyper_parameters import HyperRangeFloat, HyperComposition, HyperRangeInt, HyperRangeBetaFloat, HyperChoice, \
+from ..hyper_parameters import HyperRangeFloat, HyperComposition, HyperRangeInt, HyperRangeBetaFloat, HyperChoice, \
     HyperRangeBetaInt, HyperLogRangeFloat
 
 

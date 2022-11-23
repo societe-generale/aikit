@@ -3,7 +3,7 @@ from scipy.stats import randint as sp_randint
 from aikit.transformers import NumericalEncoder, TargetEncoderClassifier, TargetEncoderRegressor, NumImputer, \
     TruncatedSVDWrapper, PCAWrapper, KMeansTransformer, CdfScaler, BoxCoxTargetTransformer
 from ._base import ModelRepresentationBase
-from .._hyper_parameters import HyperComposition, HyperRangeInt, HyperLogRangeFloat, HyperRangeFloat
+from ..hyper_parameters import HyperComposition, HyperRangeInt, HyperLogRangeFloat, HyperRangeFloat
 from .._registry import register
 from ...enums import StepCategory, ProblemType, VariableType
 

@@ -6,7 +6,7 @@ from typing import Tuple, List
 import pandas as pd
 
 from ._registry import MODEL_REGISTRY
-from ._hyper_parameters import HyperCrossProduct
+from .hyper_parameters import HyperCrossProduct
 from ._steps import get_needed_steps, filter_model_to_keep
 from ..enums import ProblemType, StepCategory
 from ..util.decorators import enforce_init

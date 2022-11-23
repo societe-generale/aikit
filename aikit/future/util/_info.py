@@ -140,3 +140,20 @@ def get_columns_by_variable_type(columns_informations):
                 var_type_columns_dico[vt] = []
             var_type_columns_dico[vt].append(col)
     return var_type_columns_dico
+
+
+def get_all_var_type(db_informations):
+    all_var_type = tuple(sorted(set((v["TypeOfVariable"] for v in db_informations.values() if v["ToKeep"]))))
+    return all_var_type
+
+
+def get_var_type_columns_dict(columns_informations):
+    """ get a dictionary with the list of columns for each type """
+    var_type_columns_dict = OrderedDict()
+    for col, info in columns_informations.items():
+        if info["ToKeep"]:
+            vt = info["TypeOfVariable"]
+            if vt not in var_type_columns_dict:
+                var_type_columns_dict[vt] = []
+            var_type_columns_dict[vt].append(col)
+    return var_type_columns_dict

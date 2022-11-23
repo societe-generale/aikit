@@ -12,7 +12,7 @@ from scipy.stats import randint
 from sklearn.utils.validation import check_random_state
 
 
-from aikit.future.automl._hyper_parameters import (
+from aikit.future.automl.hyper_parameters import (
     HyperRangeInt,
     HyperChoice,
     HyperMultipleChoice,
