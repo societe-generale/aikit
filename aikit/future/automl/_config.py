@@ -418,7 +418,7 @@ class AutoMlConfig(object):
             raise ValueError("'models_to_keep' should be set")
 
         new_specific_hyper: dict = deepcopy(new_specific_hyper)
-        if isinstance(new_specific_hyper, dict):
+        if not isinstance(new_specific_hyper, dict):
             raise TypeError(f"specific_hyper should be a dict, got {type(new_specific_hyper)}")
 
         for key, value in new_specific_hyper.items():

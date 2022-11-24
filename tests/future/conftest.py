@@ -19,9 +19,11 @@ def get_titanic_dataset():
 
 @pytest.fixture
 def numeric_dataset():
-    return get_numeric_dataset()
+    df, y = get_numeric_dataset()
+    return df, y, "numeric"
 
 
 @pytest.fixture
 def titanic_dataset():
-    return get_titanic_dataset()
+    df, y = get_titanic_dataset()
+    return df, y, "titanic"

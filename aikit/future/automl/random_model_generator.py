@@ -111,14 +111,15 @@ class RandomModelGenerator(object):
     """ Random model generator """
 
     def __init__(self, automl_config, allow_block_selection=True, block_probas=0.9, random_state=None):
+        self.hyper_parameters = {}
+        self.random_probas = None
+        self._hyper_block = None
+
         self.automl_config = automl_config
         self.allow_block_selection = allow_block_selection
         self.block_probas = block_probas
         self.random_state = random_state
 
-        self.random_probas = None
-        self.hyper_parameters = {}
-        self._hyper_block = None
         self.prepare_hyper_parameters()
 
     @property
@@ -302,7 +303,7 @@ class RandomModelGenerator(object):
 
         # Filter steps
         needed_steps_filtered_temp = get_needed_steps(
-            columns_informations_filtered, self.automl_config.type_of_problem)
+            columns_informations_filtered, self.automl_config.problem_type)
         # If user remove some steps => need to take the intersection
         steps_in_config = [s2["step"] for s2 in self.automl_config.needed_steps]
         needed_steps_filtered = [s for s in needed_steps_filtered_temp if s["step"] in steps_in_config]

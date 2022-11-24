@@ -14,7 +14,7 @@ def dataset_and_automl_config(request):
         raise NotImplementedError(f"Unknown dataset type: {request.param}")
     automl_config = AutoMlConfig(df, y)
     automl_config.guess_everything()
-    return df, y, automl_config
+    return df, y, request.param, automl_config
 
 
 @pytest.fixture
@@ -22,4 +22,12 @@ def numeric_dataset_automl_config():
     df, y = get_numeric_dataset()
     automl_config = AutoMlConfig(df, y)
     automl_config.guess_everything()
-    return df, y, automl_config
+    return df, y, "numeric", automl_config
+
+
+@pytest.fixture
+def titanic_dataset_automl_config():
+    df, y = get_titanic_dataset()
+    automl_config = AutoMlConfig(df, y)
+    automl_config.guess_everything()
+    return df, y, "titanic", automl_config

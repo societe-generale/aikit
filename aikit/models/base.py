@@ -64,7 +64,6 @@ class KMeansWrapper(KMeans):
             n_init=n_init,
             max_iter=max_iter,
             tol=tol,
-            precompute_distances=precompute_distances,
             verbose=verbose,
             random_state=random_state,
             copy_x=copy_x,
@@ -95,7 +94,14 @@ class DBSCANWrapper(DBSCAN):
         n_jobs=None,
         scale_eps=False,
     ):
-        super(DBSCANWrapper, self).__init__(eps, min_samples, metric, metric_params, algorithm, leaf_size, p, n_jobs)
+        super(DBSCANWrapper, self).__init__(eps=eps,
+                                            min_samples=min_samples,
+                                            metric=metric,
+                                            metric_params=metric_params,
+                                            algorithm=algorithm,
+                                            leaf_size=leaf_size,
+                                            p=p,
+                                            n_jobs=n_jobs)
         self._scale_eps = scale_eps
 
     def fit(self, X, y=None, sample_weight=None):

@@ -1,4 +1,5 @@
 from scipy.stats import randint as sp_randint
+from sklearn.linear_model import LinearRegression
 
 from aikit.transformers import NumericalEncoder, TargetEncoderClassifier, TargetEncoderRegressor, NumImputer, \
     TruncatedSVDWrapper, PCAWrapper, KMeansTransformer, CdfScaler, BoxCoxTargetTransformer
@@ -128,5 +129,8 @@ class BoxCoxTargetTransformerTargetModifier(ModelRepresentationBase):
     category = StepCategory.TargetTransformer
     type_of_variable = None
     type_of_model = ProblemType.REGRESSION
-    custom_hyper = {"ll": HyperComposition([(0.1, [0]), (0.9, HyperRangeFloat(0, 2))])}
+    custom_hyper = {
+        "ll": HyperComposition([(0.1, [0]), (0.9, HyperRangeFloat(0, 2))]),
+        "model": (LinearRegression(),)
+    }
     use_y = True

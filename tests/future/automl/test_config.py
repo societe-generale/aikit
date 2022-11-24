@@ -32,7 +32,7 @@ def test_automl_config_raise_multi_output():
 
 
 def test_automl_config(dataset_and_automl_config):
-    df, y, automl_config = dataset_and_automl_config
+    df, y, _, automl_config = dataset_and_automl_config
 
     assert automl_config.problem_type == ProblemType.CLASSIFICATION
     assert automl_config.columns_informations is not None
@@ -99,7 +99,7 @@ def test_automl_config(dataset_and_automl_config):
 
 
 def test_automl_config_change_type_of_problem(numeric_dataset_automl_config):
-    X, y, automl_config = numeric_dataset_automl_config
+    X, y, _, automl_config = numeric_dataset_automl_config
 
     assert automl_config.problem_type == "CLASSIFICATION"
     assert ("Model", "RandomForestClassifier") in automl_config.models_to_keep

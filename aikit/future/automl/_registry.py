@@ -204,8 +204,8 @@ class _AbstractModelRepresentation(metaclass=abc.ABCMeta):
             if p in cls.custom_hyper:
                 all_hyper[p] = cls.custom_hyper[p]
 
-            elif p in cls.default_default_hyper:
-                all_hyper[p] = cls.default_default_hyper[p]
+            elif p in cls.default_hyper:
+                all_hyper[p] = cls.default_hyper[p]
 
         return HyperCrossProduct(all_hyper)
 
@@ -221,8 +221,8 @@ class _AbstractModelRepresentation(metaclass=abc.ABCMeta):
             if p in cls.default_parameters:
                 default_hyper_parameters[p] = cls.default_parameters[p]
 
-            elif p in cls.default_hyper:
-                default_hyper_parameters[p] = cls.default_hyper[p]
+            elif p in cls.default_default_hyper:
+                default_hyper_parameters[p] = cls.default_default_hyper[p]
 
         return default_hyper_parameters
 
