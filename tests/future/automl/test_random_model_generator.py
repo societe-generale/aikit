@@ -262,7 +262,7 @@ def test_random_model_generator_random_fail_seed(titanic_dataset_automl_config, 
     test_random_model_generator_random(specific_hyper, only_random_forest, titanic_dataset_automl_config)
 
 
-def test__create_all_combinations():
+def test_create_all_combinations():
     def _check_all_list_of_blocks(_all_list_of_blocks, _all_blocks_to_use):
         assert isinstance(_all_list_of_blocks, list)
         for blocks_to_use in _all_list_of_blocks:

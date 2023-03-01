@@ -165,7 +165,8 @@ class AutoMlModelGuider(object):
         )
 
         if len(min_cv) <= self.min_nb_of_models:
-            logger.info("  threshold = None")
+            logger.info(f"  threshold: None, not enough models to compute threshold (min={self.min_nb_of_models}, "
+                        f"current={len(min_cv)})")
             return None
 
         # TODO: maybe make a parametric estimation of the quantile with a kernel:
@@ -173,7 +174,7 @@ class AutoMlModelGuider(object):
         min_cv = -np.sort(-min_cv)
         result = min_cv[self.min_nb_of_models] - delta_min_max_cv
 
-        logger.info(f"  threshold : {result:.2f}")
+        logger.info(f"  threshold: {result:.2f}")
         return result
 
     def get_fitted_models_count(self):

@@ -1,3 +1,5 @@
+import json
+
 import pandas as pd
 import sklearn
 from sklearn.metrics import SCORERS
@@ -5,6 +7,24 @@ from sklearn.metrics import SCORERS
 from aikit.future.enums import ProblemType
 from aikit.future.util.decorators import enforce_init
 from aikit.future.util.num import is_number
+
+
+def load_job_config_from_json(path):
+    """ Load job configuration from a JSON file. """
+    with open(path, "r") as f:
+        jso = json.load(f)
+    config = JobConfig()
+    if "cv" in jso:
+        config.cv = jso["cv"]
+    if "scoring" in jso:
+        config.scoring = jso["scoring"]
+    if "baseline_score" in jso:
+        config.baseline_score = jso["baseline_score"]
+    if "main_scorer" in jso:
+        config.main_scorer = jso["main_scorer"]
+    if "additional_scoring_function" in jso:
+        config.additional_scoring_function = jso["additional_scoring_function"]
+    return config
 
 
 @enforce_init
@@ -136,7 +156,7 @@ class JobConfig(object):
             return
 
         if new_main_scorer not in self._scoring:
-            raise ValueError("main_scorer should be among 'scoring', %s" % new_main_scorer)
+            raise ValueError(f"main_scorer should be among 'scoring', {new_main_scorer}")
 
         self._main_scorer = new_main_scorer
         self._scoring = [self._main_scorer] + [s for s in self._scoring if s != self._main_scorer]

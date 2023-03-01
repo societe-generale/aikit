@@ -1,22 +1,15 @@
 import pandas as pd
 
-from aikit.future.enums import StepCategory
-from aikit.future.util.list import intersect, diff
+from .serialization import Format, DataLoader
+from ..enums import StepCategory
+from ..util.list import intersect, diff
 
 
-class SavingType(object):
-    json = "json"
-    pickle = "pickle"
-    csv = "csv"
-    txt = "txt"
-    alls = (json, pickle, csv, txt)
-
-
-class AutoMlResultReader(object):
+class AutoMlResultReader:
     """ Helper to read the results of an AutoMl experiment """
 
-    def __init__(self, data_persister):
-        self.data_persister = data_persister
+    def __init__(self, data_loader: DataLoader):
+        self.data_loader = data_loader
 
         # Preparation
         self._all_results_key = None
@@ -33,7 +26,7 @@ class AutoMlResultReader(object):
     def load_all_results(self, aggregate=True):
         """ load the DataFrame with all the results """
         # Retrieve all keys
-        all_results_key = sorted(self.data_persister.alls(path="result", write_type=SavingType.csv))
+        all_results_key = sorted(self.data_loader.get_all_keys(path="result", serialization_format=Format.CSV))
 
         # If same keys => return direct
         # TODO : do something more robust: everytime something is added recompute only what is needed...
@@ -46,7 +39,7 @@ class AutoMlResultReader(object):
         # TODO: Warning, way to long to reload everything when something new arrives
         all_results = []
         for key in all_results_key:
-            df = self.data_persister.read_from_cache(path="result", key=key, write_type=SavingType.csv)
+            df = self.data_loader.read_from_cache(path="result", key=key, serialization_format=Format.CSV)
             df["job_id"] = key
             all_results.append(df)
 
@@ -140,14 +133,14 @@ class AutoMlResultReader(object):
 
     def load_other_params(self):
         """ load other params """
-        all_params1_key = sorted(self.data_persister.alls(path="job_param", write_type=SavingType.json))
+        all_params1_key = sorted(self.data_loader.get_all_keys(path="job_param", serialization_format=Format.JSON))
 
         if len(all_params1_key) == 0:
             return pd.DataFrame(columns=["job_id"])
 
         all_params = []
         for key in all_params1_key:
-            param = self.data_persister.read_from_cache(path="job_param", key=key, write_type=SavingType.json)
+            param = self.data_loader.read_from_cache(path="job_param", key=key, serialization_format=Format.JSON)
             param["job_id"] = key
             all_params.append({k: v for k, v in param.items() if k != "model_json"})
 
@@ -163,7 +156,7 @@ class AutoMlResultReader(object):
     def load_all_params(self):
         """ load all the params """
         # Get all keys
-        all_params1_key = sorted(self.data_persister.alls(path="param", write_type=SavingType.json))
+        all_params1_key = sorted(self.data_loader.get_all_keys(path="param", serialization_format=Format.JSON))
         if self._all_params_key is not None and self._all_params_key == all_params1_key:
             return self._load_all_params_cache
         else:
@@ -172,7 +165,7 @@ class AutoMlResultReader(object):
         # Load all
         all_params = []
         for key in all_params1_key:
-            param = self.data_persister.read_from_cache(path="param", key=key, write_type=SavingType.json)
+            param = self.data_loader.read_from_cache(path="param", key=key, serialization_format=Format.JSON)
             param["job_id"] = key
             all_params.append(param)
 
@@ -187,7 +180,7 @@ class AutoMlResultReader(object):
     def load_all_errors(self):
         """ load all errors """
         # Get all keys
-        all_error_key = sorted(self.data_persister.alls(path="error", write_type=SavingType.txt))
+        all_error_key = sorted(self.data_loader.get_all_keys(path="error", serialization_format=Format.TEXT))
         if self._all_error_key is not None and self._all_error_key == all_error_key:
             return self._load_all_errors_cache
         else:
@@ -196,7 +189,7 @@ class AutoMlResultReader(object):
         # Load all
         all_errors = []
         for key in all_error_key:
-            msg = self.data_persister.read_from_cache(path="error", key=key, write_type=SavingType.txt)
+            msg = self.data_loader.read_from_cache(path="error", key=key, serialization_format=Format.TEXT)
             all_errors.append({"error_msg": msg, "job_id": key, "has_error": True})
 
         # Concatenate
@@ -214,14 +207,17 @@ class AutoMlResultReader(object):
 
     def load_additional_results(self):
         """ load the things saved in 'additional_result' """
-        all_params1_key = sorted(self.data_persister.alls(path="additional_result", write_type=SavingType.json))
+        all_params1_key = sorted(self.data_loader.get_all_keys(path="additional_result",
+                                                               serialization_format=Format.JSON))
 
         if len(all_params1_key) == 0:
             return pd.DataFrame(columns=["job_id"])  # empty DataFrame with 'job_id' columns
 
         all_params = []
         for key in all_params1_key:
-            param = self.data_persister.read_from_cache(path="additional_result", key=key, write_type=SavingType.json)
+            param = self.data_loader.read_from_cache(path="additional_result",
+                                                     key=key,
+                                                     serialization_format=Format.JSON)
             if param is not None:
                 param["job_id"] = key
                 all_params.append(param)

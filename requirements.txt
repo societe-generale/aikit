@@ -4,5 +4,8 @@ numpy
 scipy
 statsmodels
 lockfile
+filelock
+fsspec
 decorator
 networkx
+typer

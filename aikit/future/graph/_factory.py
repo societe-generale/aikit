@@ -3,7 +3,7 @@ from collections import OrderedDict
 import networkx as nx
 
 from ._check import assert_model_graph_structure
-from ..automl import MODEL_REGISTRY
+from ..automl._registry import MODEL_REGISTRY
 from ..enums import StepCategory, SpecialModels
 from ..util import graph as gh
 from ..util.list import unnest_tuple, tuple_include, diff
