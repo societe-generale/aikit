@@ -17,7 +17,7 @@ from collections import OrderedDict
 
 from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin
 from sklearn.exceptions import NotFittedError
-from sklearn.metrics.scorer import _BaseScorer, _PredictScorer
+from sklearn.metrics._scorer import _BaseScorer, _PredictScorer
 
 
 from sklearn.utils import check_random_state
@@ -33,7 +33,7 @@ from sklearn.decomposition import PCA
 
 from sklearn.utils.metaestimators import if_delegate_has_method
 from sklearn.cluster import KMeans
-import sklearn.metrics.scorer
+import sklearn.metrics._scorer
 
 # from aikit.helper_functions import is_user
 from aikit.enums import DataTypes

@@ -121,3 +121,5 @@ pytest_report.html
 pytest_report_not_long.html
 .DS_Store
 /docs/*.bat
+
+/*.xlsx
