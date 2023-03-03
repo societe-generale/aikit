@@ -93,6 +93,10 @@ class DataLoader(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
+    def exists(self, key, path=None, serialization_format=Format.PICKLE):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     def get_all_keys(self, path=None, serialization_format=Format.PICKLE):
         raise NotImplementedError()
 

@@ -9,3 +9,5 @@ fsspec
 decorator
 networkx
 typer
+cachetools
+distributed  # parameterized at installation since it adds dependencies

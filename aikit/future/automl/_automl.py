@@ -1,6 +1,7 @@
 import abc
 import datetime
 import logging
+import time
 
 import numpy as np
 import pandas as pd
@@ -29,6 +30,10 @@ class AutoMlBudget(metaclass=abc.ABCMeta):
     def has_budget(self):
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def increment(self):
+        raise NotImplementedError()
+
 
 class TimeBudget(AutoMlBudget):
     """ A time budget class with a budget in seconds. """
@@ -42,6 +47,26 @@ class TimeBudget(AutoMlBudget):
 
     def has_budget(self):
         return (datetime.datetime.now() - self.start_time).total_seconds() < self.time_budget
+
+    def increment(self):
+        pass
+
+
+class ModelCountBudget(AutoMlBudget):
+    """ A model count budget class with a budget in number of models. """
+
+    def __init__(self, model_count_budget: int):
+        self.model_count_budget = model_count_budget
+        self.model_count = None
+
+    def start(self):
+        self.model_count = 0
+
+    def has_budget(self):
+        return self.model_count < self.model_count_budget
+
+    def increment(self):
+        self.model_count += 1
 
 
 class AutoMl:
@@ -70,10 +95,15 @@ class AutoMl:
         self.random_state = random_state
         self.budget = budget
 
+        self.start_time = None
+        self.model_count = None
+
         self._last_metric_threshold = None
 
         self.random_model_generator = RandomModelGenerator(automl_config=self.automl_config,
                                                            random_state=self.random_state)
+
+        # TODO: reload queued (and not finished/in error) jobs from backend
 
         if self.job_config.start_with_default:
             self._default_iterator = self.random_model_generator.default_models_iterator()
@@ -367,10 +397,19 @@ class AutoMl:
 
         return json_param["job_id"], job_param, json_param
 
+    def _on_job_done(self, job_id: str):
+        _logger.info(f"Job done, job_id={job_id}")
+        self.budget.increment()
+        self.model_count += 1
+        _logger.info(f"Done {self.model_count} models in {time.time() - self.start_time:.2f} seconds.")
+
     def search_models(self):
         _logger.info("Start searching models...")
-        self.backend.start()
+        self.model_count = 0
+        self.start_time = time.time()
+
         self.budget.start()
+        self.backend.set_done_callback(self._on_job_done)
 
         while self.budget.has_budget():
             job_id, job_param, json_param = self._get_next_model_job()
@@ -379,5 +418,3 @@ class AutoMl:
             self.backend.wait_for_job_queue()
 
         _logger.info("No more budget, stop searching models...")
-
-        self.backend.stop()

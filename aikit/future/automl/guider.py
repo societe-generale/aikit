@@ -6,6 +6,7 @@ Created on Tue May 22 17:35:20 2018
 """
 
 import logging
+import sys
 
 import numpy as np
 import pandas as pd
@@ -15,7 +16,7 @@ from sklearn.ensemble import RandomForestRegressor
 from scipy.stats import norm, rankdata
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
 
-from aikit.future.util.list import diff
+from aikit.future.util.list import diff, intersect
 from aikit.pipeline import GraphPipeline
 from aikit.transformers import NumericalEncoder, NumImputer
 
@@ -315,7 +316,16 @@ class AutoMlModelGuider(object):
         if self._nb_models_done is None or self._nb_models_done <= 10:
             return None, None
 
-        dfX_new_params = self.result_reader.params_to_df(new_params).loc[:, self.params_training_columns]  # noqa
+        df_new_params = self.result_reader.params_to_df(new_params)
+        try:
+            dfX_new_params = df_new_params.loc[:, self.params_training_columns]  # noqa
+        except KeyError:
+            # TODO: verify why this happens
+            cols = intersect(df_new_params.columns, self.params_training_columns)
+            cols_missing = diff(self.params_training_columns, cols)
+            logger.warning(f"Missing columns in new params: {cols_missing}, default them to NaN")
+            dfX_new_params = df_new_params.loc[:, cols]  # noqa
+            dfX_new_params[cols_missing] = np.nan
 
         xx_new_params = self.transformer_model.transform(dfX_new_params)
         predicted_metric = self.random_forest.predict(xx_new_params)
