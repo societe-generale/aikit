@@ -363,9 +363,6 @@ class CategoricalEncoder(ModelWrapper):
     Parameters
     ----------
     
-    columns_to_encode : None or list of str
-        the columns to encode (if None will guess)
-        
     encoding_type : str, default = 'dummy'
         the type of encoding, possible choices :
             * dummy
@@ -380,7 +377,7 @@ class CategoricalEncoder(ModelWrapper):
         the size of hashing when using encoding_type == 'hashing'
         
     columns_to_use : list of str or None
-        the columns to use for that encoder
+        the columns to use for that encoder (if None will guess)
         
     regex_match : boolean
         if True will use regex to match columns
@@ -413,7 +410,7 @@ class CategoricalEncoder(ModelWrapper):
     ):
 
         if category_encoders is None:
-            raise ValueError("You need to install 'categorical-encoder' to use this wrapper")
+            raise ValueError("'category_encoders' not found and required to use this wrapper, run 'pip install category_encoders'")
 
         self.columns_to_use = columns_to_use
         self.encoding_type = encoding_type
@@ -442,7 +439,7 @@ class CategoricalEncoder(ModelWrapper):
 
     def _get_model(self, X, y=None):
 
-        params = dict(cols=self.columns_to_encode, return_df=self.desired_output_type == DataTypes.DataFrame)
+        params = dict(cols=self.columns_to_use, return_df=self.desired_output_type == DataTypes.DataFrame)
 
         if self.encoding_type == "dummy":
             return category_encoders.OneHotEncoder(use_cat_names=True, **params)
