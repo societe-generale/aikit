@@ -413,7 +413,7 @@ class CategoricalEncoder(ModelWrapper):
     ):
 
         if category_encoders is None:
-            raise ValueError("You need to install 'categorical-encoder' to use this wrapper")
+            raise ValueError("'category_encoders' not found and required to use this wrapper, run 'pip install category_encoders'")
 
         self.columns_to_use = columns_to_use
         self.encoding_type = encoding_type
