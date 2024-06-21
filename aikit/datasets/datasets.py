@@ -112,7 +112,26 @@ def _load_public_path(url, name=None, cache_dir=None, cache_subdir="datasets"):
 
     if not os.path.isdir(fpath):
         with tarfile.open(fpath, mode="r:gz") as tar:
-            tar.extractall(fpath_dir)
+            def is_within_directory(directory, target):
+                
+                abs_directory = os.path.abspath(directory)
+                abs_target = os.path.abspath(target)
+            
+                prefix = os.path.commonprefix([abs_directory, abs_target])
+                
+                return prefix == abs_directory
+            
+            def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+            
+                for member in tar.getmembers():
+                    member_path = os.path.join(path, member.name)
+                    if not is_within_directory(path, member_path):
+                        raise Exception("Attempted Path Traversal in Tar File")
+            
+                tar.extractall(path, members, numeric_owner=numeric_owner) 
+                
+            
+            safe_extract(tar, fpath_dir)
         return target_file
     else:
         return target_file
